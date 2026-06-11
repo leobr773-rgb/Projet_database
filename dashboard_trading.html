@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Trading — Kraken Prop Évaluation 5K</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0e14;
+    --panel:#11151c;
+    --panel2:#161b24;
+    --border:#232834;
+    --text:#d1d4dc;
+    --muted:#7d8597;
+    --green:#26a69a;
+    --green2:#4caf50;
+    --red:#ef5350;
+    --gold:#f0b90b;
+    --blue:#4a90e2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    padding:20px;
+    line-height:1.5;
+  }
+  .mono{font-family:'Consolas','Courier New',monospace;}
+  header{
+    display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;
+    gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);
+  }
+  header h1{font-size:24px;font-weight:700;color:#fff;}
+  header .subtitle{color:var(--muted);font-size:13px;margin-top:4px;}
+  header .badge{
+    background:var(--panel2);border:1px solid var(--border);border-radius:8px;
+    padding:8px 16px;font-size:13px;color:var(--muted);text-align:center;
+  }
+  header .badge .val{font-size:18px;font-weight:700;color:#fff;display:block;}
+
+  /* FILTERS */
+  .filters{
+    display:flex;flex-wrap:wrap;gap:12px;align-items:center;
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:14px 16px;margin-bottom:20px;
+  }
+  .filters label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px;}
+  .filters select, .filters input{
+    background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    padding:7px 10px;border-radius:6px;font-size:13px;min-width:140px;
+  }
+  .filters button{
+    background:var(--blue);border:none;color:#fff;padding:8px 16px;border-radius:6px;
+    font-size:13px;cursor:pointer;font-weight:600;align-self:flex-end;
+  }
+  .filters button.secondary{background:transparent;border:1px solid var(--border);color:var(--muted);}
+  .filters .group{display:flex;flex-direction:column;}
+
+  /* KPI GRID */
+  .kpi-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:14px;margin-bottom:24px;
+  }
+  .kpi{
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1px solid var(--border);border-radius:10px;padding:16px;
+    position:relative;overflow:hidden;
+  }
+  .kpi .label{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px;}
+  .kpi .value{font-size:24px;font-weight:700;color:#fff;}
+  .kpi .sub{font-size:12px;color:var(--muted);margin-top:4px;}
+  .kpi.pos .value{color:var(--green2);}
+  .kpi.neg .value{color:var(--red);}
+  .kpi .accent{position:absolute;top:0;left:0;width:4px;height:100%;}
+  .kpi.pos .accent{background:var(--green2);}
+  .kpi.neg .accent{background:var(--red);}
+  .kpi.neutral .accent{background:var(--blue);}
+
+  /* CHART GRID */
+  .grid{display:grid;gap:16px;margin-bottom:24px;}
+  .grid.cols-2{grid-template-columns:repeat(auto-fit,minmax(420px,1fr));}
+  .grid.cols-3{grid-template-columns:repeat(auto-fit,minmax(320px,1fr));}
+  .panel{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:16px;
+  }
+  .panel h3{font-size:14px;color:#fff;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+  .panel h3 .tag{font-size:11px;color:var(--muted);font-weight:400;}
+  .chart-wrap{position:relative;height:280px;}
+  .chart-wrap.small{height:220px;}
+
+  /* TABLES */
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;}
+  tr:hover td{background:var(--panel2);}
+  td.pos, span.pos{color:var(--green2);font-weight:600;}
+  td.neg, span.neg{color:var(--red);font-weight:600;}
+  td.neutral{color:var(--gold);font-weight:600;}
+  .notes{color:var(--muted);font-size:12px;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  /* STREAKS */
+  .streak-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .streak-chip{
+    width:34px;height:34px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:700;color:#fff;
+  }
+  .streak-chip.G{background:var(--green2);}
+  .streak-chip.P{background:var(--red);}
+  .streak-chip.B{background:var(--gold);color:#222;}
+
+  /* RECOS */
+  .reco-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px;}
+  .reco-list{list-style:none;}
+  .reco-list li{
+    padding:10px 12px;border-radius:8px;margin-bottom:8px;font-size:13px;
+    background:var(--panel2);border-left:4px solid var(--border);
+  }
+  .reco-list.good li{border-left-color:var(--green2);}
+  .reco-list.bad li{border-left-color:var(--red);}
+  .reco-list li b{color:#fff;}
+
+  .empty-msg{color:var(--muted);text-align:center;padding:40px;font-size:13px;}
+
+  footer{
+    margin-top:30px;padding-top:16px;border-top:1px solid var(--border);
+    color:var(--muted);font-size:12px;text-align:center;
+  }
+  .note-box{
+    background:var(--panel2);border:1px solid var(--border);border-left:4px solid var(--gold);
+    border-radius:8px;padding:14px 16px;font-size:13px;color:var(--text);margin-bottom:24px;
+  }
+  .note-box h4{color:var(--gold);margin-bottom:8px;font-size:13px;}
+  .note-box ul{margin-left:18px;margin-top:6px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📊 Dashboard Trading — Kraken Prop Évaluation 5K</h1>
+    <div class="subtitle">Journal de trading crypto — Compte d'évaluation, capital initial : <span class="mono">5 000 $</span></div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <div class="badge">Période<span class="val" id="hdrPeriod">—</span></div>
+    <div class="badge">Trades<span class="val" id="hdrCount">—</span></div>
+    <div class="badge">Solde actuel<span class="val" id="hdrBalance">—</span></div>
+  </div>
+</header>
+
+<div class="note-box">
+  <h4>⚠️ Données limitées détectées</h4>
+  Le fichier fourni contient seulement <b>4 trades exploitables</b> (sur un compte d'évaluation Kraken Prop de 5 000 $, du 28/05/2026 au 11/06/2026), le reste des lignes étant des modèles vierges (formules à 0 / #DIV/0!).
+  Le dashboard ci-dessous est <b>entièrement dynamique</b> : il recalculera automatiquement toutes les statistiques dès que vous ajouterez de nouvelles lignes dans le tableau <span class="mono">TRADES</span> en bas du fichier HTML (ou que vous me renvoyez un export à jour).
+  <ul>
+    <li>Pour affiner l'analyse, il manque : davantage de trades (idéalement 30-50+), une <b>heure d'entrée/sortie</b> (analyse par session horaire), une <b>durée de trade</b>, une catégorisation des <b>setups/stratégies</b> (actuellement seulement des liens TradingView), et idéalement plusieurs actifs (actuellement 100% BTC/USD).</li>
+  </ul>
+</div>
+
+<div class="filters">
+  <div class="group">
+    <label>Date début</label>
+    <input type="date" id="fDateStart">
+  </div>
+  <div class="group">
+    <label>Date fin</label>
+    <input type="date" id="fDateEnd">
+  </div>
+  <div class="group">
+    <label>Actif</label>
+    <select id="fActif"><option value="all">Tous</option></select>
+  </div>
+  <div class="group">
+    <label>Sens</label>
+    <select id="fSens">
+      <option value="all">Tous</option>
+      <option value="Achat">Achat</option>
+      <option value="Vente">Vente</option>
+    </select>
+  </div>
+  <div class="group">
+    <label>Résultat</label>
+    <select id="fResultat">
+      <option value="all">Tous</option>
+      <option value="Gain">Gain</option>
+      <option value="Perte">Perte</option>
+      <option value="BE">BE (breakeven)</option>
+    </select>
+  </div>
+  <button onclick="applyFilters()">Filtrer</button>
+  <button class="secondary" onclick="resetFilters()">Réinitialiser</button>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid" id="kpiGrid"></div>
+
+<!-- Row 1 : equity + monthly -->
+<div class="grid cols-2">
+  <div class="panel">
+    <h3>Courbe de capital (Equity Curve) <span class="tag">solde cumulé en $</span></h3>
+    <div class="chart-wrap"><canvas id="chartEquity"></canvas></div>
+  </div>
+  <div class="panel">
+    <h3>Performance mensuelle <span class="tag">P&L net par mois ($)</span></h3>
+    <div class="chart-wrap"><canvas id="chartMonthly"></canvas></div>
+  </div>
+</div>
+
+<!-- Row 2 : repartition + distribution + actif -->
+<div class="grid cols-3">
+  <div class="panel">
+    <h3>Répartition des résultats</h3>
+    <div class="chart-wrap small"><canvas id="chartRepartition"></canvas></div>
+  </div>
+  <div class="panel">
+    <h3>Distribution des gains/pertes <span class="tag">histogramme ($)</span></h3>
+    <div class="chart-wrap small"><canvas id="chartDistribution"></canvas></div>
+  </div>
+  <div class="panel">
+    <h3>Performance par actif</h3>
+    <div class="chart-wrap small"><canvas id="chartActif"></canvas></div>
+  </div>
+</div>
+
+<!-- Row 3 : jour de semaine + RR -->
+<div class="grid cols-2">
+  <div class="panel">
+    <h3>Performance par jour de la semaine</h3>
+    <div class="chart-wrap small"><canvas id="chartWeekday"></canvas></div>
+  </div>
+  <div class="panel">
+    <h3>RR réel vs RR prévu par trade</h3>
+    <div class="chart-wrap small"><canvas id="chartRR"></canvas></div>
+  </div>
+</div>
+
+<!-- Top / Flop -->
+<div class="grid cols-2">
+  <div class="panel">
+    <h3>🏆 Top trades (meilleurs gains)</h3>
+    <table id="tableTop"><thead><tr><th>Date</th><th>Actif</th><th>Sens</th><th>P&L ($)</th><th>RR réel</th><th>%</th><th>Note</th></tr></thead><tbody></tbody></table>
+  </div>
+  <div class="panel">
+    <h3>📉 Flop trades (pires pertes)</h3>
+    <table id="tableFlop"><thead><tr><th>Date</th><th>Actif</th><th>Sens</th><th>P&L ($)</th><th>RR réel</th><th>%</th><th>Note</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+
+<!-- Streaks -->
+<div class="panel" style="margin-bottom:24px;">
+  <h3>Analyse des séries (streaks)</h3>
+  <div id="streakStats" style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:6px;"></div>
+  <div class="streak-row" id="streakRow"></div>
+  <div style="margin-top:8px;font-size:11px;color:var(--muted);">
+    <span class="streak-chip G" style="display:inline-flex;width:14px;height:14px;font-size:0;"></span> Gain &nbsp;
+    <span class="streak-chip P" style="display:inline-flex;width:14px;height:14px;font-size:0;"></span> Perte &nbsp;
+    <span class="streak-chip B" style="display:inline-flex;width:14px;height:14px;font-size:0;"></span> Breakeven
+  </div>
+</div>
+
+<!-- Recommendations -->
+<div class="reco-grid" style="margin-bottom:24px;">
+  <div class="panel">
+    <h3>✅ Points forts</h3>
+    <ul class="reco-list good" id="goodList"></ul>
+  </div>
+  <div class="panel">
+    <h3>⚠️ Points à améliorer & recommandations</h3>
+    <ul class="reco-list bad" id="badList"></ul>
+  </div>
+</div>
+
+<!-- Full trade log -->
+<div class="panel" style="margin-bottom:24px;">
+  <h3>Journal complet des trades</h3>
+  <div style="overflow-x:auto;">
+  <table id="tableAll"><thead><tr>
+    <th>Jour</th><th>Date</th><th>Actif</th><th>Sens</th><th>Lots</th><th>RR prévu</th><th>RR réel</th>
+    <th>Résultat</th><th>P&L ($)</th><th>Risque max ($)</th><th>%</th><th>Solde après</th><th>Note</th>
+  </tr></thead><tbody></tbody></table>
+  </div>
+</div>
+
+<footer>
+  Dashboard généré automatiquement à partir du journal "Évaluation_5K" — toutes les valeurs sont recalculées dynamiquement depuis le tableau de données embarqué dans ce fichier.
+</footer>
+
+<script>
+/* =========================================================
+   DONNÉES — issues du fichier "Journal_de_trading_Kraken_prop.xlsx"
+   (feuille "Evaluation_5K"). Ajoutez de nouvelles lignes ici
+   pour mettre à jour automatiquement tout le dashboard.
+   ========================================================= */
+const SOLDE_INITIAL = 5000;
+
+const TRADES = [
+  {
+    jour:'JOUR 2', date:'2026-05-29', actif:'BTC/USD', sens:'Vente', lots:0.054,
+    rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-28.0446,
+    risqueMax: 25, pct:-5.60892,
+    note:"Bon setup de trade, premier sur Propform. Confirmation avec prise de liquidité, FVG et retest break of structure.",
+    solde:4971.9554
+  },
+  {
+    jour:'JOUR 3', date:'2026-06-03', actif:'BTC/USD', sens:'Vente', lots:0.055,
+    rrPrevu:2, rrReel:2, resultat:'Gain', pnl:48.3202,
+    risqueMax: 24.859777, pct:9.71855,
+    note:"Bon trade, confirmation liquidity sweep, FVG et break of structure.",
+    solde:5020.2756
+  },
+  {
+    jour:'JOUR 4', date:'2026-06-08', actif:'BTC/USD', sens:'Achat', lots:0.074,
+    rrPrevu:2, rrReel:-0.3, resultat:'BE', pnl:-8.4059,
+    risqueMax: 25.101378, pct:-1.67439,
+    note:"Bon setup, belle prise de liquidité + FVG et retest break of structure. Sortie en breakeven (frais non couverts).",
+    solde:5011.8697
+  },
+  {
+    jour:'JOUR 5', date:'2026-06-11', actif:'BTC/USD', sens:'Achat', lots:0.062,
+    rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-28.5546,
+    risqueMax: 25.0593485, pct:-5.69739,
+    note:"",
+    solde:4983.3151
+  }
+];
+
+/* =========================================================
+   UTILS
+   ========================================================= */
+const fmtMoney = v => (v>=0?'+':'') + v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' $';
+const fmtMoneyAbs = v => v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' $';
+const fmtPct = v => (v>=0?'+':'') + v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' %';
+const fmtDate = d => new Date(d+'T00:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
+const WEEKDAYS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const MONTHS = ['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'];
+
+let charts = {};
+
+function destroyCharts(){
+  Object.values(charts).forEach(c=>c && c.destroy());
+  charts = {};
+}
+
+/* =========================================================
+   FILTERS
+   ========================================================= */
+function populateFilterOptions(){
+  const actifs = [...new Set(TRADES.map(t=>t.actif))];
+  const sel = document.getElementById('fActif');
+  actifs.forEach(a=>{
+    const opt = document.createElement('option');
+    opt.value = a; opt.textContent = a;
+    sel.appendChild(opt);
+  });
+  const dates = TRADES.map(t=>t.date).sort();
+  document.getElementById('fDateStart').value = dates[0];
+  document.getElementById('fDateEnd').value = dates[dates.length-1];
+}
+
+function resetFilters(){
+  document.getElementById('fActif').value='all';
+  document.getElementById('fSens').value='all';
+  document.getElementById('fResultat').value='all';
+  const dates = TRADES.map(t=>t.date).sort();
+  document.getElementById('fDateStart').value = dates[0];
+  document.getElementById('fDateEnd').value = dates[dates.length-1];
+  applyFilters();
+}
+
+function applyFilters(){
+  const start = document.getElementById('fDateStart').value;
+  const end = document.getElementById('fDateEnd').value;
+  const actif = document.getElementById('fActif').value;
+  const sens = document.getElementById('fSens').value;
+  const resultat = document.getElementById('fResultat').value;
+
+  const filtered = TRADES.filter(t=>{
+    if(start && t.date < start) return false;
+    if(end && t.date > end) return false;
+    if(actif !== 'all' && t.actif !== actif) return false;
+    if(sens !== 'all' && t.sens !== sens) return false;
+    if(resultat !== 'all' && t.resultat !== resultat) return false;
+    return true;
+  }).sort((a,b)=> a.date.localeCompare(b.date));
+
+  renderAll(filtered);
+}
+
+/* =========================================================
+   STATS CALCULATIONS
+   ========================================================= */
+function computeStats(trades){
+  const n = trades.length;
+  const wins = trades.filter(t=>t.pnl>0);
+  const losses = trades.filter(t=>t.pnl<0);
+  const be = trades.filter(t=>t.resultat==='BE');
+
+  const totalPnl = trades.reduce((s,t)=>s+t.pnl,0);
+  const grossProfit = wins.reduce((s,t)=>s+t.pnl,0);
+  const grossLoss = losses.reduce((s,t)=>s+t.pnl,0); // negative
+
+  const winRate = n>0 ? (wins.length/n*100) : 0;
+  const profitFactor = grossLoss!==0 ? Math.abs(grossProfit/grossLoss) : (grossProfit>0?Infinity:0);
+  const avgWin = wins.length ? grossProfit/wins.length : 0;
+  const avgLoss = losses.length ? grossLoss/losses.length : 0;
+  const rrRatio = (avgLoss!==0) ? Math.abs(avgWin/avgLoss) : 0;
+
+  const avgRRPrevu = n ? trades.reduce((s,t)=>s+(t.rrPrevu||0),0)/n : 0;
+  const avgRRReel = n ? trades.reduce((s,t)=>s+(t.rrReel||0),0)/n : 0;
+
+  // equity curve (based on solde cumulé starting at SOLDE_INITIAL + filtered pnl sequence)
+  let running = SOLDE_INITIAL;
+  // recompute from solde initial using cumulative pnl of filtered set, in chronological order
+  const equity = [{date: trades.length? prevDay(trades[0].date) : null, value: SOLDE_INITIAL}];
+  trades.forEach(t=>{
+    running += t.pnl;
+    equity.push({date:t.date, value: running});
+  });
+
+  // drawdown
+  let peak = SOLDE_INITIAL, maxDDAbs = 0, maxDDPct = 0;
+  equity.forEach(p=>{
+    if(p.value > peak) peak = p.value;
+    const dd = peak - p.value;
+    const ddPct = peak !== 0 ? (dd/peak*100) : 0;
+    if(dd > maxDDAbs) maxDDAbs = dd;
+    if(ddPct > maxDDPct) maxDDPct = ddPct;
+  });
+
+  const best = n ? trades.reduce((a,b)=> b.pnl>a.pnl?b:a) : null;
+  const worst = n ? trades.reduce((a,b)=> b.pnl<a.pnl?b:a) : null;
+
+  return {
+    n, wins, losses, be, totalPnl, grossProfit, grossLoss,
+    winRate, profitFactor, avgWin, avgLoss, rrRatio,
+    avgRRPrevu, avgRRReel, equity, maxDDAbs, maxDDPct, best, worst,
+    finalBalance: running
+  };
+}
+
+function prevDay(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()-1);
+  return d.toISOString().slice(0,10);
+}
+
+function computeMonthly(trades){
+  const map = {};
+  trades.forEach(t=>{
+    const d = new Date(t.date+'T00:00:00');
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    map[key] = (map[key]||0) + t.pnl;
+  });
+  const keys = Object.keys(map).sort();
+  return keys.map(k=>{
+    const [y,m] = k.split('-');
+    return {label:`${MONTHS[parseInt(m)-1]} ${y}`, value: map[k]};
+  });
+}
+
+function computeWeekday(trades){
+  const map = {}; // 0-6
+  trades.forEach(t=>{
+    const d = new Date(t.date+'T00:00:00');
+    const wd = d.getDay();
+    if(!map[wd]) map[wd] = {pnl:0, count:0, wins:0};
+    map[wd].pnl += t.pnl;
+    map[wd].count += 1;
+    if(t.pnl>0) map[wd].wins += 1;
+  });
+  // order Mon..Sun
+  const order = [1,2,3,4,5,6,0];
+  return order.filter(d=>map[d]).map(d=>({
+    label: WEEKDAYS[d],
+    pnl: map[d].pnl,
+    count: map[d].count,
+    winRate: (map[d].wins/map[d].count*100)
+  }));
+}
+
+function computeByAsset(trades){
+  const map = {};
+  trades.forEach(t=>{
+    if(!map[t.actif]) map[t.actif] = {pnl:0,count:0,wins:0};
+    map[t.actif].pnl += t.pnl;
+    map[t.actif].count += 1;
+    if(t.pnl>0) map[t.actif].wins += 1;
+  });
+  return Object.entries(map).map(([k,v])=>({
+    actif:k, pnl:v.pnl, count:v.count, winRate:(v.wins/v.count*100)
+  }));
+}
+
+function computeStreaks(trades){
+  // sequence of G/P/B
+  const seq = trades.map(t=> t.resultat==='Gain'?'G' : t.resultat==='BE'?'B':'P');
+  let maxWin=0, maxLoss=0, curWin=0, curLoss=0;
+  seq.forEach(s=>{
+    if(s==='G'){ curWin++; curLoss=0; if(curWin>maxWin) maxWin=curWin; }
+    else if(s==='P'){ curLoss++; curWin=0; if(curLoss>maxLoss) maxLoss=curLoss; }
+    else { curWin=0; curLoss=0; }
+  });
+  // current streak (from end)
+  let current = {type:null, len:0};
+  for(let i=seq.length-1;i>=0;i--){
+    if(current.type===null){ current.type=seq[i]; current.len=1; }
+    else if(seq[i]===current.type){ current.len++; }
+    else break;
+  }
+  return {seq, maxWin, maxLoss, current};
+}
+
+function computeDistribution(trades){
+  if(!trades.length) return {labels:[], data:[]};
+  const values = trades.map(t=>t.pnl);
+  const min = Math.min(...values, 0);
+  const max = Math.max(...values, 0);
+  const binSize = Math.max(5, Math.ceil((max-min)/6 / 5) * 5); // round to nice 5$ steps
+  const start = Math.floor(min/binSize)*binSize;
+  const end = Math.ceil(max/binSize)*binSize;
+  const bins = [];
+  for(let b=start; b<end; b+=binSize) bins.push({from:b, to:b+binSize, count:0});
+  if(bins.length===0) bins.push({from:start, to:start+binSize, count:0});
+  values.forEach(v=>{
+    let bin = bins.find(b=> v>=b.from && v<b.to);
+    if(!bin) bin = bins[bins.length-1];
+    bin.count++;
+  });
+  return {
+    labels: bins.map(b=>`${b.from.toFixed(0)} à ${b.to.toFixed(0)} $`),
+    data: bins.map(b=>b.count),
+    bins
+  };
+}
+
+/* =========================================================
+   RENDER
+   ========================================================= */
+function renderAll(trades){
+  const stats = computeStats(trades);
+
+  // header badges
+  const dates = trades.map(t=>t.date).sort();
+  document.getElementById('hdrPeriod').textContent = trades.length ? `${fmtDate(dates[0])} → ${fmtDate(dates[dates.length-1])}` : '—';
+  document.getElementById('hdrCount').textContent = trades.length;
+  document.getElementById('hdrBalance').textContent = fmtMoneyAbs(stats.finalBalance);
+
+  renderKPIs(stats);
+  renderEquityChart(stats);
+  renderMonthlyChart(computeMonthly(trades));
+  renderRepartitionChart(stats);
+  renderDistributionChart(computeDistribution(trades));
+  renderAssetChart(computeByAsset(trades));
+  renderWeekdayChart(computeWeekday(trades));
+  renderRRChart(trades);
+  renderTopFlop(trades);
+  renderStreaks(computeStreaks(trades));
+  renderRecommendations(stats, trades);
+  renderFullTable(trades);
+}
+
+function kpiCard(label, value, sub, cls){
+  return `<div class="kpi ${cls||''}"><div class="accent"></div>
+    <div class="label">${label}</div>
+    <div class="value">${value}</div>
+    ${sub?`<div class="sub">${sub}</div>`:''}
+  </div>`;
+}
+
+function renderKPIs(s){
+  const pnlPct = (s.totalPnl/SOLDE_INITIAL*100);
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = [
+    kpiCard('P&L Total', fmtMoney(s.totalPnl), `${fmtPct(pnlPct)} du capital initial`, s.totalPnl>=0?'pos':'neg'),
+    kpiCard('Solde actuel', fmtMoneyAbs(s.finalBalance), `Capital initial : ${fmtMoneyAbs(SOLDE_INITIAL)}`, s.finalBalance>=SOLDE_INITIAL?'pos':'neg'),
+    kpiCard('Win Rate', s.n? s.winRate.toFixed(1)+' %':'—', `${s.wins.length} gains / ${s.losses.length} pertes / ${s.be.length} BE sur ${s.n}`, s.winRate>=50?'pos':'neg'),
+    kpiCard('Profit Factor', isFinite(s.profitFactor)? s.profitFactor.toFixed(2): '∞', 'Gains bruts / Pertes brutes', s.profitFactor>=1?'pos':'neg'),
+    kpiCard('RR Réel Moyen', s.n? s.avgRRReel.toFixed(2):'—', `RR prévu moyen : ${s.avgRRPrevu.toFixed(2)}`, s.avgRRReel>=0?'pos':'neg'),
+    kpiCard('Drawdown Max', fmtMoneyAbs(s.maxDDAbs), `${s.maxDDPct.toFixed(2)} % depuis le plus haut`, 'neg'),
+    kpiCard('Meilleur Trade', s.best? fmtMoney(s.best.pnl):'—', s.best? `${s.best.actif} — ${fmtDate(s.best.date)}`:'', 'pos'),
+    kpiCard('Pire Trade', s.worst? fmtMoney(s.worst.pnl):'—', s.worst? `${s.worst.actif} — ${fmtDate(s.worst.date)}`:'', 'neg'),
+    kpiCard('Gain Moyen', s.wins.length? fmtMoney(s.avgWin):'—', `sur ${s.wins.length} trade(s) gagnant(s)`, 'pos'),
+    kpiCard('Perte Moyenne', s.losses.length? fmtMoney(s.avgLoss):'—', `sur ${s.losses.length} trade(s) perdant(s)`, 'neg'),
+  ].join('');
+}
+
+function renderEquityChart(s){
+  const ctx = document.getElementById('chartEquity');
+  if(charts.equity) charts.equity.destroy();
+  const labels = s.equity.map(p=> p.date ? fmtDate(p.date) : 'Départ');
+  const data = s.equity.map(p=>p.value);
+  charts.equity = new Chart(ctx, {
+    type:'line',
+    data:{labels, datasets:[{
+      label:'Solde du compte ($)',
+      data,
+      borderColor:'#4a90e2',
+      backgroundColor:'rgba(74,144,226,0.12)',
+      fill:true, tension:0.25, pointRadius:4, pointBackgroundColor:'#4a90e2'
+    }, {
+      label:'Capital initial',
+      data:labels.map(()=>SOLDE_INITIAL),
+      borderColor:'#7d8597', borderDash:[6,6], pointRadius:0, fill:false
+    }]},
+    options: chartOptionsLine()
+  });
+}
+
+function renderMonthlyChart(monthly){
+  const ctx = document.getElementById('chartMonthly');
+  if(charts.monthly) charts.monthly.destroy();
+  charts.monthly = new Chart(ctx, {
+    type:'bar',
+    data:{labels: monthly.map(m=>m.label), datasets:[{
+      label:'P&L mensuel ($)',
+      data: monthly.map(m=>m.value),
+      backgroundColor: monthly.map(m=> m.value>=0?'rgba(76,175,80,0.7)':'rgba(239,83,80,0.7)'),
+      borderRadius:4
+    }]},
+    options: chartOptionsBar()
+  });
+}
+
+function renderRepartitionChart(s){
+  const ctx = document.getElementById('chartRepartition');
+  if(charts.repartition) charts.repartition.destroy();
+  charts.repartition = new Chart(ctx, {
+    type:'doughnut',
+    data:{labels:['Gains','Pertes','Breakeven'], datasets:[{
+      data:[s.wins.length, s.losses.length, s.be.length],
+      backgroundColor:['#4caf50','#ef5350','#f0b90b'],
+      borderColor:'#11151c', borderWidth:2
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom', labels:{color:'#d1d4dc'}}}
+    }
+  });
+}
+
+function renderDistributionChart(dist){
+  const ctx = document.getElementById('chartDistribution');
+  if(charts.distribution) charts.distribution.destroy();
+  charts.distribution = new Chart(ctx, {
+    type:'bar',
+    data:{labels:dist.labels, datasets:[{
+      label:'Nombre de trades',
+      data:dist.data,
+      backgroundColor: dist.bins ? dist.bins.map(b=> (b.from+b.to)/2 >=0 ? 'rgba(76,175,80,0.7)':'rgba(239,83,80,0.7)') : '#4a90e2',
+      borderRadius:4
+    }]},
+    options: chartOptionsBar(true)
+  });
+}
+
+function renderAssetChart(byAsset){
+  const ctx = document.getElementById('chartActif');
+  if(charts.actif) charts.actif.destroy();
+  charts.actif = new Chart(ctx, {
+    type:'bar',
+    data:{labels: byAsset.map(a=>`${a.actif} (${a.count})`), datasets:[{
+      label:'P&L net ($)',
+      data: byAsset.map(a=>a.pnl),
+      backgroundColor: byAsset.map(a=> a.pnl>=0?'rgba(76,175,80,0.7)':'rgba(239,83,80,0.7)'),
+      borderRadius:4
+    }]},
+    options: chartOptionsBar(false, true)
+  });
+}
+
+function renderWeekdayChart(byDay){
+  const ctx = document.getElementById('chartWeekday');
+  if(charts.weekday) charts.weekday.destroy();
+  charts.weekday = new Chart(ctx, {
+    type:'bar',
+    data:{labels: byDay.map(d=>`${d.label} (${d.count})`), datasets:[{
+      label:'P&L net ($)',
+      data: byDay.map(d=>d.pnl),
+      backgroundColor: byDay.map(d=> d.pnl>=0?'rgba(76,175,80,0.7)':'rgba(239,83,80,0.7)'),
+      borderRadius:4
+    }]},
+    options: chartOptionsBar()
+  });
+}
+
+function renderRRChart(trades){
+  const ctx = document.getElementById('chartRR');
+  if(charts.rr) charts.rr.destroy();
+  charts.rr = new Chart(ctx, {
+    type:'bar',
+    data:{labels: trades.map(t=>fmtDate(t.date)), datasets:[
+      {label:'RR prévu', data: trades.map(t=>t.rrPrevu), backgroundColor:'rgba(74,144,226,0.5)', borderRadius:4},
+      {label:'RR réel', data: trades.map(t=>t.rrReel), backgroundColor: trades.map(t=> t.rrReel>=0?'rgba(76,175,80,0.8)':'rgba(239,83,80,0.8)'), borderRadius:4}
+    ]},
+    options: chartOptionsBar()
+  });
+}
+
+function chartOptionsLine(){
+  return {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#d1d4dc'}}},
+    scales:{
+      x:{ticks:{color:'#7d8597'}, grid:{color:'#232834'}},
+      y:{ticks:{color:'#7d8597'}, grid:{color:'#232834'}}
+    }
+  };
+}
+function chartOptionsBar(hideLegend, horizontal){
+  return {
+    indexAxis: horizontal?'y':'x',
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display: !hideLegend, labels:{color:'#d1d4dc'}}},
+    scales:{
+      x:{ticks:{color:'#7d8597'}, grid:{color:'#232834'}},
+      y:{ticks:{color:'#7d8597'}, grid:{color:'#232834'}}
+    }
+  };
+}
+
+function renderTopFlop(trades){
+  const sorted = [...trades].sort((a,b)=>b.pnl-a.pnl);
+  const top = sorted.slice(0,5).filter(t=>t.pnl>0);
+  const flop = sorted.slice(-5).filter(t=>t.pnl<0).reverse();
+
+  const rowHtml = t => `<tr>
+    <td>${fmtDate(t.date)}</td><td>${t.actif}</td><td>${t.sens}</td>
+    <td class="${t.pnl>=0?'pos':'neg'}">${fmtMoney(t.pnl)}</td>
+    <td>${t.rrReel}</td><td class="${t.pct>=0?'pos':'neg'}">${fmtPct(t.pct)}</td>
+    <td class="notes" title="${(t.note||'').replace(/"/g,'&quot;')}">${t.note||'—'}</td>
+  </tr>`;
+
+  document.querySelector('#tableTop tbody').innerHTML = top.length ? top.map(rowHtml).join('') : `<tr><td colspan="7" class="empty-msg">Aucun trade gagnant sur la période sélectionnée</td></tr>`;
+  document.querySelector('#tableFlop tbody').innerHTML = flop.length ? flop.map(rowHtml).join('') : `<tr><td colspan="7" class="empty-msg">Aucun trade perdant sur la période sélectionnée</td></tr>`;
+}
+
+function renderStreaks(streak){
+  const statsDiv = document.getElementById('streakStats');
+  statsDiv.innerHTML = `
+    <div><div class="label" style="color:var(--muted);font-size:11px;">Plus longue série de gains</div><div style="font-size:20px;font-weight:700;color:var(--green2);">${streak.maxWin}</div></div>
+    <div><div class="label" style="color:var(--muted);font-size:11px;">Plus longue série de pertes</div><div style="font-size:20px;font-weight:700;color:var(--red);">${streak.maxLoss}</div></div>
+    <div><div class="label" style="color:var(--muted);font-size:11px;">Série en cours</div><div style="font-size:20px;font-weight:700;color:${streak.current.type==='G'?'var(--green2)':streak.current.type==='P'?'var(--red)':'var(--gold)'};">${streak.current.len} ${streak.current.type==='G'?'gain(s)':streak.current.type==='P'?'perte(s)':'BE'}</div></div>
+  `;
+  const row = document.getElementById('streakRow');
+  if(!streak.seq.length){
+    row.innerHTML = `<div class="empty-msg">Aucun trade sur la période sélectionnée</div>`;
+    return;
+  }
+  row.innerHTML = streak.seq.map(s=>`<div class="streak-chip ${s}">${s}</div>`).join('');
+}
+
+function renderRecommendations(s, trades){
+  const good = [], bad = [];
+
+  if(s.n===0){
+    document.getElementById('goodList').innerHTML = `<li class="empty-msg">Aucune donnée sur la période sélectionnée</li>`;
+    document.getElementById('badList').innerHTML = '';
+    return;
+  }
+
+  // Risk management
+  const avgRiskPct = trades.reduce((sum,t)=> sum + Math.abs(t.risqueMax)/SOLDE_INITIAL*100, 0)/trades.length;
+  good.push(`<b>Gestion du risque maîtrisée :</b> le risque par trade reste autour de <b>${avgRiskPct.toFixed(1)} %</b> du capital, conforme à la règle "4 % + frais max" du compte d'évaluation.`);
+
+  // Documentation
+  const documented = trades.filter(t=>t.note && t.note.length>10).length;
+  if(documented>0) good.push(`<b>Bonne discipline de journaling :</b> ${documented}/${s.n} trades sont accompagnés d'une analyse écrite (setup, confirmations techniques avant/après).`);
+
+  // RR achieved on win
+  const goodRR = trades.find(t=>t.resultat==='Gain' && t.rrReel >= t.rrPrevu);
+  if(goodRR) good.push(`<b>Objectif RR atteint :</b> le trade du ${fmtDate(goodRR.date)} a atteint un RR réel de <b>${goodRR.rrReel}</b>, conforme au plan initial (RR prévu ${goodRR.rrPrevu}).`);
+
+  // Win rate vs RR breakeven
+  if(s.avgRRPrevu>0){
+    const breakevenWR = 1/(1+s.avgRRPrevu)*100;
+    if(s.winRate < breakevenWR){
+      bad.push(`<b>Win rate insuffisant :</b> avec un RR moyen visé de <b>${s.avgRRPrevu.toFixed(1)}:1</b>, il faut un win rate minimum d'environ <b>${breakevenWR.toFixed(0)} %</b> pour être rentable. Le win rate actuel est de <b>${s.winRate.toFixed(0)} %</b> — travailler la sélectivité des entrées (confluences supplémentaires avant de valider un trade).`);
+    } else {
+      good.push(`<b>Win rate cohérent</b> avec le RR moyen visé (${s.avgRRPrevu.toFixed(1)}:1) — l'approche est statistiquement viable si elle est maintenue sur un plus grand échantillon.`);
+    }
+  }
+
+  // BE trades losing money
+  const beLoss = trades.filter(t=>t.resultat==='BE' && t.pnl<0);
+  if(beLoss.length){
+    bad.push(`<b>Sorties "BE" en réalité négatives :</b> ${beLoss.length} trade(s) clôturé(s) en "breakeven" génèrent une perte nette (frais non couverts, ex: ${fmtMoney(beLoss[0].pnl)} le ${fmtDate(beLoss[0].date)}). Décaler le seuil de sortie BE au-delà du point d'entrée pour couvrir les frais.`);
+  }
+
+  // Full SL hits
+  const fullSL = trades.filter(t=>t.resultat==='Perte' && t.rrReel <= -1);
+  if(fullSL.length){
+    bad.push(`<b>${fullSL.length} stop-loss touché(s) intégralement</b> (RR réel = -1) sur des trades visant initialement un RR de ${trades[0].rrPrevu}:1. Revoir le placement du SL ou la qualité de confirmation à l'entrée pour réduire la fréquence des pertes maximales.`);
+  }
+
+  // Drawdown
+  if(s.maxDDPct > 0){
+    bad.push(`<b>Drawdown actuel de ${s.maxDDPct.toFixed(2)} %</b> (${fmtMoneyAbs(s.maxDDAbs)}) depuis le point haut du compte. Reste faible pour l'instant, à surveiller pour rester sous la limite de drawdown du compte d'évaluation.`);
+  }
+
+  // Sample size
+  bad.push(`<b>Échantillon trop faible (${s.n} trades) :</b> les statistiques (win rate, profit factor, RR) ne sont pas encore fiables. Continuer à journaliser chaque trade pour obtenir un échantillon d'au moins 30-50 trades avant de tirer des conclusions définitives.`);
+
+  // Asset diversification
+  const assets = new Set(trades.map(t=>t.actif));
+  if(assets.size===1){
+    bad.push(`<b>Aucune diversification d'actif :</b> 100 % des trades sont sur ${[...assets][0]}. Tester la stratégie sur d'autres paires (ETH/USD, SOL/USD...) pourrait révéler si la performance dépend du marché ou de la méthode.`);
+  }
+
+  // Profit factor
+  if(s.profitFactor < 1 && s.losses.length){
+    bad.push(`<b>Profit factor sous 1 (${isFinite(s.profitFactor)?s.profitFactor.toFixed(2):'∞'}) :</b> les pertes cumulées dépassent les gains cumulés sur cette période. Continuer à appliquer rigoureusement le money management tant que la stratégie est en phase de validation.`);
+  }
+
+  document.getElementById('goodList').innerHTML = good.map(g=>`<li>${g}</li>`).join('') || `<li class="empty-msg">Pas encore de point fort identifié sur cet échantillon</li>`;
+  document.getElementById('badList').innerHTML = bad.map(b=>`<li>${b}</li>`).join('');
+}
+
+function renderFullTable(trades){
+  const tbody = document.querySelector('#tableAll tbody');
+  if(!trades.length){
+    tbody.innerHTML = `<tr><td colspan="13" class="empty-msg">Aucun trade ne correspond aux filtres sélectionnés</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = trades.map(t=>`
+    <tr>
+      <td>${t.jour}</td>
+      <td>${fmtDate(t.date)}</td>
+      <td>${t.actif}</td>
+      <td>${t.sens}</td>
+      <td>${t.lots}</td>
+      <td>${t.rrPrevu}</td>
+      <td class="${t.rrReel>=0?'pos':'neg'}">${t.rrReel}</td>
+      <td class="${t.resultat==='Gain'?'pos':t.resultat==='Perte'?'neg':'neutral'}">${t.resultat}</td>
+      <td class="${t.pnl>=0?'pos':'neg'}">${fmtMoney(t.pnl)}</td>
+      <td>${fmtMoneyAbs(t.risqueMax)}</td>
+      <td class="${t.pct>=0?'pos':'neg'}">${fmtPct(t.pct)}</td>
+      <td>${fmtMoneyAbs(t.solde)}</td>
+      <td class="notes" title="${(t.note||'').replace(/"/g,'&quot;')}">${t.note||'—'}</td>
+    </tr>
+  `).join('');
+}
+
+/* =========================================================
+   INIT
+   ========================================================= */
+populateFilterOptions();
+applyFilters();
+</script>
+</body>
+</html>
