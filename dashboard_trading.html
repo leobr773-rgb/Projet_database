@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Trading — Kraken Prop Évaluation 5K</title>
+<title>Dashboard Trading — Journaux de performance</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
   :root{
@@ -57,6 +57,7 @@
   }
   .filters button.secondary{background:transparent;border:1px solid var(--border);color:var(--muted);}
   .filters .group{display:flex;flex-direction:column;}
+  .filters .group.account select{border-color:var(--blue);font-weight:600;color:#fff;min-width:280px;}
 
   /* KPI GRID */
   .kpi-grid{
@@ -134,14 +135,16 @@
   }
   .note-box h4{color:var(--gold);margin-bottom:8px;font-size:13px;}
   .note-box ul{margin-left:18px;margin-top:6px;}
+  .note-box.info{border-left-color:var(--blue);}
+  .note-box.info h4{color:var(--blue);}
 </style>
 </head>
 <body>
 
 <header>
   <div>
-    <h1>📊 Dashboard Trading — Kraken Prop Évaluation 5K</h1>
-    <div class="subtitle">Journal de trading crypto — Compte d'évaluation, capital initial : <span class="mono">5 000 $</span></div>
+    <h1>📊 Dashboard Trading — Journaux de performance</h1>
+    <div class="subtitle" id="hdrSubtitle">—</div>
   </div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;">
     <div class="badge">Période<span class="val" id="hdrPeriod">—</span></div>
@@ -150,16 +153,13 @@
   </div>
 </header>
 
-<div class="note-box">
-  <h4>⚠️ Données limitées détectées</h4>
-  Le fichier fourni contient seulement <b>4 trades exploitables</b> (sur un compte d'évaluation Kraken Prop de 5 000 $, du 28/05/2026 au 11/06/2026), le reste des lignes étant des modèles vierges (formules à 0 / #DIV/0!).
-  Le dashboard ci-dessous est <b>entièrement dynamique</b> : il recalculera automatiquement toutes les statistiques dès que vous ajouterez de nouvelles lignes dans le tableau <span class="mono">TRADES</span> en bas du fichier HTML (ou que vous me renvoyez un export à jour).
-  <ul>
-    <li>Pour affiner l'analyse, il manque : davantage de trades (idéalement 30-50+), une <b>heure d'entrée/sortie</b> (analyse par session horaire), une <b>durée de trade</b>, une catégorisation des <b>setups/stratégies</b> (actuellement seulement des liens TradingView), et idéalement plusieurs actifs (actuellement 100% BTC/USD).</li>
-  </ul>
-</div>
+<div class="note-box" id="dataNote"></div>
 
 <div class="filters">
+  <div class="group account">
+    <label>Compte / Journal</label>
+    <select id="fAccount"></select>
+  </div>
   <div class="group">
     <label>Date début</label>
     <input type="date" id="fDateStart">
@@ -199,11 +199,11 @@
 <!-- Row 1 : equity + monthly -->
 <div class="grid cols-2">
   <div class="panel">
-    <h3>Courbe de capital (Equity Curve) <span class="tag">solde cumulé en $</span></h3>
+    <h3>Courbe de capital (Equity Curve) <span class="tag">solde réel vs performance trading pure</span></h3>
     <div class="chart-wrap"><canvas id="chartEquity"></canvas></div>
   </div>
   <div class="panel">
-    <h3>Performance mensuelle <span class="tag">P&L net par mois ($)</span></h3>
+    <h3>Performance mensuelle <span class="tag">P&L net trading par mois ($)</span></h3>
     <div class="chart-wrap"><canvas id="chartMonthly"></canvas></div>
   </div>
 </div>
@@ -283,48 +283,106 @@
   </div>
 </div>
 
+<div class="note-box info">
+  <h4>🔌 Comment ajouter des trades / connecter un broker ?</h4>
+  <b>Ajouter un trade manuellement :</b> ouvrez ce fichier .html dans un éditeur de texte, repérez le tableau <span class="mono">DATASETS</span> en bas du fichier, choisissez votre compte (<span class="mono">account1</span> ou <span class="mono">account2</span>) et ajoutez un objet à la fin de son tableau <span class="mono">trades</span> (copiez un objet existant et modifiez les valeurs : date, actif, sens, lots, RR, résultat, pnl, solde, note). Sauvegardez et rechargez la page dans votre navigateur — tout se recalcule automatiquement.
+  <br><br>
+  <b>Connecter directement votre broker :</b> ce fichier est une page web statique (HTML/JS pur, sans serveur) — elle ne peut pas interroger l'API d'un broker en direct depuis le navigateur (problèmes de CORS, de sécurité des clés API, et la plupart des brokers/exchanges bloquent les appels depuis un navigateur). Pour automatiser, il faut un petit script/serveur intermédiaire :
+  <ul>
+    <li><b>Crypto (Kraken, Binance...) :</b> un script Python avec la librairie <span class="mono">ccxt</span> qui récupère l'historique des trades via l'API du broker, calcule les mêmes colonnes (P&L, RR, etc.) et génère/actualise le tableau <span class="mono">DATASETS</span> de ce fichier (ou exporte un CSV/JSON que ce dashboard peut charger).</li>
+    <li><b>TradingView :</b> les alertes/webhooks TradingView peuvent envoyer chaque trade vers un petit serveur (ex. Google Sheets, Airtable, ou un endpoint Node/Python) qui centralise les données.</li>
+    <li><b>Mise à jour automatique du dashboard :</b> on peut faire évoluer ce fichier pour qu'il charge ses données depuis un fichier <span class="mono">trades.json</span> externe (via <span class="mono">fetch()</span>) au lieu d'un tableau codé en dur — ainsi un script externe n'a qu'à régénérer ce JSON après chaque trade, et le dashboard se met à jour à chaque ouverture, sans toucher au HTML.</li>
+  </ul>
+  Dites-moi si vous voulez que je mette en place cette version "fetch JSON" + un script d'export (CCXT, etc.) — c'est tout à fait faisable.
+</div>
+
 <footer>
-  Dashboard généré automatiquement à partir du journal "Évaluation_5K" — toutes les valeurs sont recalculées dynamiquement depuis le tableau de données embarqué dans ce fichier.
+  Dashboard généré automatiquement à partir des journaux de trading — toutes les valeurs sont recalculées dynamiquement depuis les tableaux de données embarqués dans ce fichier.
 </footer>
 
 <script>
 /* =========================================================
-   DONNÉES — issues du fichier "Journal_de_trading_Kraken_prop.xlsx"
-   (feuille "Evaluation_5K"). Ajoutez de nouvelles lignes ici
-   pour mettre à jour automatiquement tout le dashboard.
+   DONNÉES — un objet par compte/journal de trading.
+   Pour ajouter un trade : ajoutez un objet à la fin du
+   tableau "trades" du compte concerné, puis rechargez la page.
    ========================================================= */
-const SOLDE_INITIAL = 5000;
+const DATASETS = {
 
-const TRADES = [
-  {
-    jour:'JOUR 2', date:'2026-05-29', actif:'BTC/USD', sens:'Vente', lots:0.054,
-    rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-28.0446,
-    risqueMax: 25, pct:-5.60892,
-    note:"Bon setup de trade, premier sur Propform. Confirmation avec prise de liquidité, FVG et retest break of structure.",
-    solde:4971.9554
+  account1: {
+    label: "Compte 1 — Évaluation Kraken Prop 5K (BTC/USD)",
+    soldeInitial: 5000,
+    trades: [
+      {
+        jour:'JOUR 2', date:'2026-05-29', actif:'BTC/USD', sens:'Vente', lots:0.054,
+        rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-28.0446,
+        risqueMax: 25, pct:-5.60892,
+        note:"Bon setup de trade, premier sur Propform. Confirmation avec prise de liquidité, FVG et retest break of structure.",
+        solde:4971.9554
+      },
+      {
+        jour:'JOUR 3', date:'2026-06-03', actif:'BTC/USD', sens:'Vente', lots:0.055,
+        rrPrevu:2, rrReel:2, resultat:'Gain', pnl:48.3202,
+        risqueMax: 24.859777, pct:9.71855,
+        note:"Bon trade, confirmation liquidity sweep, FVG et break of structure.",
+        solde:5020.2756
+      },
+      {
+        jour:'JOUR 4', date:'2026-06-08', actif:'BTC/USD', sens:'Achat', lots:0.074,
+        rrPrevu:2, rrReel:-0.3, resultat:'BE', pnl:-8.4059,
+        risqueMax: 25.101378, pct:-1.67439,
+        note:"Bon setup, belle prise de liquidité + FVG et retest break of structure. Sortie en breakeven (frais non couverts).",
+        solde:5011.8697
+      },
+      {
+        jour:'JOUR 5', date:'2026-06-11', actif:'BTC/USD', sens:'Achat', lots:0.062,
+        rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-28.5546,
+        risqueMax: 25.0593485, pct:-5.69739,
+        note:"",
+        solde:4983.3151
+      }
+    ]
   },
-  {
-    jour:'JOUR 3', date:'2026-06-03', actif:'BTC/USD', sens:'Vente', lots:0.055,
-    rrPrevu:2, rrReel:2, resultat:'Gain', pnl:48.3202,
-    risqueMax: 24.859777, pct:9.71855,
-    note:"Bon trade, confirmation liquidity sweep, FVG et break of structure.",
-    solde:5020.2756
-  },
-  {
-    jour:'JOUR 4', date:'2026-06-08', actif:'BTC/USD', sens:'Achat', lots:0.074,
-    rrPrevu:2, rrReel:-0.3, resultat:'BE', pnl:-8.4059,
-    risqueMax: 25.101378, pct:-1.67439,
-    note:"Bon setup, belle prise de liquidité + FVG et retest break of structure. Sortie en breakeven (frais non couverts).",
-    solde:5011.8697
-  },
-  {
-    jour:'JOUR 5', date:'2026-06-11', actif:'BTC/USD', sens:'Achat', lots:0.062,
-    rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-28.5546,
-    risqueMax: 25.0593485, pct:-5.69739,
-    note:"",
-    solde:4983.3151
+
+  account2: {
+    label: "Compte 2 — Contract Future (BTC/USDT)",
+    soldeInitial: 23.57,
+    trades: [
+      {jour:'JOUR 2', date:'2026-02-05', actif:'BTC/USDT', sens:'Vente', lots:0.0009, rrPrevu:2, rrReel:2, resultat:'Gain', pnl:1.77, risqueMax:1.1549, pct:75.0955, note:"Trade bien pris, on respecte le plan, vente avec structure baissière en H4, risque de 4%.", solde:25.34},
+      {jour:'JOUR 3', date:'2026-02-10', actif:'BTC/USDT', sens:'Vente', lots:0.0008, rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-0.97, risqueMax:1.2417, pct:-38.2794, note:"Trade bien pris, on respecte le plan, vente avec structure baissière en H4, risque de 4%.", solde:24.37},
+      {jour:'JOUR 3', date:'2026-02-12', actif:'BTC/USDT', sens:'Vente', lots:0.002, rrPrevu:2.5, rrReel:2.5, resultat:'Gain', pnl:2.44, risqueMax:1.1941, pct:100.1231, note:"Trade bien pris, on respecte le plan, vente avec structure baissière en H4, risque de 4%.", solde:26.81},
+      {jour:'JOUR 4', date:'2026-03-05', actif:'BTC/USDT', sens:'Achat', lots:0.0009, rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-1.01, risqueMax:1.3137, pct:-37.6725, note:"Trade bien pris, on respecte le plan, achat avec structure haussière en H4, risque de 4%.", solde:25.8},
+      {jour:'JOUR 4', date:'2026-03-16', actif:'BTC/USDT', sens:'Achat', lots:0.009, rrPrevu:2, rrReel:0, resultat:'BE', pnl:-0.87, risqueMax:4.8471, pct:-8.795, note:"Trade bien pris, on respecte le plan, achat avec structure haussière en H4, risque de 4%.", solde:98.05},
+      {jour:'JOUR 5', date:'2026-03-18', actif:'BTC/USDT', sens:'Vente', lots:0.0124, rrPrevu:2, rrReel:2, resultat:'Gain', pnl:4.49, risqueMax:4.8045, pct:45.793, note:"Trade bien pris, on respecte le plan, vente avec structure baissière en H4, il faut baisser le risque car position sup. au levier plateforme.", solde:102.54},
+      {jour:'JOUR 5', date:'2026-03-19', actif:'BTC/USDT', sens:'Vente', lots:0.0023, rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-2.29, risqueMax:5.0245, pct:-22.3327, note:"Trade bien pris, on respecte le plan, vente avec structure baissière en H4.", solde:100.25},
+      {jour:'JOUR 6', date:'2026-03-20', actif:'BTC/USDT', sens:'Vente', lots:0.0075, rrPrevu:2.48, rrReel:2.48, resultat:'Gain', pnl:4.47, risqueMax:4.9123, pct:44.5885, note:"Trade bien pris, on respecte le plan, vente avec structure baissière en H4.", solde:104.72},
+      {jour:'JOUR 7', date:'2026-03-27', actif:'BTC/USDT', sens:'Vente', lots:0.0097, rrPrevu:2, rrReel:2, resultat:'Gain', pnl:2.83, risqueMax:5.1313, pct:27.0244, note:"Trade bien pris, on respecte le plan, vente avec structure baissière en H4.", solde:107.55},
+      {jour:'JOUR 8', date:'2026-03-31', actif:'BTC/USDT', sens:'Achat', lots:0.0092, rrPrevu:2, rrReel:2, resultat:'Gain', pnl:4.43, risqueMax:5.2699, pct:41.1901, note:"Trade bien pris, on respecte le plan, achat avec structure haussière en H4, risque de 2%.", solde:111.98},
+      {jour:'JOUR 8', date:'2026-04-01', actif:'BTC/USDT', sens:'Achat', lots:0.007, rrPrevu:2, rrReel:2, resultat:'Gain', pnl:7.38, risqueMax:5.487, pct:65.9046, note:"Achat avec structure haussière en H4, risque de 2%, mais plan non respecté : mauvais feeling, prise de profit anticipée (glissement du prix).", solde:119.36},
+      {jour:'JOUR 9', date:'2026-04-08', actif:'BTC/USDT', sens:'Vente', lots:0.0051, rrPrevu:2, rrReel:1, resultat:'Gain', pnl:2.24, risqueMax:5.8486, pct:18.7668, note:"CISD sur un reversal — il faut impérativement une prise de liquidité avant le retournement. Retour à un risque de 4%.", solde:121.6},
+      {jour:'JOUR 10', date:'2026-04-10', actif:'BTC/USDT', sens:'Achat', lots:0.0129, rrPrevu:2, rrReel:2, resultat:'Gain', pnl:8.46, risqueMax:5.9584, pct:69.5724, note:"Plan respecté, confirmation supplémentaire BB intégrée, trade pris en contexte haussier, BOS sur prise du BB.", solde:130.06},
+      {jour:'JOUR 10', date:'2026-04-14', actif:'BTC/USDT', sens:'Achat', lots:0.0146, rrPrevu:2, rrReel:2, resultat:'Gain', pnl:8.96, risqueMax:6.3729, pct:68.8913, note:"Plan haussier, modèle MSS à combiner avec BOS et displacement (combo MSS + FVG).", solde:139.02},
+      {jour:'JOUR 11', date:'2026-04-15', actif:'BTC/USDT', sens:'Achat', lots:0.03, rrPrevu:2, rrReel:0, resultat:'BE', pnl:-1.29, risqueMax:6.812, pct:-9.2792, note:"Plan haussier avec MSS, liquidity sweep et BOS, mais biais probablement incorrect — sortie en BE.", solde:137.73},
+      {jour:'JOUR 12', date:'2026-04-16', actif:'BTC/USDT', sens:'Achat', lots:0.0163, rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-6.71, risqueMax:6.7488, pct:-48.7185, note:"Bon setup avec BB, liquidité et FVG, le marché s'est retourné sur une news à l'open.", solde:131.02},
+      {jour:'JOUR 12', date:'2026-04-17', actif:'BTC/USDT', sens:'Achat', lots:0.0079, rrPrevu:2, rrReel:2, resultat:'Gain', pnl:10.05, risqueMax:6.42, pct:76.7058, note:"Bon setup avec BB, liquidity sweep et double FVG, ordre limite. Le SL aurait pu être placé un peu plus haut.", solde:141.07},
+      {jour:'JOUR 13', date:'2026-04-21', actif:'BTC/USDT', sens:'Achat', lots:0.0155, rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-6.65, risqueMax:6.9124, pct:-47.1397, note:"Bon setup avec toutes les confluences BB, ICT et FVG — SL touché.", solde:134.42},
+      {jour:'JOUR 14', date:'2026-04-22', actif:'BTC/USDT', sens:'Achat', lots:0.0153, rrPrevu:2, rrReel:2, resultat:'Gain', pnl:8.45, risqueMax:6.5866, pct:62.8627, note:"Toutes les confluences réunies : BB, LS, BOS et alignement HTF 4H haussier.", solde:142.87},
+      {jour:'JOUR 15', date:'2026-04-23', actif:'BTC/USDT', sens:'Achat', lots:0.013, rrPrevu:2, rrReel:0.91, resultat:'Gain', pnl:4.32, risqueMax:7.0006, pct:30.2373, note:"Ordre limite exécuté, confirmations LS, BB, BOS. Doute sur le placement du stop. Trailing stop exécuté pour un RR de ~1, plutôt agressif.", solde:147.19},
+      {jour:'JOUR 16', date:'2026-04-24', actif:'BTC/USDT', sens:'Achat', lots:0.0145, rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-6.01, risqueMax:7.2123, pct:-40.8316, note:"Bon setup et bonne exécution, rejet du marché malgré LS, BB et FVG.", solde:141.18},
+      {jour:'JOUR 16', date:'2026-04-27', actif:'BTC/USDT', sens:'Achat', lots:0.0165, rrPrevu:2, rrReel:0, resultat:'BE', pnl:-1, risqueMax:6.9178, pct:-7.0832, note:"Bon setup BB, LS et FVG, BOS — sortie en BE.", solde:140.18},
+      {jour:'JOUR 17', date:'2026-04-28', actif:'BTC/USDT', sens:'Vente', lots:0.02, rrPrevu:2, rrReel:0, resultat:'BE', pnl:-1, risqueMax:6.8688, pct:-7.1337, note:"Bon setup BB, LS et FVG, BOS — sortie en BE.", solde:139.18},
+      {jour:'JOUR 19', date:'2026-04-30', actif:'BTC/USDT', sens:'Vente', lots:0.0262, rrPrevu:2, rrReel:0, resultat:'BE', pnl:-2.14, risqueMax:11.6218, pct:-9.0227, note:"Bon setup BB, LS et FVG, BOS — sortie en BE.", solde:235.04},
+      {jour:'JOUR 20', date:'2026-05-04', actif:'BTC/USDT', sens:'Achat', lots:0.0178, rrPrevu:2, rrReel:2, resultat:'Gain', pnl:16.93, risqueMax:11.517, pct:72.0303, note:"Bon setup, LS attendu puis BB et FVG.", solde:251.97},
+      {jour:'JOUR 21', date:'2026-05-19', actif:'BTC/USDT', sens:'Vente', lots:0.0262, rrPrevu:2, rrReel:2, resultat:'Gain', pnl:18.64, risqueMax:12.3465, pct:73.9771, note:"Bon setup : LS puis FVG puis retest BB, tendance baissière.", solde:270.61},
+      {jour:'JOUR 22', date:'2026-05-20', actif:'BTC/USDT', sens:'Vente', lots:0.0314, rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-12.97, risqueMax:13.2599, pct:-47.9288, note:"Bon setup avec LS, FVG et BB, SL peut-être trop large. Erreur de biais H4 (en réalité haussier).", solde:257.64},
+      {jour:'JOUR 23', date:'2026-05-21', actif:'BTC/USDT', sens:'Achat', lots:0.0331, rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-12.56, risqueMax:12.6244, pct:-48.7502, note:"Setup moyen, LS et FVG mais faible volume, traversée du BB et on devient la liquidité.", solde:245.08},
+      {jour:'JOUR 24', date:'2026-05-22', actif:'BTC/USDT', sens:'Achat', lots:0.0315, rrPrevu:2, rrReel:-1, resultat:'Gain', pnl:-11.88, risqueMax:12.0089, pct:-48.474, note:"⚠️ Incohérence détectée : trade marqué « Gain » dans le journal mais P&L négatif (-11,88$). Bon setup LS+FVG, ordre limite déclenché sur le BB puis SL touché malgré bon biais H4.", solde:233.2},
+      {jour:'JOUR 25', date:'2026-05-26', actif:'BTC/USDT', sens:'Vente', lots:0.0302, rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-11.12, risqueMax:11.4268, pct:-47.6844, note:"Bon setup, LS et FVG, ordre limite déclenché sur le BB puis SL malgré bon biais H4.", solde:222.08},
+      {jour:'JOUR 25', date:'2026-05-26', actif:'BTC/USDT', sens:'Vente', lots:0.0072, rrPrevu:2, rrReel:1, resultat:'Gain', pnl:8.81, risqueMax:10.8819, pct:39.6704, note:"⚠️ Setup correct mais impulsif : émotions après 4 pertes d'affilée (drawdown max). Non-respect du plan : 2 trades pris le même jour.", solde:230.89},
+      {jour:'JOUR 26', date:'2026-05-28', actif:'BTC/USDT', sens:'Vente', lots:0.033, rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-16.76, risqueMax:14.3585, pct:-57.1955, note:"Bon setup, le marché s'est retourné, SL touché. Le risque réel dépasse le risque prévu à cause des frais.", solde:276.27}
+    ]
   }
-];
+
+};
 
 /* =========================================================
    UTILS
@@ -337,6 +395,7 @@ const WEEKDAYS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Same
 const MONTHS = ['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'];
 
 let charts = {};
+let currentDataset = 'account1';
 
 function destroyCharts(){
   Object.values(charts).forEach(c=>c && c.destroy());
@@ -344,17 +403,34 @@ function destroyCharts(){
 }
 
 /* =========================================================
-   FILTERS
+   ACCOUNT / FILTERS
    ========================================================= */
+function populateAccountOptions(){
+  const sel = document.getElementById('fAccount');
+  Object.entries(DATASETS).forEach(([key, ds])=>{
+    const opt = document.createElement('option');
+    opt.value = key; opt.textContent = ds.label;
+    sel.appendChild(opt);
+  });
+  sel.value = currentDataset;
+  sel.addEventListener('change', ()=>{
+    currentDataset = sel.value;
+    populateFilterOptions();
+    resetFilters();
+  });
+}
+
 function populateFilterOptions(){
-  const actifs = [...new Set(TRADES.map(t=>t.actif))];
+  const trades = DATASETS[currentDataset].trades;
   const sel = document.getElementById('fActif');
+  sel.innerHTML = '<option value="all">Tous</option>';
+  const actifs = [...new Set(trades.map(t=>t.actif))];
   actifs.forEach(a=>{
     const opt = document.createElement('option');
     opt.value = a; opt.textContent = a;
     sel.appendChild(opt);
   });
-  const dates = TRADES.map(t=>t.date).sort();
+  const dates = trades.map(t=>t.date).sort();
   document.getElementById('fDateStart').value = dates[0];
   document.getElementById('fDateEnd').value = dates[dates.length-1];
 }
@@ -363,35 +439,39 @@ function resetFilters(){
   document.getElementById('fActif').value='all';
   document.getElementById('fSens').value='all';
   document.getElementById('fResultat').value='all';
-  const dates = TRADES.map(t=>t.date).sort();
+  const dates = DATASETS[currentDataset].trades.map(t=>t.date).sort();
   document.getElementById('fDateStart').value = dates[0];
   document.getElementById('fDateEnd').value = dates[dates.length-1];
   applyFilters();
 }
 
 function applyFilters(){
+  const ds = DATASETS[currentDataset];
   const start = document.getElementById('fDateStart').value;
   const end = document.getElementById('fDateEnd').value;
   const actif = document.getElementById('fActif').value;
   const sens = document.getElementById('fSens').value;
   const resultat = document.getElementById('fResultat').value;
 
-  const filtered = TRADES.filter(t=>{
+  const filtered = ds.trades.filter(t=>{
     if(start && t.date < start) return false;
     if(end && t.date > end) return false;
     if(actif !== 'all' && t.actif !== actif) return false;
     if(sens !== 'all' && t.sens !== sens) return false;
     if(resultat !== 'all' && t.resultat !== resultat) return false;
     return true;
-  }).sort((a,b)=> a.date.localeCompare(b.date));
+  }).sort((a,b)=> a.date.localeCompare(b.date) || a.jour.localeCompare(b.jour));
 
-  renderAll(filtered);
+  document.getElementById('hdrSubtitle').textContent =
+    `${ds.label} — Capital initial : ${fmtMoneyAbs(ds.soldeInitial)}`;
+
+  renderAll(filtered, ds);
 }
 
 /* =========================================================
    STATS CALCULATIONS
    ========================================================= */
-function computeStats(trades){
+function computeStats(trades, ds){
   const n = trades.length;
   const wins = trades.filter(t=>t.pnl>0);
   const losses = trades.filter(t=>t.pnl<0);
@@ -410,18 +490,35 @@ function computeStats(trades){
   const avgRRPrevu = n ? trades.reduce((s,t)=>s+(t.rrPrevu||0),0)/n : 0;
   const avgRRReel = n ? trades.reduce((s,t)=>s+(t.rrReel||0),0)/n : 0;
 
-  // equity curve (based on solde cumulé starting at SOLDE_INITIAL + filtered pnl sequence)
-  let running = SOLDE_INITIAL;
-  // recompute from solde initial using cumulative pnl of filtered set, in chronological order
-  const equity = [{date: trades.length? prevDay(trades[0].date) : null, value: SOLDE_INITIAL}];
+  // starting point of the period: solde before the first trade in this filtered set
+  const startBalance = n ? (trades[0].solde - trades[0].pnl) : ds.soldeInitial;
+
+  // real equity curve = recorded "solde" column (includes deposits/retraits)
+  const equityReal = [{date: n? prevDay(trades[0].date) : null, value: startBalance}];
+  trades.forEach(t=> equityReal.push({date:t.date, value: t.solde}));
+
+  // pure trading performance curve (cumulative pnl, ignores deposits/retraits)
+  let runningPure = startBalance;
+  const equityPure = [{date: n? prevDay(trades[0].date) : null, value: startBalance}];
+  trades.forEach(t=>{ runningPure += t.pnl; equityPure.push({date:t.date, value: runningPure}); });
+
+  // detect deposits/retraits: diff between recorded solde and "expected" solde from pnl alone
+  let prevSolde = startBalance;
+  let depositsTotal = 0;
+  const depositEvents = [];
   trades.forEach(t=>{
-    running += t.pnl;
-    equity.push({date:t.date, value: running});
+    const expected = prevSolde + t.pnl;
+    const diff = t.solde - expected;
+    if(Math.abs(diff) > 0.005){
+      depositsTotal += diff;
+      depositEvents.push({date:t.date, amount:diff});
+    }
+    prevSolde = t.solde;
   });
 
-  // drawdown
-  let peak = SOLDE_INITIAL, maxDDAbs = 0, maxDDPct = 0;
-  equity.forEach(p=>{
+  // drawdown computed on real equity curve
+  let peak = startBalance, maxDDAbs = 0, maxDDPct = 0;
+  equityReal.forEach(p=>{
     if(p.value > peak) peak = p.value;
     const dd = peak - p.value;
     const ddPct = peak !== 0 ? (dd/peak*100) : 0;
@@ -435,8 +532,9 @@ function computeStats(trades){
   return {
     n, wins, losses, be, totalPnl, grossProfit, grossLoss,
     winRate, profitFactor, avgWin, avgLoss, rrRatio,
-    avgRRPrevu, avgRRReel, equity, maxDDAbs, maxDDPct, best, worst,
-    finalBalance: running
+    avgRRPrevu, avgRRReel, equityReal, equityPure, maxDDAbs, maxDDPct, best, worst,
+    startBalance, finalBalance: n ? trades[trades.length-1].solde : startBalance,
+    depositsTotal, depositEvents
   };
 }
 
@@ -517,7 +615,11 @@ function computeDistribution(trades){
   const values = trades.map(t=>t.pnl);
   const min = Math.min(...values, 0);
   const max = Math.max(...values, 0);
-  const binSize = Math.max(5, Math.ceil((max-min)/6 / 5) * 5); // round to nice 5$ steps
+  const span = Math.max(max-min, 1);
+  let binSize = span/8;
+  // round bin size to a "nice" number
+  const magnitude = Math.pow(10, Math.floor(Math.log10(binSize)));
+  binSize = Math.ceil(binSize/magnitude) * magnitude;
   const start = Math.floor(min/binSize)*binSize;
   const end = Math.ceil(max/binSize)*binSize;
   const bins = [];
@@ -529,7 +631,7 @@ function computeDistribution(trades){
     bin.count++;
   });
   return {
-    labels: bins.map(b=>`${b.from.toFixed(0)} à ${b.to.toFixed(0)} $`),
+    labels: bins.map(b=>`${b.from.toFixed(2)} à ${b.to.toFixed(2)} $`),
     data: bins.map(b=>b.count),
     bins
   };
@@ -538,8 +640,8 @@ function computeDistribution(trades){
 /* =========================================================
    RENDER
    ========================================================= */
-function renderAll(trades){
-  const stats = computeStats(trades);
+function renderAll(trades, ds){
+  const stats = computeStats(trades, ds);
 
   // header badges
   const dates = trades.map(t=>t.date).sort();
@@ -547,7 +649,8 @@ function renderAll(trades){
   document.getElementById('hdrCount').textContent = trades.length;
   document.getElementById('hdrBalance').textContent = fmtMoneyAbs(stats.finalBalance);
 
-  renderKPIs(stats);
+  renderDataNote(stats, ds, trades);
+  renderKPIs(stats, ds);
   renderEquityChart(stats);
   renderMonthlyChart(computeMonthly(trades));
   renderRepartitionChart(stats);
@@ -557,8 +660,30 @@ function renderAll(trades){
   renderRRChart(trades);
   renderTopFlop(trades);
   renderStreaks(computeStreaks(trades));
-  renderRecommendations(stats, trades);
+  renderRecommendations(stats, trades, ds);
   renderFullTable(trades);
+}
+
+function renderDataNote(stats, ds, trades){
+  const box = document.getElementById('dataNote');
+  let html = `<h4>ℹ️ ${ds.label}</h4>`;
+  html += `${trades.length} trade(s) sur la période sélectionnée. Capital initial du compte : <b>${fmtMoneyAbs(ds.soldeInitial)}</b>.`;
+
+  if(currentDataset==='account1'){
+    html += `<ul>
+      <li>Échantillon très limité (4 trades) — les statistiques ne sont pas encore fiables.</li>
+      <li>100% des trades sont sur BTC/USD — pas de comparaison entre actifs possible.</li>
+      <li>Pas d'heure d'entrée/sortie disponible — analyse horaire impossible.</li>
+    </ul>`;
+  } else if(currentDataset==='account2'){
+    html += `<ul>
+      <li>${stats.depositEvents.length} dépôt(s)/retrait(s) détecté(s) hors trading, pour un total net de <b>${fmtMoney(stats.depositsTotal)}</b> sur la période. La courbe "Solde réel" inclut ces mouvements ; la courbe "Performance trading pure" ne reflète que le P&L des trades.</li>
+      <li>Une incohérence a été détectée le ${fmtDate('2026-05-22')} (JOUR 24) : résultat marqué "Gain" mais P&L négatif — probable erreur de saisie dans le journal d'origine. Les statistiques ci-dessous se basent sur le P&L réel ($).</li>
+      <li>100% des trades sont sur BTC/USDT — pas de comparaison entre actifs possible.</li>
+      <li>Pas d'heure d'entrée/sortie ni de durée de trade disponibles — analyse horaire/session impossible.</li>
+    </ul>`;
+  }
+  box.innerHTML = html;
 }
 
 function kpiCard(label, value, sub, cls){
@@ -569,12 +694,12 @@ function kpiCard(label, value, sub, cls){
   </div>`;
 }
 
-function renderKPIs(s){
-  const pnlPct = (s.totalPnl/SOLDE_INITIAL*100);
+function renderKPIs(s, ds){
+  const pnlPct = s.startBalance ? (s.totalPnl/s.startBalance*100) : 0;
   const grid = document.getElementById('kpiGrid');
-  grid.innerHTML = [
-    kpiCard('P&L Total', fmtMoney(s.totalPnl), `${fmtPct(pnlPct)} du capital initial`, s.totalPnl>=0?'pos':'neg'),
-    kpiCard('Solde actuel', fmtMoneyAbs(s.finalBalance), `Capital initial : ${fmtMoneyAbs(SOLDE_INITIAL)}`, s.finalBalance>=SOLDE_INITIAL?'pos':'neg'),
+  const cards = [
+    kpiCard('P&L Trading (période)', fmtMoney(s.totalPnl), `${fmtPct(pnlPct)} du capital de début de période`, s.totalPnl>=0?'pos':'neg'),
+    kpiCard('Solde actuel', fmtMoneyAbs(s.finalBalance), `Capital initial du compte : ${fmtMoneyAbs(ds.soldeInitial)}`, s.finalBalance>=ds.soldeInitial?'pos':'neg'),
     kpiCard('Win Rate', s.n? s.winRate.toFixed(1)+' %':'—', `${s.wins.length} gains / ${s.losses.length} pertes / ${s.be.length} BE sur ${s.n}`, s.winRate>=50?'pos':'neg'),
     kpiCard('Profit Factor', isFinite(s.profitFactor)? s.profitFactor.toFixed(2): '∞', 'Gains bruts / Pertes brutes', s.profitFactor>=1?'pos':'neg'),
     kpiCard('RR Réel Moyen', s.n? s.avgRRReel.toFixed(2):'—', `RR prévu moyen : ${s.avgRRPrevu.toFixed(2)}`, s.avgRRReel>=0?'pos':'neg'),
@@ -583,26 +708,35 @@ function renderKPIs(s){
     kpiCard('Pire Trade', s.worst? fmtMoney(s.worst.pnl):'—', s.worst? `${s.worst.actif} — ${fmtDate(s.worst.date)}`:'', 'neg'),
     kpiCard('Gain Moyen', s.wins.length? fmtMoney(s.avgWin):'—', `sur ${s.wins.length} trade(s) gagnant(s)`, 'pos'),
     kpiCard('Perte Moyenne', s.losses.length? fmtMoney(s.avgLoss):'—', `sur ${s.losses.length} trade(s) perdant(s)`, 'neg'),
-  ].join('');
+  ];
+  if(Math.abs(s.depositsTotal) > 0.005){
+    cards.push(kpiCard('Dépôts/Retraits nets', fmtMoney(s.depositsTotal), `${s.depositEvents.length} mouvement(s) détecté(s) hors trading`, 'neutral'));
+  }
+  grid.innerHTML = cards.join('');
 }
 
 function renderEquityChart(s){
   const ctx = document.getElementById('chartEquity');
   if(charts.equity) charts.equity.destroy();
-  const labels = s.equity.map(p=> p.date ? fmtDate(p.date) : 'Départ');
-  const data = s.equity.map(p=>p.value);
+  const labels = s.equityReal.map(p=> p.date ? fmtDate(p.date) : 'Départ');
   charts.equity = new Chart(ctx, {
     type:'line',
     data:{labels, datasets:[{
-      label:'Solde du compte ($)',
-      data,
+      label:'Solde réel du compte ($)',
+      data: s.equityReal.map(p=>p.value),
       borderColor:'#4a90e2',
       backgroundColor:'rgba(74,144,226,0.12)',
       fill:true, tension:0.25, pointRadius:4, pointBackgroundColor:'#4a90e2'
     }, {
-      label:'Capital initial',
-      data:labels.map(()=>SOLDE_INITIAL),
-      borderColor:'#7d8597', borderDash:[6,6], pointRadius:0, fill:false
+      label:'Performance trading pure (hors dépôts/retraits)',
+      data: s.equityPure.map(p=>p.value),
+      borderColor:'#f0b90b',
+      borderDash:[6,4],
+      pointRadius:0, fill:false, tension:0.25
+    }, {
+      label:'Capital de début de période',
+      data:labels.map(()=>s.startBalance),
+      borderColor:'#7d8597', borderDash:[2,4], pointRadius:0, fill:false
     }]},
     options: chartOptionsLine()
   });
@@ -751,7 +885,7 @@ function renderStreaks(streak){
   row.innerHTML = streak.seq.map(s=>`<div class="streak-chip ${s}">${s}</div>`).join('');
 }
 
-function renderRecommendations(s, trades){
+function renderRecommendations(s, trades, ds){
   const good = [], bad = [];
 
   if(s.n===0){
@@ -761,16 +895,20 @@ function renderRecommendations(s, trades){
   }
 
   // Risk management
-  const avgRiskPct = trades.reduce((sum,t)=> sum + Math.abs(t.risqueMax)/SOLDE_INITIAL*100, 0)/trades.length;
-  good.push(`<b>Gestion du risque maîtrisée :</b> le risque par trade reste autour de <b>${avgRiskPct.toFixed(1)} %</b> du capital, conforme à la règle "4 % + frais max" du compte d'évaluation.`);
+  const avgRiskPct = trades.reduce((sum,t)=> sum + Math.abs(t.risqueMax)/ds.soldeInitial*100, 0)/trades.length;
+  if(currentDataset==='account1'){
+    good.push(`<b>Gestion du risque maîtrisée :</b> le risque par trade reste autour de <b>${avgRiskPct.toFixed(1)} %</b> du capital initial, conforme à la règle "4 % + frais max" du compte d'évaluation.`);
+  } else {
+    good.push(`<b>Discipline de risque globalement respectée :</b> la majorité des trades visent un risque proche de 4 % (parfois 2 %), conformément à la règle annoncée.`);
+  }
 
   // Documentation
   const documented = trades.filter(t=>t.note && t.note.length>10).length;
   if(documented>0) good.push(`<b>Bonne discipline de journaling :</b> ${documented}/${s.n} trades sont accompagnés d'une analyse écrite (setup, confirmations techniques avant/après).`);
 
   // RR achieved on win
-  const goodRR = trades.find(t=>t.resultat==='Gain' && t.rrReel >= t.rrPrevu);
-  if(goodRR) good.push(`<b>Objectif RR atteint :</b> le trade du ${fmtDate(goodRR.date)} a atteint un RR réel de <b>${goodRR.rrReel}</b>, conforme au plan initial (RR prévu ${goodRR.rrPrevu}).`);
+  const goodRR = trades.find(t=>t.resultat==='Gain' && t.pnl>0 && t.rrReel >= t.rrPrevu);
+  if(goodRR) good.push(`<b>Objectif RR atteint :</b> le trade du ${fmtDate(goodRR.date)} a atteint un RR réel de <b>${goodRR.rrReel}</b>, conforme ou supérieur au plan initial (RR prévu ${goodRR.rrPrevu}).`);
 
   // Win rate vs RR breakeven
   if(s.avgRRPrevu>0){
@@ -791,26 +929,47 @@ function renderRecommendations(s, trades){
   // Full SL hits
   const fullSL = trades.filter(t=>t.resultat==='Perte' && t.rrReel <= -1);
   if(fullSL.length){
-    bad.push(`<b>${fullSL.length} stop-loss touché(s) intégralement</b> (RR réel = -1) sur des trades visant initialement un RR de ${trades[0].rrPrevu}:1. Revoir le placement du SL ou la qualité de confirmation à l'entrée pour réduire la fréquence des pertes maximales.`);
+    bad.push(`<b>${fullSL.length} stop-loss touché(s) intégralement</b> (RR réel ≈ -1) sur des trades visant initialement un RR moyen de ${s.avgRRPrevu.toFixed(1)}:1. Revoir le placement du SL ou la qualité de confirmation à l'entrée pour réduire la fréquence des pertes maximales.`);
   }
 
   // Drawdown
   if(s.maxDDPct > 0){
-    bad.push(`<b>Drawdown actuel de ${s.maxDDPct.toFixed(2)} %</b> (${fmtMoneyAbs(s.maxDDAbs)}) depuis le point haut du compte. Reste faible pour l'instant, à surveiller pour rester sous la limite de drawdown du compte d'évaluation.`);
+    bad.push(`<b>Drawdown de ${s.maxDDPct.toFixed(2)} %</b> (${fmtMoneyAbs(s.maxDDAbs)}) depuis le point haut du compte sur cette période. À surveiller pour rester sous la limite de drawdown autorisée.`);
+  }
+
+  // Account 2 specific: emotional / discipline notes
+  if(currentDataset==='account2'){
+    const emotional = trades.filter(t=> /impulsif|émotion|2 trades pris le même jour|non.respect/i.test(t.note||''));
+    if(emotional.length){
+      bad.push(`<b>Trading émotionnel détecté :</b> ${emotional.length} trade(s) annoté(s) comme impulsifs ou ne respectant pas le plan (ex: 2 trades pris le même jour après une série de pertes le ${fmtDate(emotional[0].date)}). Mettre en place une règle stricte : pause obligatoire après ${computeStreaks(trades).maxLoss}+ pertes consécutives.`);
+    }
+    const incoherent = trades.filter(t=> t.resultat==='Gain' && t.pnl<0);
+    if(incoherent.length){
+      bad.push(`<b>${incoherent.length} incohérence(s) de saisie</b> entre le résultat affiché ("Gain") et le P&L réel (négatif), le ${fmtDate(incoherent[0].date)}. Vérifier la formule/saisie dans le journal d'origine pour fiabiliser les futures statistiques.`);
+    }
+    if(s.depositEvents.length){
+      good.push(`<b>Capital renforcé en cours de route :</b> ${s.depositEvents.length} apport(s) de capital détecté(s) (total ${fmtMoney(s.depositsTotal)}), ce qui a permis d'augmenter la taille de position et les gains/pertes en valeur absolue.`);
+    }
   }
 
   // Sample size
-  bad.push(`<b>Échantillon trop faible (${s.n} trades) :</b> les statistiques (win rate, profit factor, RR) ne sont pas encore fiables. Continuer à journaliser chaque trade pour obtenir un échantillon d'au moins 30-50 trades avant de tirer des conclusions définitives.`);
+  if(s.n < 30){
+    bad.push(`<b>Échantillon encore limité (${s.n} trades) :</b> les statistiques (win rate, profit factor, RR) gagneront en fiabilité à partir de 30-50 trades. Continuer à journaliser chaque trade.`);
+  } else {
+    good.push(`<b>Échantillon significatif (${s.n} trades)</b> — les statistiques commencent à être représentatives de la stratégie.`);
+  }
 
   // Asset diversification
   const assets = new Set(trades.map(t=>t.actif));
   if(assets.size===1){
-    bad.push(`<b>Aucune diversification d'actif :</b> 100 % des trades sont sur ${[...assets][0]}. Tester la stratégie sur d'autres paires (ETH/USD, SOL/USD...) pourrait révéler si la performance dépend du marché ou de la méthode.`);
+    bad.push(`<b>Aucune diversification d'actif :</b> 100 % des trades sont sur ${[...assets][0]}. Tester la stratégie sur d'autres paires pourrait révéler si la performance dépend du marché ou de la méthode.`);
   }
 
   // Profit factor
-  if(s.profitFactor < 1 && s.losses.length){
-    bad.push(`<b>Profit factor sous 1 (${isFinite(s.profitFactor)?s.profitFactor.toFixed(2):'∞'}) :</b> les pertes cumulées dépassent les gains cumulés sur cette période. Continuer à appliquer rigoureusement le money management tant que la stratégie est en phase de validation.`);
+  if(s.profitFactor < 1.5 && s.losses.length){
+    bad.push(`<b>Profit factor de ${isFinite(s.profitFactor)?s.profitFactor.toFixed(2):'∞'} :</b> ${s.profitFactor<1?'les pertes cumulées dépassent les gains cumulés':'la marge de sécurité reste faible'} sur cette période. Continuer à appliquer rigoureusement le money management tant que la stratégie est en phase de validation.`);
+  } else if(s.profitFactor >= 1.5){
+    good.push(`<b>Profit factor solide de ${s.profitFactor.toFixed(2)}</b> — les gains cumulés dépassent nettement les pertes cumulées sur cette période.`);
   }
 
   document.getElementById('goodList').innerHTML = good.map(g=>`<li>${g}</li>`).join('') || `<li class="empty-msg">Pas encore de point fort identifié sur cet échantillon</li>`;
@@ -845,6 +1004,7 @@ function renderFullTable(trades){
 /* =========================================================
    INIT
    ========================================================= */
+populateAccountOptions();
 populateFilterOptions();
 applyFilters();
 </script>
