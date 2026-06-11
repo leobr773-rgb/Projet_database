@@ -675,6 +675,12 @@ function renderDataNote(stats, ds, trades){
       <li>100% des trades sont sur BTC/USD — pas de comparaison entre actifs possible.</li>
       <li>Pas d'heure d'entrée/sortie disponible — analyse horaire impossible.</li>
     </ul>`;
+  } else if(currentDataset==='account3'){
+    html += `<ul>
+      <li>Données importées automatiquement depuis l'API Kraken via <span class="mono">kraken_sync/export_kraken_trades.py</span>.</li>
+      <li><b>RR prévu, RR réel et "risque max" ne sont pas fournis par l'API</b> (ce sont des informations de plan de trade propres à votre journal manuel) — ils apparaissent vides ici.</li>
+      <li>Le solde affiché est reconstitué à partir du solde de départ + le P&L réalisé cumulé des trades importés (hors dépôts/retraits non détectés automatiquement).</li>
+    </ul>`;
   } else if(currentDataset==='account2'){
     html += `<ul>
       <li>${stats.depositEvents.length} dépôt(s)/retrait(s) détecté(s) hors trading, pour un total net de <b>${fmtMoney(stats.depositsTotal)}</b> sur la période. La courbe "Solde réel" inclut ces mouvements ; la courbe "Performance trading pure" ne reflète que le P&L des trades.</li>
@@ -862,7 +868,7 @@ function renderTopFlop(trades){
   const rowHtml = t => `<tr>
     <td>${fmtDate(t.date)}</td><td>${t.actif}</td><td>${t.sens}</td>
     <td class="${t.pnl>=0?'pos':'neg'}">${fmtMoney(t.pnl)}</td>
-    <td>${t.rrReel}</td><td class="${t.pct>=0?'pos':'neg'}">${fmtPct(t.pct)}</td>
+    <td>${t.rrReel ?? '—'}</td><td class="${t.pct>=0?'pos':'neg'}">${fmtPct(t.pct)}</td>
     <td class="notes" title="${(t.note||'').replace(/"/g,'&quot;')}">${t.note||'—'}</td>
   </tr>`;
 
@@ -989,11 +995,11 @@ function renderFullTable(trades){
       <td>${t.actif}</td>
       <td>${t.sens}</td>
       <td>${t.lots}</td>
-      <td>${t.rrPrevu}</td>
-      <td class="${t.rrReel>=0?'pos':'neg'}">${t.rrReel}</td>
+      <td>${t.rrPrevu ?? '—'}</td>
+      <td class="${t.rrReel==null?'':t.rrReel>=0?'pos':'neg'}">${t.rrReel ?? '—'}</td>
       <td class="${t.resultat==='Gain'?'pos':t.resultat==='Perte'?'neg':'neutral'}">${t.resultat}</td>
       <td class="${t.pnl>=0?'pos':'neg'}">${fmtMoney(t.pnl)}</td>
-      <td>${fmtMoneyAbs(t.risqueMax)}</td>
+      <td>${t.risqueMax!=null ? fmtMoneyAbs(t.risqueMax) : '—'}</td>
       <td class="${t.pct>=0?'pos':'neg'}">${fmtPct(t.pct)}</td>
       <td>${fmtMoneyAbs(t.solde)}</td>
       <td class="notes" title="${(t.note||'').replace(/"/g,'&quot;')}">${t.note||'—'}</td>
@@ -1004,9 +1010,29 @@ function renderFullTable(trades){
 /* =========================================================
    INIT
    ========================================================= */
-populateAccountOptions();
-populateFilterOptions();
-applyFilters();
+async function init(){
+  // Tente de charger un compte connecté via l'API Kraken
+  // (généré par kraken_sync/export_kraken_trades.py).
+  // Nécessite d'ouvrir ce fichier via un serveur local (pas en file://)
+  // à cause des restrictions de sécurité du navigateur sur fetch().
+  try {
+    const resp = await fetch('./kraken_sync/data/kraken_trades.json', {cache:'no-store'});
+    if(resp.ok){
+      const data = await resp.json();
+      if(data && Array.isArray(data.trades) && data.trades.length){
+        DATASETS.account3 = data;
+        console.log(`Compte Kraken connecté chargé : ${data.trades.length} trade(s).`);
+      }
+    }
+  } catch(e){
+    console.log('Compte Kraken connecté non chargé (fichier absent, ou ouverture en file:// — utilisez un serveur local) :', e.message);
+  }
+
+  populateAccountOptions();
+  populateFilterOptions();
+  applyFilters();
+}
+init();
 </script>
 </body>
 </html>

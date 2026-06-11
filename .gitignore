@@ -1,0 +1,10 @@
+# Secrets - never commit API keys
+kraken_sync/.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Raw debug dumps (may contain account details)
+kraken_sync/data/debug_*.json
