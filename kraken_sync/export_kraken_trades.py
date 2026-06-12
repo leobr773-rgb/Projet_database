@@ -233,8 +233,7 @@ def main():
         with open(os.path.join(DATA_DIR, "debug_ledger.json"), "w", encoding="utf-8") as f:
             json.dump(ledger, f, indent=2, ensure_ascii=False, default=str)
         print(f"Dumps bruts écrits dans {DATA_DIR}/debug_trades.json et debug_ledger.json")
-        print("Inspectez ces fichiers (notamment le champ 'info') pour vérifier le mapping")
-        print("du PnL réalisé dans realized_pnl_from_trade(), puis relancez sans --debug.")
+        print("Relancez sans --debug pour générer data/kraken_trades.json.")
         return
 
     if not trades:
