@@ -191,6 +191,65 @@
   </div>
   <button onclick="applyFilters()">Filtrer</button>
   <button class="secondary" onclick="resetFilters()">Réinitialiser</button>
+  <button class="secondary" onclick="toggleAddTradeForm()" style="margin-left:auto;">+ Ajouter un trade</button>
+</div>
+
+<!-- Formulaire d'ajout de trade -->
+<div class="filters" id="addTradePanel" style="display:none;">
+  <form id="addTradeForm" onsubmit="submitAddTrade(event)" style="display:flex;flex-wrap:wrap;gap:12px;width:100%;">
+    <div class="group">
+      <label>Date</label>
+      <input type="date" id="atDate" required>
+    </div>
+    <div class="group">
+      <label>Actif</label>
+      <input type="text" id="atActif" placeholder="BTC/USD" required>
+    </div>
+    <div class="group">
+      <label>Sens</label>
+      <select id="atSens">
+        <option value="Achat">Achat</option>
+        <option value="Vente">Vente</option>
+      </select>
+    </div>
+    <div class="group">
+      <label>Lots / taille</label>
+      <input type="number" step="any" id="atLots" placeholder="0.05">
+    </div>
+    <div class="group">
+      <label>RR prévu</label>
+      <input type="number" step="any" id="atRRPrevu" placeholder="2">
+    </div>
+    <div class="group">
+      <label>RR réel</label>
+      <input type="number" step="any" id="atRRReel" placeholder="2">
+    </div>
+    <div class="group">
+      <label>Résultat</label>
+      <select id="atResultat">
+        <option value="auto">Auto (selon le PnL)</option>
+        <option value="Gain">Gain</option>
+        <option value="Perte">Perte</option>
+        <option value="BE">BE (breakeven)</option>
+      </select>
+    </div>
+    <div class="group">
+      <label>PnL ($)</label>
+      <input type="number" step="any" id="atPnl" placeholder="ex: -12.5" required>
+    </div>
+    <div class="group">
+      <label>Risque max ($)</label>
+      <input type="number" step="any" id="atRisque" placeholder="ex: 25">
+    </div>
+    <div class="group" style="flex:1 1 240px;">
+      <label>Note</label>
+      <input type="text" id="atNote" placeholder="Commentaire sur le trade">
+    </div>
+    <div class="group" style="align-self:flex-end;flex-direction:row;gap:8px;">
+      <button type="submit">Enregistrer le trade</button>
+      <button type="button" class="secondary" onclick="toggleAddTradeForm()">Annuler</button>
+    </div>
+  </form>
 </div>
 
 <!-- KPIs -->
@@ -1008,6 +1067,93 @@ function renderFullTable(trades){
 }
 
 /* =========================================================
+   AJOUT DE TRADES MANUELS (sauvegardés dans le navigateur)
+   ========================================================= */
+function loadManualTrades(){
+  Object.keys(DATASETS).forEach(key=>{
+    try{
+      const saved = JSON.parse(localStorage.getItem('manualTrades_'+key) || '[]');
+      if(saved.length){
+        DATASETS[key].trades = DATASETS[key].trades.concat(saved);
+      }
+    }catch(e){
+      console.log('Impossible de charger les trades ajoutés manuellement pour '+key, e);
+    }
+  });
+}
+
+function toggleAddTradeForm(){
+  const panel = document.getElementById('addTradePanel');
+  const show = panel.style.display === 'none';
+  panel.style.display = show ? 'block' : 'none';
+  if(show){
+    document.getElementById('atDate').value = new Date().toISOString().slice(0,10);
+  }
+}
+
+function submitAddTrade(e){
+  e.preventDefault();
+  const ds = DATASETS[currentDataset];
+  const trades = ds.trades;
+
+  const date = document.getElementById('atDate').value;
+  const actif = document.getElementById('atActif').value.trim();
+  const sens = document.getElementById('atSens').value;
+  const lots = document.getElementById('atLots').value === '' ? null : parseFloat(document.getElementById('atLots').value);
+  const rrPrevuRaw = document.getElementById('atRRPrevu').value;
+  const rrReelRaw = document.getElementById('atRRReel').value;
+  const rrPrevu = rrPrevuRaw === '' ? null : parseFloat(rrPrevuRaw);
+  const rrReel = rrReelRaw === '' ? null : parseFloat(rrReelRaw);
+  const pnl = parseFloat(document.getElementById('atPnl').value) || 0;
+  const risqueMaxRaw = document.getElementById('atRisque').value;
+  const risqueMax = risqueMaxRaw === '' ? null : parseFloat(risqueMaxRaw);
+  const note = document.getElementById('atNote').value.trim();
+
+  let resultat = document.getElementById('atResultat').value;
+  if(resultat === 'auto'){
+    resultat = pnl > 0 ? 'Gain' : (pnl < 0 ? 'Perte' : 'BE');
+  }
+
+  if(!date || !actif){
+    alert("Merci de renseigner au moins la date et l'actif.");
+    return;
+  }
+
+  const prevSolde = trades.length ? trades[trades.length-1].solde : ds.soldeInitial;
+  const solde = prevSolde + pnl;
+  const pct = prevSolde !== 0 ? (pnl/prevSolde*100) : 0;
+
+  // numéro de jour = max(JOUR existants) + 1
+  let maxJour = 0;
+  trades.forEach(t=>{
+    const m = /JOUR\s*(\d+)/.exec(t.jour || '');
+    if(m) maxJour = Math.max(maxJour, parseInt(m[1], 10));
+  });
+
+  const newTrade = {
+    jour: `JOUR ${maxJour+1}`, date, actif, sens, lots,
+    rrPrevu, rrReel, resultat,
+    pnl: Math.round(pnl*10000)/10000,
+    risqueMax,
+    pct: Math.round(pct*10000)/10000,
+    note,
+    solde: Math.round(solde*10000)/10000,
+  };
+
+  trades.push(newTrade);
+
+  const key = 'manualTrades_'+currentDataset;
+  const saved = JSON.parse(localStorage.getItem(key) || '[]');
+  saved.push(newTrade);
+  localStorage.setItem(key, JSON.stringify(saved));
+
+  document.getElementById('addTradeForm').reset();
+  toggleAddTradeForm();
+  populateFilterOptions();
+  resetFilters();
+}
+
+/* =========================================================
    INIT
    ========================================================= */
 async function init(){
@@ -1028,6 +1174,7 @@ async function init(){
     console.log('Compte Kraken connecté non chargé (fichier absent, ou ouverture en file:// — utilisez un serveur local) :', e.message);
   }
 
+  loadManualTrades();
   populateAccountOptions();
   populateFilterOptions();
   applyFilters();
