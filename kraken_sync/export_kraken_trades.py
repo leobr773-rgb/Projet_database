@@ -109,24 +109,63 @@ def fetch_all_ledger(exchange):
     return all_entries
 
 
-def realized_pnl_from_trade(trade):
-    """
-    Essaie d'extraire le PnL réalisé d'un fill depuis les champs bruts Kraken.
-    Le nom du champ varie selon kraken / krakenfutures et selon la version de ccxt.
-    Retourne None si introuvable (le fill ne ferme pas de position, ex: ouverture).
-    """
-    info = trade.get("info", {}) or {}
-    for key in ("pnl", "realizedPnl", "realized_pnl", "closedPnl", "closed_pnl"):
-        if key in info:
-            try:
-                return float(info[key])
-            except (TypeError, ValueError):
-                pass
-    return None
-
-
 def side_fr(side):
     return "Achat" if side == "buy" else "Vente"
+
+
+def compute_realized_pnls(trades):
+    """
+    Calcule le PnL réalisé de chaque fill par appariement FIFO des positions,
+    symbole par symbole.
+
+    Kraken Futures (et certaines versions de ccxt pour Kraken Spot) ne
+    fournissent pas de champ "pnl"/"realizedPnl" directement dans les fills.
+    On reconstruit donc le PnL en suivant la position ouverte sur chaque
+    marché :
+    - un fill qui va dans le même sens que la position ouverte (ou qui ouvre
+      une position) n'a pas de PnL réalisé (0.0) ;
+    - un fill qui va dans le sens opposé "clôture" (en tout ou partie) la
+      position ouverte -> PnL = (prix de sortie - prix d'entrée) * quantité
+      clôturée, avec le signe inversé pour une position courte (vente).
+
+    Retourne une liste de PnL (un par trade, même ordre/longueur que `trades`,
+    qui doit être trié par timestamp croissant).
+    """
+    open_lots = {}  # symbol -> list of {"side": "buy"/"sell", "remaining": qty, "price": price}
+    pnls = []
+
+    for t in trades:
+        symbol = t.get("symbol", "")
+        side = t.get("side", "")
+        amount = float(t.get("amount") or 0)
+        price = float(t.get("price") or 0)
+        lots = open_lots.setdefault(symbol, [])
+
+        realized = 0.0
+        remaining = amount
+
+        # Clôture des lots de sens opposé (FIFO)
+        while remaining > 1e-12 and lots and lots[0]["side"] != side:
+            lot = lots[0]
+            matched = min(remaining, lot["remaining"])
+            if lot["side"] == "buy":
+                # position longue clôturée par une vente
+                realized += (price - lot["price"]) * matched
+            else:
+                # position courte clôturée par un achat
+                realized += (lot["price"] - price) * matched
+            lot["remaining"] -= matched
+            remaining -= matched
+            if lot["remaining"] <= 1e-12:
+                lots.pop(0)
+
+        # Le reste (s'il y en a) ouvre/agrandit une position dans ce sens
+        if remaining > 1e-12:
+            lots.append({"side": side, "remaining": remaining, "price": price})
+
+        pnls.append(realized)
+
+    return pnls
 
 
 def build_trades_json(trades):
@@ -139,16 +178,17 @@ def build_trades_json(trades):
     - rrPrevu / rrReel / risqueMax ne sont PAS fournis par l'API Kraken
       (ce sont des informations de plan de trade, propres à votre journal
       manuel) -> laissés à null.
+    - le PnL de chaque fill est reconstruit par appariement FIFO des positions
+      (voir compute_realized_pnls) car Kraken Futures ne fournit pas de champ
+      PnL directement.
     - "solde" est reconstitué = solde initial + somme cumulée des PnL réalisés
-      des fills. Si certains fills n'ont pas de PnL exploitable (ex: ouverture
-      de position), ils sont quand même listés avec pnl=0.
+      des fills.
     """
+    pnls = compute_realized_pnls(trades)
+
     out_trades = []
     running = STARTING_BALANCE
-    for i, t in enumerate(trades, start=1):
-        pnl = realized_pnl_from_trade(t)
-        if pnl is None:
-            pnl = 0.0
+    for i, (t, pnl) in enumerate(zip(trades, pnls), start=1):
         running += pnl
         date = datetime.fromtimestamp(t["timestamp"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
         pct = (pnl / (running - pnl) * 100) if (running - pnl) != 0 else 0.0
