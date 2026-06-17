@@ -195,8 +195,9 @@
   <button class="secondary" onclick="clearSavedTrades()" title="Supprime les trades ajoutés via le formulaire (pas ceux du fichier HTML)" style="color:#e05c5c;">🗑 Vider le cache</button>
 </div>
 
-<!-- Formulaire d'ajout de trade -->
+<!-- Formulaire d'ajout / modification de trade -->
 <div class="filters" id="addTradePanel" style="display:none;">
+  <div style="width:100%;font-weight:700;font-size:14px;color:var(--text);margin-bottom:4px;" id="formTitle">+ Ajouter un trade</div>
   <form id="addTradeForm" onsubmit="submitAddTrade(event)" style="display:flex;flex-wrap:wrap;gap:12px;width:100%;">
     <div class="group">
       <label>Date</label>
@@ -346,7 +347,7 @@
   <div style="overflow-x:auto;">
   <table id="tableAll"><thead><tr>
     <th>Jour</th><th>Date</th><th>Actif</th><th>Sens</th><th>Lots</th><th>RR prévu</th><th>RR réel</th>
-    <th>Résultat</th><th>P&L ($)</th><th>Risque max ($)</th><th>%</th><th>Solde après</th><th>Charts TV</th><th>Note</th>
+    <th>Résultat</th><th>P&L ($)</th><th>Risque max ($)</th><th>%</th><th>Solde après</th><th>Charts TV</th><th>Note</th><th></th>
   </tr></thead><tbody></tbody></table>
   </div>
 </div>
@@ -1080,16 +1081,17 @@ function renderRecommendations(s, trades, ds){
 function renderFullTable(trades){
   const tbody = document.querySelector('#tableAll tbody');
   if(!trades.length){
-    tbody.innerHTML = `<tr><td colspan="13" class="empty-msg">Aucun trade ne correspond aux filtres sélectionnés</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="15" class="empty-msg">Aucun trade ne correspond aux filtres sélectionnés</td></tr>`;
     return;
   }
-  tbody.innerHTML = trades.map(t=>`
-    <tr>
+  tbody.innerHTML = trades.map(t=>{
+    const k = encodeURIComponent(tradeKey(t));
+    return `<tr>
       <td>${t.jour}</td>
       <td>${fmtDate(t.date)}</td>
       <td>${t.actif}</td>
       <td>${t.sens}</td>
-      <td>${t.lots}</td>
+      <td>${t.lots ?? '—'}</td>
       <td>${t.rrPrevu ?? '—'}</td>
       <td class="${t.rrReel==null?'':t.rrReel>=0?'pos':'neg'}">${t.rrReel ?? '—'}</td>
       <td class="${t.resultat==='Gain'?'pos':t.resultat==='Perte'?'neg':'neutral'}">${t.resultat}</td>
@@ -1099,18 +1101,28 @@ function renderFullTable(trades){
       <td>${fmtMoneyAbs(t.solde)}</td>
       <td style="white-space:nowrap;">${t.setupAvant?`<a href="${t.setupAvant}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:12px;margin-right:6px;">▶ Avant</a>`:''}${t.setupApres?`<a href="${t.setupApres}" target="_blank" style="color:var(--gold);text-decoration:none;font-size:12px;">▶ Après</a>`:''}</td>
       <td class="notes" title="${(t.note||'').replace(/"/g,'&quot;')}">${t.note||'—'}</td>
-    </tr>
-  `).join('');
+      <td><button onclick="openEditTrade('${k}')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;border-radius:5px;cursor:pointer;font-size:12px;">✏️</button></td>
+    </tr>`;
+  }).join('');
 }
 
 /* =========================================================
-   AJOUT DE TRADES MANUELS (sauvegardés dans le navigateur)
+   AJOUT / MODIFICATION DE TRADES (sauvegardés dans le navigateur)
    ========================================================= */
 function tradeKey(t){ return `${t.jour}|${t.date}|${t.sens}`; }
+
+let editingTradeKey = null; // null = mode ajout, sinon = clé du trade en cours d'édition
 
 function loadManualTrades(){
   Object.keys(DATASETS).forEach(key=>{
     try{
+      // 1. Appliquer les modifications sauvegardées sur les trades existants
+      const edits = JSON.parse(localStorage.getItem('editedTrades_'+key) || '{}');
+      DATASETS[key].trades = DATASETS[key].trades.map(t=>{
+        const k = tradeKey(t);
+        return edits[k] ? Object.assign({}, t, edits[k]) : t;
+      });
+      // 2. Ajouter les trades créés via le formulaire (sans doublons)
       const saved = JSON.parse(localStorage.getItem('manualTrades_'+key) || '[]');
       if(!saved.length) return;
       const existing = new Set(DATASETS[key].trades.map(tradeKey));
@@ -1118,87 +1130,132 @@ function loadManualTrades(){
       localStorage.setItem('manualTrades_'+key, JSON.stringify(newOnes));
       if(newOnes.length) DATASETS[key].trades = DATASETS[key].trades.concat(newOnes);
     }catch(e){
-      console.log('Impossible de charger les trades sauvegardés pour '+key, e);
+      console.log('Erreur chargement trades pour '+key, e);
     }
   });
 }
 
 function clearSavedTrades(){
-  if(!confirm('Supprimer tous les trades ajoutés manuellement via le formulaire pour ce compte ? (les trades du fichier HTML restent intacts)')) return;
+  if(!confirm('Réinitialiser tous les trades ajoutés et modifiés via le formulaire pour ce compte ? (les données du fichier HTML restent intactes)')) return;
   localStorage.removeItem('manualTrades_'+currentDataset);
+  localStorage.removeItem('editedTrades_'+currentDataset);
   location.reload();
+}
+
+function readFormValues(){
+  const date = document.getElementById('atDate').value;
+  const actif = document.getElementById('atActif').value.trim();
+  const sens = document.getElementById('atSens').value;
+  const lots = document.getElementById('atLots').value === '' ? null : parseFloat(document.getElementById('atLots').value);
+  const rrPrevu = document.getElementById('atRRPrevu').value === '' ? null : parseFloat(document.getElementById('atRRPrevu').value);
+  const rrReel = document.getElementById('atRRReel').value === '' ? null : parseFloat(document.getElementById('atRRReel').value);
+  const pnl = parseFloat(document.getElementById('atPnl').value) || 0;
+  const risqueMax = document.getElementById('atRisque').value === '' ? null : parseFloat(document.getElementById('atRisque').value);
+  const setupAvant = document.getElementById('atSetupAvant').value.trim() || null;
+  const setupApres = document.getElementById('atSetupApres').value.trim() || null;
+  const note = document.getElementById('atNote').value.trim();
+  let resultat = document.getElementById('atResultat').value;
+  if(resultat === 'auto') resultat = pnl > 0 ? 'Gain' : (pnl < 0 ? 'Perte' : 'BE');
+  return {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupAvant, setupApres, note, resultat};
+}
+
+function fillForm(t){
+  document.getElementById('atDate').value = t.date || '';
+  document.getElementById('atActif').value = t.actif || '';
+  document.getElementById('atSens').value = t.sens || 'Achat';
+  document.getElementById('atLots').value = t.lots ?? '';
+  document.getElementById('atRRPrevu').value = t.rrPrevu ?? '';
+  document.getElementById('atRRReel').value = t.rrReel ?? '';
+  document.getElementById('atPnl').value = t.pnl ?? '';
+  document.getElementById('atRisque').value = t.risqueMax ?? '';
+  document.getElementById('atSetupAvant').value = t.setupAvant || '';
+  document.getElementById('atSetupApres').value = t.setupApres || '';
+  document.getElementById('atNote').value = t.note || '';
+  document.getElementById('atResultat').value = ['Gain','Perte','BE'].includes(t.resultat) ? t.resultat : 'auto';
+}
+
+function openEditTrade(encodedKey){
+  const key = decodeURIComponent(encodedKey);
+  const t = DATASETS[currentDataset].trades.find(x => tradeKey(x) === key);
+  if(!t){ alert('Trade introuvable.'); return; }
+  editingTradeKey = key;
+  fillForm(t);
+  const panel = document.getElementById('addTradePanel');
+  panel.style.display = 'block';
+  document.getElementById('formTitle').textContent = `✏️ Modifier le trade — ${t.jour} (${t.date})`;
+  document.getElementById('addTradePanel').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 function toggleAddTradeForm(){
   const panel = document.getElementById('addTradePanel');
   const show = panel.style.display === 'none';
-  panel.style.display = show ? 'block' : 'none';
   if(show){
+    editingTradeKey = null;
+    document.getElementById('addTradeForm').reset();
     document.getElementById('atDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('formTitle').textContent = '+ Ajouter un trade';
   }
+  panel.style.display = show ? 'block' : 'none';
 }
 
 function submitAddTrade(e){
   e.preventDefault();
   const ds = DATASETS[currentDataset];
-  const trades = ds.trades;
-
-  const date = document.getElementById('atDate').value;
-  const actif = document.getElementById('atActif').value.trim();
-  const sens = document.getElementById('atSens').value;
-  const lots = document.getElementById('atLots').value === '' ? null : parseFloat(document.getElementById('atLots').value);
-  const rrPrevuRaw = document.getElementById('atRRPrevu').value;
-  const rrReelRaw = document.getElementById('atRRReel').value;
-  const rrPrevu = rrPrevuRaw === '' ? null : parseFloat(rrPrevuRaw);
-  const rrReel = rrReelRaw === '' ? null : parseFloat(rrReelRaw);
-  const pnl = parseFloat(document.getElementById('atPnl').value) || 0;
-  const risqueMaxRaw = document.getElementById('atRisque').value;
-  const risqueMax = risqueMaxRaw === '' ? null : parseFloat(risqueMaxRaw);
-  const setupAvant = document.getElementById('atSetupAvant').value.trim() || null;
-  const setupApres = document.getElementById('atSetupApres').value.trim() || null;
-  const note = document.getElementById('atNote').value.trim();
-
-  let resultat = document.getElementById('atResultat').value;
-  if(resultat === 'auto'){
-    resultat = pnl > 0 ? 'Gain' : (pnl < 0 ? 'Perte' : 'BE');
-  }
+  const {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupAvant, setupApres, note, resultat} = readFormValues();
 
   if(!date || !actif){
     alert("Merci de renseigner au moins la date et l'actif.");
     return;
   }
 
-  const prevSolde = trades.length ? trades[trades.length-1].solde : ds.soldeInitial;
-  const solde = prevSolde + pnl;
-  const pct = prevSolde !== 0 ? (pnl/prevSolde*100) : 0;
+  if(editingTradeKey){
+    // ── MODE MODIFICATION ──
+    const idx = ds.trades.findIndex(t => tradeKey(t) === editingTradeKey);
+    if(idx === -1){ alert('Trade introuvable.'); return; }
+    const original = ds.trades[idx];
+    const updated = Object.assign({}, original, {
+      date, actif, sens, lots, rrPrevu, rrReel, resultat,
+      pnl: Math.round(pnl*10000)/10000,
+      risqueMax, setupAvant, setupApres, note,
+    });
+    // recalcul solde et pct basé sur le solde du trade précédent
+    const prevSolde = idx > 0 ? ds.trades[idx-1].solde : ds.soldeInitial;
+    updated.solde = Math.round((prevSolde + updated.pnl)*10000)/10000;
+    updated.pct = prevSolde !== 0 ? Math.round(updated.pnl/prevSolde*100*10000)/10000 : 0;
 
-  // numéro de jour = max(JOUR existants) + 1
-  let maxJour = 0;
-  trades.forEach(t=>{
-    const m = /JOUR\s*(\d+)/.exec(t.jour || '');
-    if(m) maxJour = Math.max(maxJour, parseInt(m[1], 10));
-  });
+    ds.trades[idx] = updated;
 
-  const newTrade = {
-    jour: `JOUR ${maxJour+1}`, date, actif, sens, lots,
-    rrPrevu, rrReel, resultat,
-    pnl: Math.round(pnl*10000)/10000,
-    risqueMax,
-    pct: Math.round(pct*10000)/10000,
-    setupAvant, setupApres,
-    note,
-    solde: Math.round(solde*10000)/10000,
-  };
+    // Sauvegarder la modification dans le navigateur
+    const editsKey = 'editedTrades_'+currentDataset;
+    const edits = JSON.parse(localStorage.getItem(editsKey) || '{}');
+    edits[editingTradeKey] = updated;
+    // Mettre à jour la clé si elle a changé (ex: sens ou date modifié)
+    const newKey = tradeKey(updated);
+    if(newKey !== editingTradeKey){ edits[newKey] = updated; delete edits[editingTradeKey]; }
+    localStorage.setItem(editsKey, JSON.stringify(edits));
 
-  trades.push(newTrade);
-
-  const key = 'manualTrades_'+currentDataset;
-  const saved = JSON.parse(localStorage.getItem(key) || '[]');
-  saved.push(newTrade);
-  localStorage.setItem(key, JSON.stringify(saved));
+    editingTradeKey = null;
+  } else {
+    // ── MODE AJOUT ──
+    const trades = ds.trades;
+    const prevSolde = trades.length ? trades[trades.length-1].solde : ds.soldeInitial;
+    const solde = Math.round((prevSolde + pnl)*10000)/10000;
+    const pct = prevSolde !== 0 ? Math.round(pnl/prevSolde*100*10000)/10000 : 0;
+    let maxJour = 0;
+    trades.forEach(t=>{ const m=/JOUR\s*(\d+)/.exec(t.jour||''); if(m) maxJour=Math.max(maxJour,parseInt(m[1],10)); });
+    const newTrade = {
+      jour:`JOUR ${maxJour+1}`, date, actif, sens, lots, rrPrevu, rrReel, resultat,
+      pnl:Math.round(pnl*10000)/10000, risqueMax,
+      pct, setupAvant, setupApres, note, solde,
+    };
+    trades.push(newTrade);
+    const saved = JSON.parse(localStorage.getItem('manualTrades_'+currentDataset) || '[]');
+    saved.push(newTrade);
+    localStorage.setItem('manualTrades_'+currentDataset, JSON.stringify(saved));
+  }
 
   document.getElementById('addTradeForm').reset();
-  toggleAddTradeForm();
+  document.getElementById('addTradePanel').style.display = 'none';
   populateFilterOptions();
   resetFilters();
 }
