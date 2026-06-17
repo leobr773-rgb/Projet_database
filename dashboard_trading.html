@@ -242,6 +242,14 @@
       <input type="number" step="any" id="atRisque" placeholder="ex: 25">
     </div>
     <div class="group" style="flex:1 1 240px;">
+      <label>Lien TradingView — Setup AVANT</label>
+      <input type="url" id="atSetupAvant" placeholder="https://www.tradingview.com/x/...">
+    </div>
+    <div class="group" style="flex:1 1 240px;">
+      <label>Lien TradingView — Setup APRÈS</label>
+      <input type="url" id="atSetupApres" placeholder="https://www.tradingview.com/x/...">
+    </div>
+    <div class="group" style="flex:1 1 240px;">
       <label>Note</label>
       <input type="text" id="atNote" placeholder="Commentaire sur le trade">
     </div>
@@ -299,11 +307,11 @@
 <div class="grid cols-2">
   <div class="panel">
     <h3>🏆 Top trades (meilleurs gains)</h3>
-    <table id="tableTop"><thead><tr><th>Date</th><th>Actif</th><th>Sens</th><th>P&L ($)</th><th>RR réel</th><th>%</th><th>Note</th></tr></thead><tbody></tbody></table>
+    <table id="tableTop"><thead><tr><th>Date</th><th>Actif</th><th>Sens</th><th>P&L ($)</th><th>RR réel</th><th>%</th><th>Charts TV</th><th>Note</th></tr></thead><tbody></tbody></table>
   </div>
   <div class="panel">
     <h3>📉 Flop trades (pires pertes)</h3>
-    <table id="tableFlop"><thead><tr><th>Date</th><th>Actif</th><th>Sens</th><th>P&L ($)</th><th>RR réel</th><th>%</th><th>Note</th></tr></thead><tbody></tbody></table>
+    <table id="tableFlop"><thead><tr><th>Date</th><th>Actif</th><th>Sens</th><th>P&L ($)</th><th>RR réel</th><th>%</th><th>Charts TV</th><th>Note</th></tr></thead><tbody></tbody></table>
   </div>
 </div>
 
@@ -337,7 +345,7 @@
   <div style="overflow-x:auto;">
   <table id="tableAll"><thead><tr>
     <th>Jour</th><th>Date</th><th>Actif</th><th>Sens</th><th>Lots</th><th>RR prévu</th><th>RR réel</th>
-    <th>Résultat</th><th>P&L ($)</th><th>Risque max ($)</th><th>%</th><th>Solde après</th><th>Note</th>
+    <th>Résultat</th><th>P&L ($)</th><th>Risque max ($)</th><th>%</th><th>Solde après</th><th>Charts TV</th><th>Note</th>
   </tr></thead><tbody></tbody></table>
   </div>
 </div>
@@ -374,30 +382,56 @@ const DATASETS = {
       {
         jour:'JOUR 2', date:'2026-05-29', actif:'BTC/USD', sens:'Vente', lots:0.054,
         rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-28.0446,
-        risqueMax: 25, pct:-5.60892,
+        risqueMax:25, pct:-5.60892,
+        setupAvant:'https://www.tradingview.com/x/z2C6IdpO/',
+        setupApres:'https://www.tradingview.com/x/foVqjtNF/',
         note:"Bon setup de trade, premier sur Propform. Confirmation avec prise de liquidité, FVG et retest break of structure.",
         solde:4971.9554
       },
       {
         jour:'JOUR 3', date:'2026-06-03', actif:'BTC/USD', sens:'Vente', lots:0.055,
         rrPrevu:2, rrReel:2, resultat:'Gain', pnl:48.3202,
-        risqueMax: 24.859777, pct:9.71855,
+        risqueMax:24.859777, pct:9.71855,
+        setupAvant:'https://www.tradingview.com/x/FbHaz1wT/',
+        setupApres:'https://www.tradingview.com/x/r5Cxtsrp/',
         note:"Bon trade, confirmation liquidity sweep, FVG et break of structure.",
         solde:5020.2756
       },
       {
         jour:'JOUR 4', date:'2026-06-08', actif:'BTC/USD', sens:'Achat', lots:0.074,
         rrPrevu:2, rrReel:-0.3, resultat:'BE', pnl:-8.4059,
-        risqueMax: 25.101378, pct:-1.67439,
+        risqueMax:25.101378, pct:-1.67439,
+        setupAvant:'https://www.tradingview.com/x/7ap349YA/',
+        setupApres:'https://www.tradingview.com/x/g94cGbzs/',
         note:"Bon setup, belle prise de liquidité + FVG et retest break of structure. Sortie en breakeven (frais non couverts).",
         solde:5011.8697
       },
       {
         jour:'JOUR 5', date:'2026-06-11', actif:'BTC/USD', sens:'Achat', lots:0.062,
         rrPrevu:2, rrReel:-1, resultat:'Perte', pnl:-28.5546,
-        risqueMax: 25.0593485, pct:-5.69739,
+        risqueMax:25.059349, pct:-5.69739,
+        setupAvant:'https://www.tradingview.com/x/fhj5Aujt/',
+        setupApres:'https://www.tradingview.com/x/dEhNs7rN/',
         note:"",
         solde:4983.3151
+      },
+      {
+        jour:'JOUR 6', date:'2026-06-12', actif:'BTC/USD', sens:'Vente', lots:0.081,
+        rrPrevu:2, rrReel:0.14, resultat:'Gain', pnl:7.3407,
+        risqueMax:24.916576, pct:1.47306,
+        setupAvant:'https://www.tradingview.com/x/rOEmGLCm/',
+        setupApres:'https://www.tradingview.com/x/GRkNhH5z/',
+        note:"Bon trade, prise de liquidité + FVG et retest break of structure. À deux doigts du TP, sorti sur trailing stop.",
+        solde:4990.6558
+      },
+      {
+        jour:'JOUR 7', date:'2026-06-17', actif:'BTC/USD', sens:'Achat', lots:0.168,
+        rrPrevu:2, rrReel:-1, resultat:'BE', pnl:-33.6218,
+        risqueMax:24.953279, pct:-6.73695,
+        setupAvant:'https://www.tradingview.com/x/pulJKzYy/',
+        setupApres:'https://www.tradingview.com/x/zfBYWLwh/',
+        note:"Bon trade, confirmation LS, FVG et BB.",
+        solde:4957.034
       }
     ]
   },
@@ -928,6 +962,7 @@ function renderTopFlop(trades){
     <td>${fmtDate(t.date)}</td><td>${t.actif}</td><td>${t.sens}</td>
     <td class="${t.pnl>=0?'pos':'neg'}">${fmtMoney(t.pnl)}</td>
     <td>${t.rrReel ?? '—'}</td><td class="${t.pct>=0?'pos':'neg'}">${fmtPct(t.pct)}</td>
+    <td style="white-space:nowrap;">${t.setupAvant?`<a href="${t.setupAvant}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:12px;margin-right:6px;">▶ Avant</a>`:''}${t.setupApres?`<a href="${t.setupApres}" target="_blank" style="color:var(--gold);text-decoration:none;font-size:12px;">▶ Après</a>`:''}</td>
     <td class="notes" title="${(t.note||'').replace(/"/g,'&quot;')}">${t.note||'—'}</td>
   </tr>`;
 
@@ -1061,6 +1096,7 @@ function renderFullTable(trades){
       <td>${t.risqueMax!=null ? fmtMoneyAbs(t.risqueMax) : '—'}</td>
       <td class="${t.pct>=0?'pos':'neg'}">${fmtPct(t.pct)}</td>
       <td>${fmtMoneyAbs(t.solde)}</td>
+      <td style="white-space:nowrap;">${t.setupAvant?`<a href="${t.setupAvant}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:12px;margin-right:6px;">▶ Avant</a>`:''}${t.setupApres?`<a href="${t.setupApres}" target="_blank" style="color:var(--gold);text-decoration:none;font-size:12px;">▶ Après</a>`:''}</td>
       <td class="notes" title="${(t.note||'').replace(/"/g,'&quot;')}">${t.note||'—'}</td>
     </tr>
   `).join('');
@@ -1107,6 +1143,8 @@ function submitAddTrade(e){
   const pnl = parseFloat(document.getElementById('atPnl').value) || 0;
   const risqueMaxRaw = document.getElementById('atRisque').value;
   const risqueMax = risqueMaxRaw === '' ? null : parseFloat(risqueMaxRaw);
+  const setupAvant = document.getElementById('atSetupAvant').value.trim() || null;
+  const setupApres = document.getElementById('atSetupApres').value.trim() || null;
   const note = document.getElementById('atNote').value.trim();
 
   let resultat = document.getElementById('atResultat').value;
@@ -1136,6 +1174,7 @@ function submitAddTrade(e){
     pnl: Math.round(pnl*10000)/10000,
     risqueMax,
     pct: Math.round(pct*10000)/10000,
+    setupAvant, setupApres,
     note,
     solde: Math.round(solde*10000)/10000,
   };
