@@ -192,6 +192,7 @@
   <button onclick="applyFilters()">Filtrer</button>
   <button class="secondary" onclick="resetFilters()">Réinitialiser</button>
   <button class="secondary" onclick="toggleAddTradeForm()" style="margin-left:auto;">+ Ajouter un trade</button>
+  <button class="secondary" onclick="clearSavedTrades()" title="Supprime les trades ajoutés via le formulaire (pas ceux du fichier HTML)" style="color:#e05c5c;">🗑 Vider le cache</button>
 </div>
 
 <!-- Formulaire d'ajout de trade -->
@@ -1105,25 +1106,27 @@ function renderFullTable(trades){
 /* =========================================================
    AJOUT DE TRADES MANUELS (sauvegardés dans le navigateur)
    ========================================================= */
-function tradeKey(t){ return `${t.date}|${t.actif}|${t.pnl}`; }
+function tradeKey(t){ return `${t.jour}|${t.date}|${t.sens}`; }
 
 function loadManualTrades(){
   Object.keys(DATASETS).forEach(key=>{
     try{
       const saved = JSON.parse(localStorage.getItem('manualTrades_'+key) || '[]');
       if(!saved.length) return;
-      // Ne garder que les trades du localStorage qui ne sont pas déjà dans le dataset de base
       const existing = new Set(DATASETS[key].trades.map(tradeKey));
       const newOnes = saved.filter(t => !existing.has(tradeKey(t)));
-      // Remettre dans le localStorage uniquement les trades vraiment nouveaux (nettoyage)
       localStorage.setItem('manualTrades_'+key, JSON.stringify(newOnes));
-      if(newOnes.length){
-        DATASETS[key].trades = DATASETS[key].trades.concat(newOnes);
-      }
+      if(newOnes.length) DATASETS[key].trades = DATASETS[key].trades.concat(newOnes);
     }catch(e){
-      console.log('Impossible de charger les trades ajoutés manuellement pour '+key, e);
+      console.log('Impossible de charger les trades sauvegardés pour '+key, e);
     }
   });
+}
+
+function clearSavedTrades(){
+  if(!confirm('Supprimer tous les trades ajoutés manuellement via le formulaire pour ce compte ? (les trades du fichier HTML restent intacts)')) return;
+  localStorage.removeItem('manualTrades_'+currentDataset);
+  location.reload();
 }
 
 function toggleAddTradeForm(){
