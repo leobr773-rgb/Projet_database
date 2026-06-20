@@ -324,40 +324,49 @@
         <div class="screenshot-box" id="screen1box">
           <div id="screen1placeholder">
             <div style="font-size:28px;">📷</div>
-            <div>Setup #1<br>Liquidity Sweep + FVG</div>
+            <div id="screen1placeholderName">Setup #1</div>
             <label for="screen1upload" style="cursor:pointer;color:var(--blue);font-size:11px;margin-top:6px;text-decoration:underline;">Cliquer pour ajouter l'image</label>
             <input type="file" id="screen1upload" accept="image/*" style="display:none" onchange="loadScreenshot(this,'screen1box','screen1placeholder','sc1')">
           </div>
           <img id="screen1img" src="" style="display:none;width:100%;height:100%;object-fit:cover;">
         </div>
-        <div class="screenshot-label">Setup 1 — Entrée sur Breaker Block</div>
+        <div class="screenshot-label" style="display:flex;align-items:center;justify-content:center;gap:6px;">
+          <span id="screenLabel1" ondblclick="editScreenLabel(1)" title="Double-cliquer pour renommer">Setup 1 — Entrée sur Breaker Block</span>
+          <button onclick="editScreenLabel(1)" title="Renommer" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0;">✏️</button>
+        </div>
       </div>
       <div>
         <div class="screenshot-box" id="screen2box">
           <div id="screen2placeholder">
             <div style="font-size:28px;">📷</div>
-            <div>Setup #2<br>FVG + Retest</div>
+            <div id="screen2placeholderName">Setup #2</div>
             <label for="screen2upload" style="cursor:pointer;color:var(--blue);font-size:11px;margin-top:6px;text-decoration:underline;">Cliquer pour ajouter l'image</label>
             <input type="file" id="screen2upload" accept="image/*" style="display:none" onchange="loadScreenshot(this,'screen2box','screen2placeholder','sc2')">
           </div>
           <img id="screen2img" src="" style="display:none;width:100%;height:100%;object-fit:cover;">
         </div>
-        <div class="screenshot-label">Setup 2 — FVG Retest</div>
+        <div class="screenshot-label" style="display:flex;align-items:center;justify-content:center;gap:6px;">
+          <span id="screenLabel2" ondblclick="editScreenLabel(2)" title="Double-cliquer pour renommer">Setup 2 — FVG Retest</span>
+          <button onclick="editScreenLabel(2)" title="Renommer" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0;">✏️</button>
+        </div>
       </div>
       <div>
         <div class="screenshot-box" id="screen3box">
           <div id="screen3placeholder">
             <div style="font-size:28px;">📷</div>
-            <div>Setup #3<br>Liquidity Sweep</div>
+            <div id="screen3placeholderName">Setup #3</div>
             <label for="screen3upload" style="cursor:pointer;color:var(--blue);font-size:11px;margin-top:6px;text-decoration:underline;">Cliquer pour ajouter l'image</label>
             <input type="file" id="screen3upload" accept="image/*" style="display:none" onchange="loadScreenshot(this,'screen3box','screen3placeholder','sc3')">
           </div>
           <img id="screen3img" src="" style="display:none;width:100%;height:100%;object-fit:cover;">
         </div>
-        <div class="screenshot-label">Setup 3 — Liquidity Sweep</div>
+        <div class="screenshot-label" style="display:flex;align-items:center;justify-content:center;gap:6px;">
+          <span id="screenLabel3" ondblclick="editScreenLabel(3)" title="Double-cliquer pour renommer">Setup 3 — Liquidity Sweep</span>
+          <button onclick="editScreenLabel(3)" title="Renommer" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0;">✏️</button>
+        </div>
       </div>
     </div>
-    <div style="margin-top:10px;font-size:11px;color:var(--muted);">💡 Les images sont sauvegardées localement dans ton navigateur — elles restent visibles à chaque ouverture du fichier.</div>
+    <div style="margin-top:10px;font-size:11px;color:var(--muted);">💡 Les images et les noms sont sauvegardés dans ton navigateur. Double-clique sur un nom ou clique sur ✏️ pour le renommer.</div>
   </div>
 </div>
 
@@ -1832,6 +1841,8 @@ function loadScreenshot(input, boxId, placeholderId, storageKey){
   reader.readAsDataURL(file);
 }
 
+const SCREEN_DEFAULT_LABELS = ['Setup 1 — Entrée sur Breaker Block','Setup 2 — FVG Retest','Setup 3 — Liquidity Sweep'];
+
 function restoreScreenshots(){
   ['sc1','sc2','sc3'].forEach(function(k, i){
     const num = i+1;
@@ -1841,7 +1852,23 @@ function restoreScreenshots(){
       document.getElementById('screen'+num+'img').style.display = 'block';
       document.getElementById('screen'+num+'placeholder').style.display = 'none';
     }
+    const savedLabel = localStorage.getItem('planScreenLabel_'+k);
+    if(savedLabel){
+      document.getElementById('screenLabel'+num).textContent = savedLabel;
+      document.getElementById('screen'+num+'placeholderName').textContent = savedLabel;
+    }
   });
+}
+
+function editScreenLabel(num){
+  const el = document.getElementById('screenLabel'+num);
+  const current = el.textContent;
+  const newName = prompt('Nouveau nom pour ce setup :', current);
+  if(newName === null || newName.trim() === '') return;
+  const trimmed = newName.trim();
+  el.textContent = trimmed;
+  document.getElementById('screen'+num+'placeholderName').textContent = trimmed;
+  localStorage.setItem('planScreenLabel_sc'+num, trimmed);
 }
 
 async function init(){
