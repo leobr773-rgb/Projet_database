@@ -233,8 +233,8 @@
         </div>
         <div class="plan-rule" style="margin-top:8px;"><span class="num">↙</span><span class="txt"><b>Quand sortir :</b></span></div>
         <div class="plan-sub">
-          <span class="plan-badge green">TP liquide — RR min 2:1</span><br>
-          <span class="plan-badge green">TP RR 2:1 si price discovery</span><br>
+          <span class="plan-badge green">TP liquide — RR min <span id="dispRRMin2">2</span>:1</span><br>
+          <span class="plan-badge green">TP RR <span id="dispRRMin3">2</span>:1 si price discovery</span><br>
           <span class="plan-badge gold">SL ou BE</span>
         </div>
       </div>
@@ -249,25 +249,58 @@
       </div>
 
       <div class="plan-block" style="margin-bottom:16px;">
-        <h3>🛡️ Risk Management</h3>
-        <div class="plan-rule">
-          <span class="num">⚠</span>
-          <span class="txt" style="color:var(--red);font-weight:700;font-size:14px;">1 TRADE PAR JOUR MAXIMUM</span>
-        </div>
-        <div class="plan-sub">
-          <span class="plan-badge red">Risque 4% / position</span>
-          <span class="plan-badge gold">+ marge 0,9% de frais</span><br><br>
-          <b>Ne pas dépasser 1 trade par jour</b>
-        </div>
-        <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
-          <div style="background:var(--panel);border-radius:6px;padding:8px 10px;border-left:3px solid var(--green2);">
-            <b style="color:var(--green2);">-1 TP</b><br><span style="color:var(--muted);">Fin de session</span>
+        <h3>🛡️ Risk Management <button onclick="togglePlanEdit()" id="planEditBtn" style="margin-left:auto;background:var(--blue);border:none;color:#fff;padding:3px 10px;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600;">✏️ Modifier</button></h3>
+
+        <!-- MODE AFFICHAGE -->
+        <div id="planViewMode">
+          <div class="plan-rule">
+            <span class="num">⚠</span>
+            <span class="txt" style="color:var(--red);font-weight:700;font-size:14px;">
+              <span id="dispMaxTrades">1</span> TRADE<span id="dispMaxTradesLbl"> PAR JOUR MAXIMUM</span>
+            </span>
           </div>
-          <div style="background:var(--panel);border-radius:6px;padding:8px 10px;border-left:3px solid var(--red);">
-            <b style="color:var(--red);">-1 SL</b><br><span style="color:var(--muted);">Fin de session</span>
+          <div class="plan-sub">
+            <span class="plan-badge red">Risque <span id="dispRisk">4</span>% / position</span>
+            <span class="plan-badge gold">+ marge <span id="dispFees">0,9</span>% de frais</span>
+            <span class="plan-badge blue">RR min cible : <span id="dispRRMin">2</span>:1</span><br><br>
+            <b>Ne pas dépasser <span id="dispMaxTrades2">1</span> trade par jour</b>
           </div>
-          <div style="background:var(--panel);border-radius:6px;padding:8px 10px;border-left:3px solid var(--gold);grid-column:1/-1;">
-            <b style="color:var(--gold);">-1 BE</b><br><span style="color:var(--muted);">Fin de session</span>
+          <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+            <div style="background:var(--panel);border-radius:6px;padding:8px 10px;border-left:3px solid var(--green2);">
+              <b style="color:var(--green2);">-1 TP</b><br><span style="color:var(--muted);">Fin de session</span>
+            </div>
+            <div style="background:var(--panel);border-radius:6px;padding:8px 10px;border-left:3px solid var(--red);">
+              <b style="color:var(--red);">-1 SL</b><br><span style="color:var(--muted);">Fin de session</span>
+            </div>
+            <div style="background:var(--panel);border-radius:6px;padding:8px 10px;border-left:3px solid var(--gold);grid-column:1/-1;">
+              <b style="color:var(--gold);">-1 BE</b><br><span style="color:var(--muted);">Fin de session</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODE ÉDITION -->
+        <div id="planEditMode" style="display:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div>
+              <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">Risque / position (%)</label>
+              <input type="number" id="editRisk" step="0.1" min="0" max="100" style="width:100%;background:var(--panel);border:1px solid var(--blue);color:#fff;padding:7px 10px;border-radius:6px;font-size:14px;font-weight:700;">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">Marge de frais (%)</label>
+              <input type="number" id="editFees" step="0.1" min="0" max="10" style="width:100%;background:var(--panel);border:1px solid var(--gold);color:#fff;padding:7px 10px;border-radius:6px;font-size:14px;font-weight:700;">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">RR minimum cible</label>
+              <input type="number" id="editRRMin" step="0.5" min="0.5" max="20" style="width:100%;background:var(--panel);border:1px solid var(--green2);color:#fff;padding:7px 10px;border-radius:6px;font-size:14px;font-weight:700;">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">Max trades / jour</label>
+              <input type="number" id="editMaxTrades" step="1" min="1" max="10" style="width:100%;background:var(--panel);border:1px solid var(--red);color:#fff;padding:7px 10px;border-radius:6px;font-size:14px;font-weight:700;">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="savePlanSettings()" style="background:var(--green2);border:none;color:#fff;padding:8px 16px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700;">✅ Sauvegarder</button>
+            <button onclick="togglePlanEdit()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 16px;border-radius:6px;font-size:13px;cursor:pointer;">Annuler</button>
           </div>
         </div>
       </div>
@@ -1734,6 +1767,48 @@ function submitAddTrade(e){
 /* =========================================================
    INIT
    ========================================================= */
+const PLAN_DEFAULTS = { risk: 4, fees: 0.9, rrMin: 2, maxTrades: 1 };
+
+function loadPlanSettings(){
+  const s = JSON.parse(localStorage.getItem('planSettings') || 'null') || PLAN_DEFAULTS;
+  document.getElementById('dispRisk').textContent = s.risk;
+  document.getElementById('dispFees').textContent = String(s.fees).replace('.',',');
+  document.getElementById('dispRRMin').textContent = s.rrMin;
+  document.getElementById('dispRRMin2').textContent = s.rrMin;
+  document.getElementById('dispRRMin3').textContent = s.rrMin;
+  document.getElementById('dispMaxTrades').textContent = s.maxTrades;
+  document.getElementById('dispMaxTrades2').textContent = s.maxTrades;
+}
+
+function togglePlanEdit(){
+  const view = document.getElementById('planViewMode');
+  const edit = document.getElementById('planEditMode');
+  const btn = document.getElementById('planEditBtn');
+  const editing = edit.style.display === 'block';
+  if(!editing){
+    const s = JSON.parse(localStorage.getItem('planSettings') || 'null') || PLAN_DEFAULTS;
+    document.getElementById('editRisk').value = s.risk;
+    document.getElementById('editFees').value = s.fees;
+    document.getElementById('editRRMin').value = s.rrMin;
+    document.getElementById('editMaxTrades').value = s.maxTrades;
+  }
+  view.style.display = editing ? 'block' : 'none';
+  edit.style.display = editing ? 'none' : 'block';
+  btn.textContent = editing ? '✏️ Modifier' : '✖ Fermer';
+}
+
+function savePlanSettings(){
+  const s = {
+    risk: parseFloat(document.getElementById('editRisk').value) || PLAN_DEFAULTS.risk,
+    fees: parseFloat(document.getElementById('editFees').value) || PLAN_DEFAULTS.fees,
+    rrMin: parseFloat(document.getElementById('editRRMin').value) || PLAN_DEFAULTS.rrMin,
+    maxTrades: parseInt(document.getElementById('editMaxTrades').value) || PLAN_DEFAULTS.maxTrades,
+  };
+  localStorage.setItem('planSettings', JSON.stringify(s));
+  loadPlanSettings();
+  togglePlanEdit();
+}
+
 function togglePlan(){
   const s = document.getElementById('planSection');
   const a = document.getElementById('planToggleArrow');
@@ -1792,6 +1867,7 @@ async function init(){
   populateFilterOptions();
   applyFilters();
   restoreScreenshots();
+  loadPlanSettings();
 }
 init();
 </script>
