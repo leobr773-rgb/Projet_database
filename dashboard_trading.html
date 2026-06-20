@@ -137,6 +137,50 @@
   .note-box ul{margin-left:18px;margin-top:6px;}
   .note-box.info{border-left-color:var(--blue);}
   .note-box.info h4{color:var(--blue);}
+
+  /* PLAN DE TRADING */
+  .plan-toggle-btn{
+    background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--gold);
+    border-radius:8px;padding:12px 18px;width:100%;text-align:left;cursor:pointer;
+    color:var(--gold);font-size:14px;font-weight:700;margin-bottom:6px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .plan-toggle-btn:hover{background:var(--panel2);}
+  .plan-section{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:24px;margin-bottom:20px;display:none;
+  }
+  .plan-section h2{color:var(--gold);font-size:16px;margin-bottom:20px;display:flex;align-items:center;gap:8px;}
+  .plan-cols{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+  @media(max-width:800px){.plan-cols{grid-template-columns:1fr;}}
+  .plan-block{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:16px;}
+  .plan-block h3{color:var(--blue);font-size:13px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px;}
+  .plan-rule{display:flex;gap:10px;margin-bottom:10px;font-size:13px;line-height:1.6;}
+  .plan-rule .num{color:var(--gold);font-weight:700;min-width:20px;}
+  .plan-rule .txt{color:var(--text);}
+  .plan-rule .txt b{color:#fff;}
+  .plan-rule .txt .tag-ict{background:#1a2a4a;color:var(--blue);border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;}
+  .plan-sub{margin-left:30px;margin-bottom:8px;font-size:12px;color:var(--muted);line-height:1.7;}
+  .plan-sub b{color:var(--text);}
+  .plan-badge{
+    display:inline-block;background:var(--panel);border:1px solid var(--border);border-radius:6px;
+    padding:4px 10px;font-size:12px;font-weight:700;margin:3px 3px 3px 0;
+  }
+  .plan-badge.green{color:var(--green2);border-color:var(--green2);}
+  .plan-badge.red{color:var(--red);border-color:var(--red);}
+  .plan-badge.gold{color:var(--gold);border-color:var(--gold);}
+  .plan-badge.blue{color:var(--blue);border-color:var(--blue);}
+  .plan-screenshots{margin-top:20px;}
+  .plan-screenshots h3{color:var(--blue);font-size:13px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px;}
+  .screenshots-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  @media(max-width:700px){.screenshots-grid{grid-template-columns:1fr;}}
+  .screenshot-box{
+    background:var(--panel2);border:1px solid var(--border);border-radius:8px;
+    overflow:hidden;aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);font-size:12px;text-align:center;flex-direction:column;gap:8px;
+  }
+  .screenshot-box img{width:100%;height:100%;object-fit:cover;}
+  .screenshot-label{padding:8px 10px;font-size:11px;color:var(--muted);background:var(--panel2);text-align:center;}
 </style>
 </head>
 <body>
@@ -154,6 +198,135 @@
 </header>
 
 <div class="note-box" id="dataNote"></div>
+
+<!-- PLAN DE TRADING -->
+<button class="plan-toggle-btn" onclick="togglePlan()" id="planToggleBtn">
+  📋 Mon Plan de Trading — Stratégie ICT
+  <span id="planToggleArrow">▼ Afficher</span>
+</button>
+<div class="plan-section" id="planSection">
+  <h2>📋 Plan de Trading — Stratégie <span style="background:#1a2a4a;color:var(--blue);border-radius:4px;padding:2px 10px;font-size:13px;">ICT</span></h2>
+
+  <div class="plan-cols">
+    <!-- COLONNE GAUCHE -->
+    <div>
+      <div class="plan-block" style="margin-bottom:16px;">
+        <h3>🔑 Règles générales</h3>
+        <div class="plan-rule"><span class="num">•</span><span class="txt">Pas de position le <b>weekend</b> — sauf si volatilité suffisante pour du Day Trading</span></div>
+        <div class="plan-rule"><span class="num">•</span><span class="txt"><b>Backtesting</b> des trades de la semaine le weekend</span></div>
+      </div>
+
+      <div class="plan-block" style="margin-bottom:16px;">
+        <h3>📅 Routine quotidienne</h3>
+        <div class="plan-rule"><span class="num">1</span><span class="txt">Analyse du <b>calendrier économique</b> à <b style="color:var(--gold);">06h30</b></span></div>
+        <div class="plan-rule"><span class="num">2</span><span class="txt">Setup des alertes de la journée à <b style="color:var(--gold);">15h00</b> pour la session killzone <b style="color:var(--blue);">14h30–17h New York (pm)</b></span></div>
+      </div>
+
+      <div class="plan-block">
+        <h3>⚡ Avant chaque trade</h3>
+        <div class="plan-rule"><span class="num">↗</span><span class="txt"><b>Quand entrer :</b></span></div>
+        <div class="plan-sub">
+          <span class="plan-badge blue">Liquidity Sweep (LS)</span>
+          <span class="plan-badge blue">FVG</span>
+          <span class="plan-badge blue">Retest Breaker Block</span><br>
+          En <b>H15</b> dans le bias du <b>H4</b> sur la session
+        </div>
+        <div class="plan-rule" style="margin-top:8px;"><span class="num">↙</span><span class="txt"><b>Quand sortir :</b></span></div>
+        <div class="plan-sub">
+          <span class="plan-badge green">TP liquide — RR min 2:1</span><br>
+          <span class="plan-badge green">TP RR 2:1 si price discovery</span><br>
+          <span class="plan-badge gold">SL ou BE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLONNE DROITE -->
+    <div>
+      <div class="plan-block" style="margin-bottom:16px;">
+        <h3>🔧 Trade Management</h3>
+        <div class="plan-rule"><span class="num">4</span><span class="txt"><b>Trailing Stop avec SL</b> — Déplacer sous la mèche de bougie lors d'une clôture après HH ou HL</span></div>
+        <div class="plan-sub">Mettre une alerte sur <b>TradingView</b> pour ne pas rater le déplacement</div>
+      </div>
+
+      <div class="plan-block" style="margin-bottom:16px;">
+        <h3>🛡️ Risk Management</h3>
+        <div class="plan-rule">
+          <span class="num">⚠</span>
+          <span class="txt" style="color:var(--red);font-weight:700;font-size:14px;">1 TRADE PAR JOUR MAXIMUM</span>
+        </div>
+        <div class="plan-sub">
+          <span class="plan-badge red">Risque 4% / position</span>
+          <span class="plan-badge gold">+ marge 0,9% de frais</span><br><br>
+          <b>Ne pas dépasser 1 trade par jour</b>
+        </div>
+        <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+          <div style="background:var(--panel);border-radius:6px;padding:8px 10px;border-left:3px solid var(--green2);">
+            <b style="color:var(--green2);">-1 TP</b><br><span style="color:var(--muted);">Fin de session</span>
+          </div>
+          <div style="background:var(--panel);border-radius:6px;padding:8px 10px;border-left:3px solid var(--red);">
+            <b style="color:var(--red);">-1 SL</b><br><span style="color:var(--muted);">Fin de session</span>
+          </div>
+          <div style="background:var(--panel);border-radius:6px;padding:8px 10px;border-left:3px solid var(--gold);grid-column:1/-1;">
+            <b style="color:var(--gold);">-1 BE</b><br><span style="color:var(--muted);">Fin de session</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="plan-block">
+        <h3>🔗 Ressources</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;">
+          <a href="https://fr.investing.com/economic-calendar/" target="_blank" style="color:var(--blue);text-decoration:none;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">📅 Calendrier économique</a>
+          <a href="https://www.winrate.io/" target="_blank" style="color:var(--blue);text-decoration:none;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">📊 Winrate Simulator</a>
+          <a href="https://coinmarketcap.com/fr/" target="_blank" style="color:var(--blue);text-decoration:none;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">🪙 CoinMarketCap</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CAPTURES D'ÉCRAN DES SETUPS -->
+  <div class="plan-screenshots">
+    <h3>📸 Exemples de Setups — Stratégie ICT</h3>
+    <div class="screenshots-grid">
+      <div>
+        <div class="screenshot-box" id="screen1box">
+          <div id="screen1placeholder">
+            <div style="font-size:28px;">📷</div>
+            <div>Setup #1<br>Liquidity Sweep + FVG</div>
+            <label for="screen1upload" style="cursor:pointer;color:var(--blue);font-size:11px;margin-top:6px;text-decoration:underline;">Cliquer pour ajouter l'image</label>
+            <input type="file" id="screen1upload" accept="image/*" style="display:none" onchange="loadScreenshot(this,'screen1box','screen1placeholder','sc1')">
+          </div>
+          <img id="screen1img" src="" style="display:none;width:100%;height:100%;object-fit:cover;">
+        </div>
+        <div class="screenshot-label">Setup 1 — Entrée sur Breaker Block</div>
+      </div>
+      <div>
+        <div class="screenshot-box" id="screen2box">
+          <div id="screen2placeholder">
+            <div style="font-size:28px;">📷</div>
+            <div>Setup #2<br>FVG + Retest</div>
+            <label for="screen2upload" style="cursor:pointer;color:var(--blue);font-size:11px;margin-top:6px;text-decoration:underline;">Cliquer pour ajouter l'image</label>
+            <input type="file" id="screen2upload" accept="image/*" style="display:none" onchange="loadScreenshot(this,'screen2box','screen2placeholder','sc2')">
+          </div>
+          <img id="screen2img" src="" style="display:none;width:100%;height:100%;object-fit:cover;">
+        </div>
+        <div class="screenshot-label">Setup 2 — FVG Retest</div>
+      </div>
+      <div>
+        <div class="screenshot-box" id="screen3box">
+          <div id="screen3placeholder">
+            <div style="font-size:28px;">📷</div>
+            <div>Setup #3<br>Liquidity Sweep</div>
+            <label for="screen3upload" style="cursor:pointer;color:var(--blue);font-size:11px;margin-top:6px;text-decoration:underline;">Cliquer pour ajouter l'image</label>
+            <input type="file" id="screen3upload" accept="image/*" style="display:none" onchange="loadScreenshot(this,'screen3box','screen3placeholder','sc3')">
+          </div>
+          <img id="screen3img" src="" style="display:none;width:100%;height:100%;object-fit:cover;">
+        </div>
+        <div class="screenshot-label">Setup 3 — Liquidity Sweep</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--muted);">💡 Les images sont sauvegardées localement dans ton navigateur — elles restent visibles à chaque ouverture du fichier.</div>
+  </div>
+</div>
 
 <div class="filters">
   <div class="group account">
@@ -1561,6 +1734,41 @@ function submitAddTrade(e){
 /* =========================================================
    INIT
    ========================================================= */
+function togglePlan(){
+  const s = document.getElementById('planSection');
+  const a = document.getElementById('planToggleArrow');
+  const open = s.style.display === 'block';
+  s.style.display = open ? 'none' : 'block';
+  a.textContent = open ? '▼ Afficher' : '▲ Masquer';
+}
+
+function loadScreenshot(input, boxId, placeholderId, storageKey){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const data = e.target.result;
+    try { localStorage.setItem('planScreenshot_'+storageKey, data); } catch(err){}
+    const num = boxId.replace('screen','').replace('box','');
+    document.getElementById('screen'+num+'img').src = data;
+    document.getElementById('screen'+num+'img').style.display = 'block';
+    document.getElementById(placeholderId).style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function restoreScreenshots(){
+  ['sc1','sc2','sc3'].forEach(function(k, i){
+    const num = i+1;
+    const data = localStorage.getItem('planScreenshot_'+k);
+    if(data){
+      document.getElementById('screen'+num+'img').src = data;
+      document.getElementById('screen'+num+'img').style.display = 'block';
+      document.getElementById('screen'+num+'placeholder').style.display = 'none';
+    }
+  });
+}
+
 async function init(){
   // Tente de charger un compte connecté via l'API Kraken
   // (généré par kraken_sync/export_kraken_trades.py).
@@ -1583,6 +1791,7 @@ async function init(){
   populateAccountOptions();
   populateFilterOptions();
   applyFilters();
+  restoreScreenshots();
 }
 init();
 </script>
