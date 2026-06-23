@@ -412,66 +412,93 @@
 
 <!-- Formulaire d'ajout / modification de trade -->
 <div class="filters" id="addTradePanel" style="display:none;">
-  <div style="width:100%;font-weight:700;font-size:14px;color:var(--text);margin-bottom:4px;" id="formTitle">+ Ajouter un trade</div>
-  <form id="addTradeForm" onsubmit="submitAddTrade(event)" style="display:flex;flex-wrap:wrap;gap:12px;width:100%;">
-    <div class="group">
-      <label>Date</label>
-      <input type="date" id="atDate" required>
+  <div style="width:100%;font-weight:700;font-size:15px;color:var(--text);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;" id="formTitle">
+    ➕ Nouveau trade
+    <span style="font-size:11px;color:var(--muted);font-weight:400;">Les autres données sont calculées automatiquement</span>
+  </div>
+  <form id="addTradeForm" onsubmit="submitAddTrade(event)" style="display:flex;flex-wrap:wrap;gap:14px;width:100%;">
+
+    <!-- LIGNE 1 : essentiels -->
+    <div class="group" style="min-width:160px;">
+      <label>Paire de trading</label>
+      <select id="atActif" style="background:var(--panel2);border:1px solid var(--blue);color:#fff;padding:7px 10px;border-radius:6px;font-size:14px;font-weight:700;">
+        <option value="BTC/USD">BTC/USD</option>
+        <option value="BTC/USDT">BTC/USDT</option>
+        <option value="ETH/USDT">ETH/USDT</option>
+        <option value="ETH/USD">ETH/USD</option>
+        <option value="SOL/USDT">SOL/USDT</option>
+        <option value="XRP/USDT">XRP/USDT</option>
+        <option value="DOGE/USDT">DOGE/USDT</option>
+        <option value="autre">✏️ Autre (saisir manuellement)</option>
+      </select>
     </div>
-    <div class="group">
-      <label>Actif</label>
-      <input type="text" id="atActif" placeholder="BTC/USD" required>
+    <div class="group" id="atActifCustomGroup" style="display:none;min-width:140px;">
+      <label>Paire personnalisée</label>
+      <input type="text" id="atActifCustom" placeholder="ex: LINK/USDT" style="background:var(--panel2);border:1px solid var(--blue);color:#fff;padding:7px 10px;border-radius:6px;font-size:14px;">
     </div>
+
     <div class="group">
       <label>Sens</label>
-      <select id="atSens">
-        <option value="Achat">Achat</option>
-        <option value="Vente">Vente</option>
-      </select>
+      <div style="display:flex;gap:6px;margin-top:2px;">
+        <button type="button" id="btnAchat" onclick="setSens('Achat')"
+          style="padding:8px 18px;border-radius:6px;border:2px solid var(--green2);background:var(--green2);color:#fff;font-weight:700;cursor:pointer;font-size:13px;">▲ Achat</button>
+        <button type="button" id="btnVente" onclick="setSens('Vente')"
+          style="padding:8px 18px;border-radius:6px;border:2px solid var(--border);background:transparent;color:var(--muted);font-weight:700;cursor:pointer;font-size:13px;">▼ Vente</button>
+      </div>
+      <input type="hidden" id="atSens" value="Achat">
     </div>
-    <div class="group">
-      <label>Lots / taille</label>
-      <input type="number" step="any" id="atLots" placeholder="0.05">
+
+    <div class="group" style="min-width:120px;">
+      <label>Taille de lot</label>
+      <input type="number" step="any" id="atLots" placeholder="ex: 0.054" required
+        style="background:var(--panel2);border:1px solid var(--border);color:#fff;padding:7px 10px;border-radius:6px;font-size:14px;font-weight:700;">
     </div>
-    <div class="group">
-      <label>RR prévu</label>
-      <input type="number" step="any" id="atRRPrevu" placeholder="2">
+
+    <div class="group" style="min-width:150px;">
+      <label>Nouveau solde ($) <span style="color:var(--muted);font-weight:400;font-size:10px;">après le trade</span></label>
+      <input type="number" step="any" id="atNouveauSolde" placeholder="ex: 4971.95" required
+        style="background:var(--panel2);border:2px solid var(--gold);color:var(--gold);padding:7px 10px;border-radius:6px;font-size:14px;font-weight:700;"
+        oninput="previewAutoCalc()">
     </div>
-    <div class="group">
-      <label>RR réel</label>
-      <input type="number" step="any" id="atRRReel" placeholder="2">
+
+    <div class="group" style="flex:1 1 260px;">
+      <label>Commentaire</label>
+      <input type="text" id="atNote" placeholder="Ex : bon setup LS + FVG, confirmation BB..."
+        style="background:var(--panel2);border:1px solid var(--border);color:#fff;padding:7px 10px;border-radius:6px;font-size:13px;width:100%;">
     </div>
-    <div class="group">
-      <label>Résultat</label>
-      <select id="atResultat">
-        <option value="auto">Auto (selon le PnL)</option>
-        <option value="Gain">Gain</option>
-        <option value="Perte">Perte</option>
-        <option value="BE">BE (breakeven)</option>
-      </select>
+
+    <!-- LIENS TV optionnels (repliables) -->
+    <div style="width:100%;border-top:1px solid var(--border);padding-top:10px;margin-top:2px;">
+      <button type="button" onclick="toggleTVLinks()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;padding:0;" id="tvLinksToggle">
+        + Ajouter les liens TradingView (optionnel)
+      </button>
+      <div id="tvLinksBlock" style="display:none;display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;">
+        <div class="group" style="flex:1 1 240px;">
+          <label>Setup AVANT (lien TV)</label>
+          <input type="url" id="atSetupAvant" placeholder="https://www.tradingview.com/x/...">
+        </div>
+        <div class="group" style="flex:1 1 240px;">
+          <label>Setup APRÈS (lien TV)</label>
+          <input type="url" id="atSetupApres" placeholder="https://www.tradingview.com/x/...">
+        </div>
+      </div>
     </div>
-    <div class="group">
-      <label>PnL ($)</label>
-      <input type="number" step="any" id="atPnl" placeholder="ex: -12.5" required>
+
+    <!-- PRÉVISUALISATION AUTO-CALC -->
+    <div id="autoCalcPreview" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;display:none;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Calculé automatiquement ↓</div>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:13px;">
+        <div><span style="color:var(--muted);">PnL : </span><b id="previewPnl" style="color:#fff;">—</b></div>
+        <div><span style="color:var(--muted);">Résultat : </span><b id="previewResultat">—</b></div>
+        <div><span style="color:var(--muted);">% compte : </span><b id="previewPct" style="color:#fff;">—</b></div>
+        <div><span style="color:var(--muted);">Risque max : </span><b id="previewRisque" style="color:#fff;">—</b></div>
+        <div><span style="color:var(--muted);">RR prévu : </span><b id="previewRR" style="color:#fff;">—</b></div>
+        <div><span style="color:var(--muted);">Date : </span><b id="previewDate" style="color:#fff;">—</b></div>
+      </div>
     </div>
-    <div class="group">
-      <label>Risque max ($)</label>
-      <input type="number" step="any" id="atRisque" placeholder="ex: 25">
-    </div>
-    <div class="group" style="flex:1 1 240px;">
-      <label>Lien TradingView — Setup AVANT</label>
-      <input type="url" id="atSetupAvant" placeholder="https://www.tradingview.com/x/...">
-    </div>
-    <div class="group" style="flex:1 1 240px;">
-      <label>Lien TradingView — Setup APRÈS</label>
-      <input type="url" id="atSetupApres" placeholder="https://www.tradingview.com/x/...">
-    </div>
-    <div class="group" style="flex:1 1 240px;">
-      <label>Note</label>
-      <input type="text" id="atNote" placeholder="Commentaire sur le trade">
-    </div>
-    <div class="group" style="align-self:flex-end;flex-direction:row;gap:8px;">
-      <button type="submit">Enregistrer le trade</button>
+
+    <div class="group" style="align-self:flex-end;flex-direction:row;gap:8px;margin-top:4px;">
+      <button type="submit" style="background:var(--green2);border:none;color:#fff;padding:10px 24px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;">✅ Enregistrer</button>
       <button type="button" class="secondary" onclick="toggleAddTradeForm()">Annuler</button>
     </div>
   </form>
@@ -1655,36 +1682,115 @@ function clearSavedTrades(){
   location.reload();
 }
 
+// ── PAIRES CUSTOM ──
+document.addEventListener('DOMContentLoaded', function(){
+  const sel = document.getElementById('atActif');
+  if(sel) sel.addEventListener('change', function(){
+    const custom = document.getElementById('atActifCustomGroup');
+    if(custom) custom.style.display = this.value === 'autre' ? 'flex' : 'none';
+  });
+});
+
+function setSens(sens){
+  document.getElementById('atSens').value = sens;
+  const bA = document.getElementById('btnAchat');
+  const bV = document.getElementById('btnVente');
+  if(sens === 'Achat'){
+    bA.style.background='var(--green2)'; bA.style.borderColor='var(--green2)'; bA.style.color='#fff';
+    bV.style.background='transparent'; bV.style.borderColor='var(--border)'; bV.style.color='var(--muted)';
+  } else {
+    bV.style.background='var(--red)'; bV.style.borderColor='var(--red)'; bV.style.color='#fff';
+    bA.style.background='transparent'; bA.style.borderColor='var(--border)'; bA.style.color='var(--muted)';
+  }
+}
+
+function toggleTVLinks(){
+  const b = document.getElementById('tvLinksBlock');
+  const t = document.getElementById('tvLinksToggle');
+  const open = b.style.display === 'flex';
+  b.style.display = open ? 'none' : 'flex';
+  t.textContent = open ? '+ Ajouter les liens TradingView (optionnel)' : '− Masquer les liens TradingView';
+}
+
+function previewAutoCalc(){
+  const ds = DATASETS[currentDataset];
+  if(!ds) return;
+  const trades = ds.trades;
+  const prevSolde = trades.length ? trades[trades.length-1].solde : ds.soldeInitial;
+  const nouveauSolde = parseFloat(document.getElementById('atNouveauSolde').value);
+  if(isNaN(nouveauSolde)){ document.getElementById('autoCalcPreview').style.display='none'; return; }
+  const pnl = Math.round((nouveauSolde - prevSolde)*10000)/10000;
+  const resultat = pnl > 0.001 ? 'Gain' : (pnl < -0.001 ? 'Perte' : 'BE');
+  const pct = prevSolde !== 0 ? Math.round(pnl/prevSolde*100*100)/100 : 0;
+  const plan = JSON.parse(localStorage.getItem('planSettings')||'null') || PLAN_DEFAULTS;
+  const risqueMax = Math.round(prevSolde * plan.risk / 100 * 100) / 100;
+  const colors = {Gain:'var(--green2)', Perte:'var(--red)', BE:'var(--gold)'};
+  document.getElementById('previewPnl').textContent = (pnl >= 0 ? '+' : '') + pnl + ' $';
+  document.getElementById('previewPnl').style.color = colors[resultat];
+  document.getElementById('previewResultat').textContent = resultat;
+  document.getElementById('previewResultat').style.color = colors[resultat];
+  document.getElementById('previewPct').textContent = (pct >= 0 ? '+' : '') + pct + ' %';
+  document.getElementById('previewPct').style.color = colors[resultat];
+  document.getElementById('previewRisque').textContent = risqueMax + ' $';
+  document.getElementById('previewRR').textContent = plan.rrMin + ':1';
+  document.getElementById('previewDate').textContent = new Date().toLocaleDateString('fr-FR');
+  document.getElementById('autoCalcPreview').style.display = 'block';
+}
+
 function readFormValues(){
-  const date = document.getElementById('atDate').value;
-  const actif = document.getElementById('atActif').value.trim();
-  const sens = document.getElementById('atSens').value;
+  const ds = DATASETS[currentDataset];
+  const trades = ds ? ds.trades : [];
+  const prevSolde = trades.length ? trades[trades.length-1].solde : (ds ? ds.soldeInitial : 0);
+
+  // Actif : menu déroulant ou champ personnalisé
+  let actif = document.getElementById('atActif').value;
+  if(actif === 'autre'){
+    actif = (document.getElementById('atActifCustom').value || '').trim() || 'AUTRE';
+  }
+
+  const sens = document.getElementById('atSens').value || 'Achat';
   const lots = document.getElementById('atLots').value === '' ? null : parseFloat(document.getElementById('atLots').value);
-  const rrPrevu = document.getElementById('atRRPrevu').value === '' ? null : parseFloat(document.getElementById('atRRPrevu').value);
-  const rrReel = document.getElementById('atRRReel').value === '' ? null : parseFloat(document.getElementById('atRRReel').value);
-  const pnl = parseFloat(document.getElementById('atPnl').value) || 0;
-  const risqueMax = document.getElementById('atRisque').value === '' ? null : parseFloat(document.getElementById('atRisque').value);
-  const setupAvant = document.getElementById('atSetupAvant').value.trim() || null;
-  const setupApres = document.getElementById('atSetupApres').value.trim() || null;
   const note = document.getElementById('atNote').value.trim();
-  let resultat = document.getElementById('atResultat').value;
-  if(resultat === 'auto') resultat = pnl > 0 ? 'Gain' : (pnl < 0 ? 'Perte' : 'BE');
-  return {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupAvant, setupApres, note, resultat};
+  const setupAvant = (document.getElementById('atSetupAvant').value||'').trim() || null;
+  const setupApres = (document.getElementById('atSetupApres').value||'').trim() || null;
+
+  // Nouveau solde → calcul auto du reste
+  const nouveauSolde = parseFloat(document.getElementById('atNouveauSolde').value) || prevSolde;
+  const pnl = Math.round((nouveauSolde - prevSolde)*10000)/10000;
+  const resultat = pnl > 0.001 ? 'Gain' : (pnl < -0.001 ? 'Perte' : 'BE');
+  const pct = prevSolde !== 0 ? Math.round(pnl/prevSolde*100*10000)/10000 : 0;
+  const plan = JSON.parse(localStorage.getItem('planSettings')||'null') || PLAN_DEFAULTS;
+  const risqueMax = Math.round(prevSolde * plan.risk / 100 * 100) / 100;
+  const rrPrevu = plan.rrMin;
+  const rrReel = risqueMax !== 0 ? Math.round(pnl/risqueMax*100)/100 : null;
+  const date = new Date().toISOString().slice(0,10);
+
+  return {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupAvant, setupApres, note, resultat, pct, solde: nouveauSolde};
 }
 
 function fillForm(t){
-  document.getElementById('atDate').value = t.date || '';
-  document.getElementById('atActif').value = t.actif || '';
-  document.getElementById('atSens').value = t.sens || 'Achat';
+  // Paire
+  const sel = document.getElementById('atActif');
+  const knownPairs = Array.from(sel.options).map(o=>o.value);
+  if(knownPairs.includes(t.actif)){
+    sel.value = t.actif;
+    document.getElementById('atActifCustomGroup').style.display='none';
+  } else {
+    sel.value = 'autre';
+    document.getElementById('atActifCustomGroup').style.display='flex';
+    document.getElementById('atActifCustom').value = t.actif || '';
+  }
+  setSens(t.sens || 'Achat');
   document.getElementById('atLots').value = t.lots ?? '';
-  document.getElementById('atRRPrevu').value = t.rrPrevu ?? '';
-  document.getElementById('atRRReel').value = t.rrReel ?? '';
-  document.getElementById('atPnl').value = t.pnl ?? '';
-  document.getElementById('atRisque').value = t.risqueMax ?? '';
+  document.getElementById('atNouveauSolde').value = t.solde ?? '';
   document.getElementById('atSetupAvant').value = t.setupAvant || '';
   document.getElementById('atSetupApres').value = t.setupApres || '';
   document.getElementById('atNote').value = t.note || '';
-  document.getElementById('atResultat').value = ['Gain','Perte','BE'].includes(t.resultat) ? t.resultat : 'auto';
+  if(t.setupAvant || t.setupApres){
+    document.getElementById('tvLinksBlock').style.display='flex';
+    document.getElementById('tvLinksToggle').textContent='− Masquer les liens TradingView';
+  }
+  previewAutoCalc();
 }
 
 function openEditTrade(encodedKey){
@@ -1705,8 +1811,12 @@ function toggleAddTradeForm(){
   if(show){
     editingTradeKey = null;
     document.getElementById('addTradeForm').reset();
-    document.getElementById('atDate').value = new Date().toISOString().slice(0,10);
-    document.getElementById('formTitle').textContent = '+ Ajouter un trade';
+    setSens('Achat');
+    document.getElementById('autoCalcPreview').style.display='none';
+    document.getElementById('tvLinksBlock').style.display='none';
+    document.getElementById('tvLinksToggle').textContent='+ Ajouter les liens TradingView (optionnel)';
+    document.getElementById('atActifCustomGroup').style.display='none';
+    document.getElementById('formTitle').innerHTML='➕ Nouveau trade <span style="font-size:11px;color:var(--muted);font-weight:400;">Les autres données sont calculées automatiquement</span>';
   }
   panel.style.display = show ? 'block' : 'none';
 }
@@ -1714,10 +1824,10 @@ function toggleAddTradeForm(){
 function submitAddTrade(e){
   e.preventDefault();
   const ds = DATASETS[currentDataset];
-  const {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupAvant, setupApres, note, resultat} = readFormValues();
+  const {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupAvant, setupApres, note, resultat, pct, solde} = readFormValues();
 
-  if(!date || !actif){
-    alert("Merci de renseigner au moins la date et l'actif.");
+  if(!actif){
+    alert("Merci de choisir une paire de trading.");
     return;
   }
 
@@ -1730,36 +1840,26 @@ function submitAddTrade(e){
       date, actif, sens, lots, rrPrevu, rrReel, resultat,
       pnl: Math.round(pnl*10000)/10000,
       risqueMax, setupAvant, setupApres, note,
+      solde: Math.round(solde*10000)/10000, pct,
     });
-    // recalcul solde et pct basé sur le solde du trade précédent
-    const prevSolde = idx > 0 ? ds.trades[idx-1].solde : ds.soldeInitial;
-    updated.solde = Math.round((prevSolde + updated.pnl)*10000)/10000;
-    updated.pct = prevSolde !== 0 ? Math.round(updated.pnl/prevSolde*100*10000)/10000 : 0;
-
     ds.trades[idx] = updated;
-
-    // Sauvegarder la modification dans le navigateur
     const editsKey = 'editedTrades_'+currentDataset;
     const edits = JSON.parse(localStorage.getItem(editsKey) || '{}');
     edits[editingTradeKey] = updated;
-    // Mettre à jour la clé si elle a changé (ex: sens ou date modifié)
     const newKey = tradeKey(updated);
     if(newKey !== editingTradeKey){ edits[newKey] = updated; delete edits[editingTradeKey]; }
     localStorage.setItem(editsKey, JSON.stringify(edits));
-
     editingTradeKey = null;
   } else {
     // ── MODE AJOUT ──
     const trades = ds.trades;
-    const prevSolde = trades.length ? trades[trades.length-1].solde : ds.soldeInitial;
-    const solde = Math.round((prevSolde + pnl)*10000)/10000;
-    const pct = prevSolde !== 0 ? Math.round(pnl/prevSolde*100*10000)/10000 : 0;
     let maxJour = 0;
     trades.forEach(t=>{ const m=/JOUR\s*(\d+)/.exec(t.jour||''); if(m) maxJour=Math.max(maxJour,parseInt(m[1],10)); });
     const newTrade = {
       jour:`JOUR ${maxJour+1}`, date, actif, sens, lots, rrPrevu, rrReel, resultat,
       pnl:Math.round(pnl*10000)/10000, risqueMax,
-      pct, setupAvant, setupApres, note, solde,
+      pct, setupAvant, setupApres, note,
+      solde: Math.round(solde*10000)/10000,
     };
     trades.push(newTrade);
     const saved = JSON.parse(localStorage.getItem('manualTrades_'+currentDataset) || '[]');
