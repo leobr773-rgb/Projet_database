@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Trading — Journaux de performance</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trading Dashboard">
+<meta name="theme-color" content="#0b0e14">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
   :root{
@@ -124,6 +131,31 @@
   .reco-list li b{color:#fff;}
 
   .empty-msg{color:var(--muted);text-align:center;padding:40px;font-size:13px;}
+
+  /* PWA INSTALL BANNER */
+  #pwaInstallBanner{
+    display:none;
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:linear-gradient(135deg,#1a2a4a,#162032);
+    border:1px solid var(--blue);border-radius:16px;
+    padding:14px 20px;z-index:9999;
+    box-shadow:0 8px 32px rgba(0,0,0,.6);
+    align-items:center;gap:14px;min-width:300px;max-width:90vw;
+  }
+  #pwaInstallBanner .pwa-icon{font-size:28px;flex-shrink:0;}
+  #pwaInstallBanner .pwa-text{flex:1;}
+  #pwaInstallBanner .pwa-text b{color:#fff;font-size:14px;display:block;}
+  #pwaInstallBanner .pwa-text span{color:var(--muted);font-size:12px;}
+  #pwaInstallBtn{
+    background:var(--blue);border:none;color:#fff;
+    padding:9px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;
+    white-space:nowrap;
+  }
+  #pwaInstallBtn:hover{background:#357abd;}
+  #pwaDismissBtn{
+    background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;
+    padding:4px;line-height:1;flex-shrink:0;
+  }
 
   footer{
     margin-top:30px;padding-top:16px;border-top:1px solid var(--border);
@@ -1997,6 +2029,64 @@ async function init(){
   loadPlanSettings();
 }
 init();
+
+/* =========================================================
+   PWA — Service Worker + Install prompt
+   ========================================================= */
+let pwaInstallEvent = null;
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('SW enregistré :', reg.scope))
+      .catch(err => console.log('SW erreur :', err));
+  });
+}
+
+// Capture l'événement d'installation natif du navigateur
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  pwaInstallEvent = e;
+  // Affiche la bannière si pas encore installé
+  if(!localStorage.getItem('pwaDismissed')){
+    document.getElementById('pwaInstallBanner').style.display = 'flex';
+  }
+});
+
+function installPWA(){
+  if(!pwaInstallEvent) return;
+  pwaInstallEvent.prompt();
+  pwaInstallEvent.userChoice.then(choice => {
+    if(choice.outcome === 'accepted'){
+      document.getElementById('pwaInstallBanner').style.display = 'none';
+    }
+    pwaInstallEvent = null;
+  });
+}
+
+function dismissPWABanner(){
+  document.getElementById('pwaInstallBanner').style.display = 'none';
+  localStorage.setItem('pwaDismissed', '1');
+}
+
+// Ouvre le formulaire si l'URL contient #add (shortcut manifest)
+if(window.location.hash === '#add'){
+  window.addEventListener('load', () => {
+    setTimeout(() => toggleAddTradeForm(), 500);
+  });
+}
 </script>
+
+<!-- BANNIÈRE INSTALLATION PWA -->
+<div id="pwaInstallBanner">
+  <div class="pwa-icon">📲</div>
+  <div class="pwa-text">
+    <b>Installer sur Android</b>
+    <span>Accès rapide depuis ton écran d'accueil, fonctionne offline</span>
+  </div>
+  <button id="pwaInstallBtn" onclick="installPWA()">Installer</button>
+  <button id="pwaDismissBtn" onclick="dismissPWABanner()" title="Fermer">×</button>
+</div>
+
 </body>
 </html>
