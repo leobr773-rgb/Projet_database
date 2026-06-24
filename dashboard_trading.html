@@ -1956,14 +1956,8 @@ function switchTab(name) {
     if (planBtn) planBtn.style.display = '';
     if (planSec) {
       planSec.style.display = 'block';
-      // auto-open plan on first visit
-      if (!planSec.dataset.wasOpen) {
-        planSec.style.display = 'block';
-        var arrow = document.getElementById('planToggleArrow');
-        if (arrow) arrow.textContent = '▲ Masquer';
-      } else {
-        planSec.style.display = planSec.dataset.wasOpen === '1' ? 'block' : 'none';
-      }
+      var arrow = document.getElementById('planToggleArrow');
+      if (arrow) arrow.textContent = '▲ Masquer';
     }
 
   } else if (name === 'comptes') {
