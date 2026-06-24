@@ -434,7 +434,7 @@
   </div>
   <button onclick="applyFilters()">Filtrer</button>
   <button class="secondary" onclick="resetFilters()">Réinitialiser</button>
-  <button class="secondary" onclick="toggleAddTradeForm()" style="margin-left:auto;">+ Ajouter un trade</button>
+  <button class="secondary btn-add-trade-desktop" id="btnAddTradeDesktop" onclick="toggleAddTradeForm()" style="margin-left:auto;">+ Ajouter un trade</button>
   <button class="secondary" onclick="clearSavedTrades()" title="Supprime les trades ajoutés via le formulaire (pas ceux du fichier HTML)" style="color:#e05c5c;">🗑 Vider le cache</button>
 </div>
 
@@ -620,6 +620,8 @@
     <th>Résultat</th><th>P&L ($)</th><th>Risque max ($)</th><th>%</th><th>Solde après</th><th>Charts TV</th><th>Note</th><th></th>
   </tr></thead><tbody></tbody></table>
   </div>
+  <!-- Mobile trade cards (shown on mobile instead of table) -->
+  <div class="trade-cards" id="tradeCards"></div>
 </div>
 
 <div class="note-box info">
@@ -638,6 +640,8 @@
 <footer>
   Dashboard généré automatiquement à partir des journaux de trading — toutes les valeurs sont recalculées dynamiquement depuis les tableaux de données embarqués dans ce fichier.
 </footer>
+
+</div><!-- /section-dashboard -->
 
 <script>
 /* =========================================================
@@ -1685,6 +1689,154 @@ async function _tryUnlock(){
   // Sinon afficher l'overlay et focus sur le champ
   setTimeout(()=>{ const el=document.getElementById('unlockInput'); if(el) el.focus(); }, 100);
 })();
+
+/* ========== MOBILE UX — Bottom Nav Tab Switching & Trade Cards ========== */
+
+// switchTab: called by bottom nav li elements
+function switchTab(name) {
+  // Update active tab indicator
+  ['dashboard','trades','plan'].forEach(function(n) {
+    var el = document.getElementById('tab-' + n);
+    if (el) el.classList.toggle('active', n === name);
+  });
+
+  if (window.innerWidth > 768) return; // Desktop: always show everything
+
+  var secDash    = document.getElementById('section-dashboard');
+  var planBtn    = document.getElementById('planToggleBtn');
+  var planSec    = document.getElementById('planSection');
+  var dataNote   = document.getElementById('dataNote');
+  var headerEl   = document.querySelector('header');
+  var fabEl      = document.getElementById('fabAdd');
+
+  // Elements that belong only to dashboard tab (charts, streaks, recos, note-box, footer)
+  // These are all inside section-dashboard so toggling that div is enough.
+
+  if (name === 'dashboard') {
+    if (secDash)  secDash.style.display  = '';
+    if (planBtn)  planBtn.style.display  = 'none';
+    if (planSec)  planSec.style.display  = 'none';
+    if (dataNote) dataNote.style.display = '';
+    if (headerEl) headerEl.style.display = '';
+    if (fabEl)    fabEl.style.display    = 'none';
+    // Hide journal panel, show rest
+    var journalPanel = document.getElementById('tradeCards') ? document.getElementById('tradeCards').closest('.panel') : null;
+    if (journalPanel) journalPanel.style.display = 'none';
+    var kpiGrid = document.getElementById('kpiGrid');
+    if (kpiGrid) kpiGrid.style.display = '';
+    // Show all grid/panel elements except journal
+    document.querySelectorAll('#section-dashboard > .grid, #section-dashboard > .panel:not(:last-of-type), #section-dashboard > .reco-grid').forEach(function(el) { el.style.display = ''; });
+    var noteBox = document.querySelector('#section-dashboard .note-box.info');
+    if (noteBox) noteBox.style.display = 'none';
+    var footerEl = document.querySelector('footer');
+    if (footerEl) footerEl.style.display = 'none';
+  } else if (name === 'trades') {
+    if (secDash)  secDash.style.display  = '';
+    if (planBtn)  planBtn.style.display  = 'none';
+    if (planSec)  planSec.style.display  = 'none';
+    if (dataNote) dataNote.style.display = 'none';
+    if (headerEl) headerEl.style.display = 'none';
+    if (fabEl)    fabEl.style.display    = 'flex';
+    // Hide everything in section-dashboard except the journal panel
+    var kpiGrid2 = document.getElementById('kpiGrid');
+    if (kpiGrid2) kpiGrid2.style.display = 'none';
+    document.querySelectorAll('#section-dashboard > .grid, #section-dashboard > .reco-grid').forEach(function(el) { el.style.display = 'none'; });
+    document.querySelectorAll('#section-dashboard > .panel').forEach(function(el) {
+      var hasJournal = el.querySelector('#tableAll') || el.querySelector('#tradeCards');
+      el.style.display = hasJournal ? '' : 'none';
+    });
+    var noteBox2 = document.querySelector('#section-dashboard .note-box.info');
+    if (noteBox2) noteBox2.style.display = 'none';
+    var footerEl2 = document.querySelector('footer');
+    if (footerEl2) footerEl2.style.display = 'none';
+  } else if (name === 'plan') {
+    if (secDash)  secDash.style.display  = 'none';
+    if (planBtn)  planBtn.style.display  = '';
+    if (planSec)  planSec.style.display  = planSec.dataset.wasOpen === '1' ? 'block' : 'none';
+    if (dataNote) dataNote.style.display = 'none';
+    if (headerEl) headerEl.style.display = 'none';
+    if (fabEl)    fabEl.style.display    = 'none';
+  }
+}
+
+// Track plan section open state
+(function() {
+  var ps = document.getElementById('planSection');
+  if (ps) {
+    new MutationObserver(function() {
+      ps.dataset.wasOpen = ps.style.display === 'block' ? '1' : '0';
+    }).observe(ps, { attributes: true, attributeFilter: ['style'] });
+  }
+})();
+
+// Render mobile trade cards
+function renderTradeCards(trades) {
+  var container = document.getElementById('tradeCards');
+  if (!container) return;
+  if (!trades || trades.length === 0) {
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);">Aucun trade à afficher</div>';
+    return;
+  }
+  var sorted = trades.slice().sort(function(a, b) {
+    return new Date(b.date) - new Date(a.date);
+  });
+  var days = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  var html = '';
+  sorted.forEach(function(t) {
+    var pnl = parseFloat(t.pnl) || 0;
+    var pnlClass = pnl > 0 ? 'gain' : pnl < 0 ? 'perte' : 'be';
+    var pnlStr = (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + '$';
+    var solde = parseFloat(t.solde) || 0;
+    var sens = t.sens || '';
+    var d = new Date(t.date);
+    var dayLabel = isNaN(d) ? '' : days[d.getDay()];
+    var note = t.note || '';
+    var tvLinks = '';
+    if (t.setupAvant) tvLinks += '<a href="' + t.setupAvant + '" target="_blank" class="trade-card-actions btn-tv" style="flex:0 0 auto;padding:8px 12px;">📸</a>';
+    if (t.setupApres) tvLinks += '<a href="' + t.setupApres + '" target="_blank" class="trade-card-actions btn-tv" style="flex:0 0 auto;padding:8px 12px;">📈</a>';
+    var idxAttr = t._idx !== undefined ? t._idx : '';
+    var editCall = idxAttr !== '' ? 'editTrade(' + idxAttr + ')' : '';
+    html += '<div class="trade-card ' + pnlClass + '">' +
+      '<div class="trade-card-header">' +
+        '<div>' +
+          '<div class="trade-card-jour">' + dayLabel + ' · ' + (t.date || '') + '</div>' +
+          '<div style="font-size:14px;font-weight:700;color:var(--text);">' + (t.actif || '') + ' <span style="font-size:12px;font-weight:400;color:var(--muted);">' + sens + '</span></div>' +
+        '</div>' +
+        '<div class="trade-card-pnl ' + pnlClass + '">' + pnlStr + '</div>' +
+      '</div>' +
+      '<div class="trade-card-body">' +
+        '<span class="trade-card-chip">💰 ' + solde.toFixed(2) + '$</span>' +
+        (t.rr ? '<span class="trade-card-chip">RR ' + t.rr + '</span>' : '') +
+        (t.lots ? '<span class="trade-card-chip">' + t.lots + ' lots</span>' : '') +
+        (t.resultat ? '<span class="trade-card-chip">' + t.resultat + '</span>' : '') +
+      '</div>' +
+      (note ? '<div class="trade-card-note">💬 ' + note + '</div>' : '') +
+      '<div class="trade-card-actions">' +
+        (editCall ? '<button class="btn-edit" onclick="' + editCall + '" style="min-height:44px;">✏️ Modifier</button>' : '') +
+        tvLinks +
+      '</div>' +
+    '</div>';
+  });
+  container.innerHTML = html;
+}
+
+// Hook into renderAll to also render trade cards
+(function() {
+  if (typeof renderAll === 'function') {
+    var _orig = renderAll;
+    window.renderAll = function(trades, ds) {
+      _orig(trades, ds);
+      renderTradeCards(trades);
+    };
+  }
+})();
+
+// On mobile, initialize to dashboard tab
+if (window.innerWidth <= 768) {
+  document.addEventListener('DOMContentLoaded', function() {
+    switchTab('dashboard');
+  });
+}
 </script>
 </body>
 </html>
