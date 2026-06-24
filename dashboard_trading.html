@@ -565,9 +565,27 @@
       </div>
 
       <div class="plan-block" style="margin-bottom:16px;">
-        <h3>📅 Routine quotidienne</h3>
-        <div class="plan-rule"><span class="num">1</span><span class="txt">Analyse du <b>calendrier économique</b> à <b style="color:var(--gold);">06h30</b></span></div>
-        <div class="plan-rule"><span class="num">2</span><span class="txt">Setup des alertes de la journée à <b style="color:var(--gold);">15h00</b> pour la session killzone <b style="color:var(--blue);">14h30–17h New York (pm)</b></span></div>
+        <h3>📅 Routine quotidienne
+          <button onclick="toggleRoutineEdit()" id="routineEditBtn" style="margin-left:auto;background:var(--blue);border:none;color:#fff;padding:3px 10px;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600;">✏️ Modifier</button>
+        </h3>
+
+        <!-- MODE AFFICHAGE -->
+        <div id="routineViewMode">
+          <div id="routineLines"></div>
+        </div>
+
+        <!-- MODE ÉDITION -->
+        <div id="routineEditMode" style="display:none;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Une étape par ligne — numérotation automatique</div>
+          <textarea id="routineTextarea"
+            style="width:100%;min-height:120px;background:var(--panel);border:1px solid var(--blue);color:#fff;
+                   padding:10px;border-radius:8px;font-size:13px;line-height:1.7;resize:vertical;font-family:inherit;"
+            placeholder="Ex:&#10;Analyse du calendrier économique à 06h30&#10;Setup des alertes à 15h00 pour la killzone NY"></textarea>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button onclick="saveRoutine()" style="background:var(--green2);border:none;color:#fff;padding:8px 16px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700;">✅ Sauvegarder</button>
+            <button onclick="toggleRoutineEdit()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;">Annuler</button>
+          </div>
+        </div>
       </div>
 
       <div class="plan-block">
@@ -1997,6 +2015,7 @@ function loadPlanSettings(){
   document.getElementById('dispRRMin3').textContent = s.rrMin;
   document.getElementById('dispMaxTrades').textContent = s.maxTrades;
   document.getElementById('dispMaxTrades2').textContent = s.maxTrades;
+  loadRoutine();
 }
 
 function togglePlanEdit(){
@@ -2026,6 +2045,48 @@ function savePlanSettings(){
   localStorage.setItem('planSettings', JSON.stringify(s));
   loadPlanSettings();
   togglePlanEdit();
+}
+
+const ROUTINE_DEFAULT = [
+  'Analyse du calendrier économique à 06h30',
+  'Setup des alertes de la journée à 15h00 pour la session killzone 14h30–17h New York (pm)'
+];
+
+function loadRoutine(){
+  const saved = JSON.parse(localStorage.getItem('routineSteps') || 'null');
+  const steps = saved || ROUTINE_DEFAULT;
+  const container = document.getElementById('routineLines');
+  if(!container) return;
+  container.innerHTML = steps.map((s, i) =>
+    `<div class="plan-rule"><span class="num">${i+1}</span><span class="txt">${s}</span></div>`
+  ).join('');
+}
+
+function toggleRoutineEdit(){
+  const view = document.getElementById('routineViewMode');
+  const edit = document.getElementById('routineEditMode');
+  const btn  = document.getElementById('routineEditBtn');
+  const isEditing = edit.style.display !== 'none';
+  if(!isEditing){
+    // Passer en mode édition
+    const saved = JSON.parse(localStorage.getItem('routineSteps') || 'null') || ROUTINE_DEFAULT;
+    document.getElementById('routineTextarea').value = saved.join('\n');
+    view.style.display = 'none';
+    edit.style.display = 'block';
+    btn.textContent = '✕ Fermer';
+  } else {
+    view.style.display = '';
+    edit.style.display = 'none';
+    btn.textContent = '✏️ Modifier';
+  }
+}
+
+function saveRoutine(){
+  const raw = document.getElementById('routineTextarea').value;
+  const steps = raw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+  localStorage.setItem('routineSteps', JSON.stringify(steps));
+  loadRoutine();
+  toggleRoutineEdit();
 }
 
 function togglePlan(){
