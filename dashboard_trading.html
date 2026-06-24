@@ -1793,7 +1793,19 @@ function previewAutoCalc(){
 function readFormValues(){
   const ds = DATASETS[currentDataset];
   const trades = ds ? ds.trades : [];
-  const prevSolde = trades.length ? trades[trades.length-1].solde : (ds ? ds.soldeInitial : 0);
+
+  // En mode édition, prendre le solde du trade PRÉCÉDANT celui qu'on modifie
+  let prevSolde;
+  if(editingTradeKey){
+    const idx = trades.findIndex(t => tradeKey(t) === editingTradeKey);
+    if(idx > 0){
+      prevSolde = trades[idx - 1].solde;
+    } else {
+      prevSolde = ds ? ds.soldeInitial : 0;
+    }
+  } else {
+    prevSolde = trades.length ? trades[trades.length-1].solde : (ds ? ds.soldeInitial : 0);
+  }
 
   // Actif : menu déroulant ou champ personnalisé
   let actif = document.getElementById('atActif').value;
