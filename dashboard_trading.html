@@ -1849,7 +1849,9 @@ function openEditTrade(encodedKey){
   const panel = document.getElementById('addTradePanel');
   panel.style.display = 'block';
   document.getElementById('formTitle').textContent = `✏️ Modifier le trade — ${t.jour} (${t.date})`;
-  document.getElementById('addTradePanel').scrollIntoView({behavior:'smooth', block:'start'});
+  if(window.innerWidth > 768){
+    document.getElementById('addTradePanel').scrollIntoView({behavior:'smooth', block:'start'});
+  }
 }
 
 function toggleAddTradeForm(){
@@ -2190,7 +2192,8 @@ function renderTradeCards(trades) {
     if (t.setupAvant) tvLinks += '<a href="' + t.setupAvant + '" target="_blank" class="trade-card-actions btn-tv" style="flex:0 0 auto;padding:8px 12px;">📸</a>';
     if (t.setupApres) tvLinks += '<a href="' + t.setupApres + '" target="_blank" class="trade-card-actions btn-tv" style="flex:0 0 auto;padding:8px 12px;">📈</a>';
     var idxAttr = t._idx !== undefined ? t._idx : '';
-    var editCall = idxAttr !== '' ? 'editTrade(' + idxAttr + ')' : '';
+    var editKey = encodeURIComponent((t.jour||'') + '|' + (t.date||'') + '|' + (t.sens||''));
+    var editCall = 'openEditTrade(\'' + editKey + '\')';
     html += '<div class="trade-card ' + pnlClass + '">' +
       '<div class="trade-card-header">' +
         '<div>' +
@@ -2207,7 +2210,7 @@ function renderTradeCards(trades) {
       '</div>' +
       (note ? '<div class="trade-card-note">💬 ' + note + '</div>' : '') +
       '<div class="trade-card-actions">' +
-        (editCall ? '<button class="btn-edit" onclick="' + editCall + '" style="min-height:44px;">✏️ Modifier</button>' : '') +
+        '<button class="btn-edit-card" onclick="' + editCall + '" style="flex:1;min-height:44px;">✏️ Modifier</button>' +
         tvLinks +
       '</div>' +
     '</div>';
