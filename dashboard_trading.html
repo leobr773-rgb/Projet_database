@@ -346,6 +346,18 @@
 
     /* Streaks */
     .streak-chip{width:22px;height:22px;font-size:9px;border-radius:5px;}
+
+    /* Tables compactes sur mobile */
+    table{font-size:11px !important;}
+    th,td{padding:5px 7px !important;white-space:nowrap;}
+    .notes{max-width:120px !important;font-size:11px !important;}
+    #tableAll th:nth-child(5),#tableAll td:nth-child(5),
+    #tableAll th:nth-child(6),#tableAll td:nth-child(6),
+    #tableAll th:nth-child(10),#tableAll td:nth-child(10){display:none;}
+    #tableTop th:nth-child(5),#tableTop td:nth-child(5),
+    #tableTop th:nth-child(6),#tableTop td:nth-child(6),
+    #tableFlop th:nth-child(5),#tableFlop td:nth-child(5),
+    #tableFlop th:nth-child(6),#tableFlop td:nth-child(6){display:none;}
     #streakStats{gap:12px;}
   }
 
@@ -837,11 +849,15 @@
 <div class="grid cols-2">
   <div class="panel">
     <h3>🏆 Top trades (meilleurs gains)</h3>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
     <table id="tableTop"><thead><tr><th>Date</th><th>Actif</th><th>Sens</th><th>P&L ($)</th><th>RR réel</th><th>%</th><th>Charts TV</th><th>Note</th></tr></thead><tbody></tbody></table>
+    </div>
   </div>
   <div class="panel">
     <h3>📉 Flop trades (pires pertes)</h3>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
     <table id="tableFlop"><thead><tr><th>Date</th><th>Actif</th><th>Sens</th><th>P&L ($)</th><th>RR réel</th><th>%</th><th>Charts TV</th><th>Note</th></tr></thead><tbody></tbody></table>
+    </div>
   </div>
 </div>
 
