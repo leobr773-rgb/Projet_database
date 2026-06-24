@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - claude/nifty-shannon-0ebox0
+  workflow_dispatch:
 
 permissions:
   contents: read
