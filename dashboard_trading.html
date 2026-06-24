@@ -1003,19 +1003,33 @@
 
 <!-- ══ SECTION NEWS ══ -->
 <div id="section-news">
-  <div class="news-header">📰 Calendrier économique</div>
+  <div class="news-header">📰 Actualités marchés</div>
+
+  <!-- Boutons liens rapides -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+    <a href="https://fr.investing.com/economic-calendar/" target="_blank"
+       style="flex:1;min-width:140px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;text-decoration:none;color:var(--text);font-size:13px;font-weight:600;">
+      📅 Calendrier éco<br><span style="font-size:10px;color:var(--muted);">Investing.com</span>
+    </a>
+    <a href="https://fr.tradingview.com/news/" target="_blank"
+       style="flex:1;min-width:140px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;text-decoration:none;color:var(--text);font-size:13px;font-weight:600;">
+      📊 News marchés<br><span style="font-size:10px;color:var(--muted);">TradingView</span>
+    </a>
+    <a href="https://fr.tradingview.com/markets/cryptocurrencies/prices-all/" target="_blank"
+       style="flex:1;min-width:140px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;text-decoration:none;color:var(--text);font-size:13px;font-weight:600;">
+      🪙 Crypto prix<br><span style="font-size:10px;color:var(--muted);">TradingView</span>
+    </a>
+  </div>
+
+  <!-- Widget TradingView timeline -->
   <div class="news-iframe-wrap">
     <iframe
-      src="https://www.tradingview.com/embed-widget/economic-calendar/?locale=fr#%7B%22colorTheme%22%3A%22dark%22%2C%22isTransparent%22%3Afalse%2C%22width%22%3A%22100%25%22%2C%22height%22%3A%22550%22%2C%22importanceFilter%22%3A%220%2C1%22%2C%22currencyFilter%22%3A%22USD%2CEUR%2CGBP%2CJPY%2CBTC%22%7D"
-      height="550"
-      title="Calendrier économique — TradingView"
+      src="https://www.tradingview.com/embed-widget/timeline/?locale=fr#%7B%22colorTheme%22%3A%22dark%22%2C%22isTransparent%22%3Afalse%2C%22displayMode%22%3A%22regular%22%2C%22width%22%3A%22100%25%22%2C%22height%22%3A%22500%22%2C%22locale%22%3A%22fr%22%7D"
+      height="500"
+      title="Actualités — TradingView"
       loading="lazy"
       allowtransparency="true"
-      scrolling="no"
     ></iframe>
-  </div>
-  <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted);">
-    Source : <a href="https://fr.tradingview.com/economic-calendar/" target="_blank" style="color:var(--blue);">TradingView</a>
   </div>
 </div>
 
