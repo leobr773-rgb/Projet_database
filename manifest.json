@@ -2,8 +2,8 @@
   "name": "Dashboard Trading — Journaux de performance",
   "short_name": "Trading Dashboard",
   "description": "Suivi de performance trading multi-comptes — Stratégie ICT",
-  "start_url": "./dashboard_trading.html",
-  "scope": "./",
+  "start_url": "/Projet_database/dashboard_trading.html",
+  "scope": "/Projet_database/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0b0e14",
@@ -12,16 +12,16 @@
   "categories": ["finance", "productivity"],
   "icons": [
     {
-      "src": "./icons/icon-192.png",
+      "src": "/Projet_database/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icons/icon-512.png",
+      "src": "/Projet_database/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
@@ -29,7 +29,7 @@
       "name": "Ajouter un trade",
       "short_name": "+ Trade",
       "description": "Ouvrir directement le formulaire d'ajout",
-      "url": "./dashboard_trading.html#add"
+      "url": "/Projet_database/dashboard_trading.html#add"
     }
   ]
 }
