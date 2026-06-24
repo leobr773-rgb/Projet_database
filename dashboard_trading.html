@@ -18,6 +18,11 @@
     --red:#ef5350;
     --gold:#f0b90b;
     --blue:#4a90e2;
+    --radius-card:16px;
+    --radius-sm:10px;
+    --shadow-card:0 4px 20px rgba(0,0,0,0.4);
+    --shadow-nav:0 -2px 20px rgba(0,0,0,0.5);
+    --transition:all 0.2s cubic-bezier(0.4,0,0.2,1);
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   body{
@@ -261,21 +266,32 @@
     #fabAdd{display:flex;}
     #btnAddTradeDesktop{display:none !important;}
 
-    /* Header compact */
+    /* Header compact — premium */
     header{
-      flex-direction:column;gap:6px;padding:10px 12px;
-      margin-bottom:10px;
+      background:var(--panel);border-radius:0 0 20px 20px;
+      padding:12px 16px 16px;margin-bottom:12px;
+      border:none;border-bottom:1px solid var(--border);
+      flex-direction:column;gap:6px;
     }
-    header h1{font-size:14px;}
-    header .badge{font-size:11px;padding:4px 8px;}
+    header h1{font-size:13px;color:var(--muted);font-weight:400;margin-bottom:4px;}
+    header > div:last-child{gap:6px;}
+    header .badge{font-size:11px;padding:4px 10px;border-radius:20px;}
 
-    /* KPI: 2 colonnes */
+    /* KPI: horizontal scroll */
     .kpi-grid{
-      grid-template-columns:1fr 1fr !important;
-      gap:8px;margin-bottom:14px;
+      display:flex !important;flex-direction:row !important;
+      overflow-x:auto !important;scroll-snap-type:x mandatory;
+      -webkit-overflow-scrolling:touch;
+      gap:10px !important;padding-bottom:8px;margin-bottom:14px;
+      scrollbar-width:none;
+    }
+    .kpi-grid::-webkit-scrollbar{display:none;}
+    .kpi-grid .kpi{
+      min-width:130px;flex:0 0 130px;scroll-snap-align:start;
+      border-radius:var(--radius-card);
     }
     .kpi{padding:10px 12px;}
-    .kpi .value{font-size:18px;}
+    .kpi .value{font-size:20px;}
     .kpi .label{font-size:10px;}
 
     /* Grilles → 1 colonne */
@@ -289,8 +305,8 @@
     .chart-wrap.small{height:140px !important;}
 
     /* Panels */
-    .panel{padding:12px;}
-    .panel h3{font-size:12px;}
+    .panel{border-radius:var(--radius-card) !important;padding:14px !important;margin-bottom:10px;}
+    .panel h3{font-size:13px !important;font-weight:700;}
 
     /* Cache le tableau desktop, affiche les cartes */
     #tradesTableWrapper{display:none !important;}
@@ -300,12 +316,17 @@
     .tab-section{display:none;}
     .tab-section.active{display:block;}
 
-    /* Formulaire ajout trade : slide-up */
+    /* Formulaire ajout trade : bottom sheet premium */
     #addTradePanel{
       position:fixed !important;bottom:0;left:0;right:0;
-      background:var(--panel);border-top:1px solid var(--border);
-      border-radius:16px 16px 0 0;padding:20px 16px;
-      max-height:88vh;overflow-y:auto;z-index:800;
+      background:var(--panel) !important;border-top:1px solid var(--border) !important;
+      border-radius:20px 20px 0 0 !important;padding:8px 16px 24px !important;
+      max-height:92vh !important;overflow-y:auto !important;z-index:950 !important;
+      box-shadow:0 -8px 40px rgba(0,0,0,0.6) !important;
+    }
+    #addTradePanel::before{
+      content:'';display:block;width:36px;height:4px;
+      background:var(--border);border-radius:2px;margin:0 auto 16px;
     }
     #addTradePanel input,#addTradePanel select{
       min-height:44px;font-size:15px;
@@ -321,38 +342,67 @@
 
     /* Note box */
     .note-box{font-size:12px;padding:10px 12px;}
+    .note-box.info{display:none !important;}
 
     /* Streaks */
-    .streak-chip{width:26px;height:26px;font-size:10px;}
+    .streak-chip{width:22px;height:22px;font-size:9px;border-radius:5px;}
+    #streakStats{gap:12px;}
   }
 
-  /* Trade cards styles */
+  /* Trade cards styles — premium redesign */
   .trade-card{
-    background:var(--panel);border:1px solid var(--border);border-radius:10px;
-    padding:12px;
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-card);
+    padding:14px 16px;transition:var(--transition);
   }
-  .trade-card-header{
-    display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;
-  }
-  .trade-card-pnl{font-size:22px;font-weight:700;}
+  .trade-card:active{transform:scale(0.98);opacity:0.9;}
+  .trade-card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;}
+  .trade-card-left{display:flex;flex-direction:column;gap:2px;}
+  .trade-card-pair{font-size:16px;font-weight:700;color:#fff;}
+  .trade-card-date{font-size:11px;color:var(--muted);}
+  .trade-card-pnl{font-size:22px;font-weight:800;letter-spacing:-0.5px;}
   .trade-card-pnl.gain{color:var(--green2);}
   .trade-card-pnl.perte{color:var(--red);}
   .trade-card-pnl.be{color:var(--gold);}
   .trade-card-meta{font-size:11px;color:var(--muted);}
-  .trade-card-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+  .trade-card-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
   .trade-card-chip{
-    background:var(--panel2);border:1px solid var(--border);border-radius:6px;
-    padding:3px 8px;font-size:11px;font-weight:600;
+    background:var(--panel2);border:1px solid var(--border);
+    border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;color:var(--text);
   }
-  .trade-card-note{font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.5;}
+  .trade-card-chip.result-win{border-color:var(--green2);color:var(--green2);}
+  .trade-card-chip.result-loss{border-color:var(--red);color:var(--red);}
+  .trade-card-chip.result-be{border-color:var(--gold);color:var(--gold);}
+  .trade-card-note{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5;}
   .trade-card-actions{display:flex;gap:8px;}
-  .btn-tv{
-    background:var(--panel2);border:1px solid var(--border);border-radius:6px;
-    padding:6px 10px;font-size:12px;color:var(--text);cursor:pointer;text-decoration:none;
+  .btn-tv,.btn-edit-card{
+    flex:1;padding:8px;border-radius:var(--radius-sm);
+    font-size:12px;font-weight:600;text-align:center;
+    border:1px solid var(--border);background:var(--panel2);
+    color:var(--text);cursor:pointer;text-decoration:none;
+    display:flex;align-items:center;justify-content:center;gap:4px;
   }
-  .btn-edit-card{
-    background:var(--panel2);border:1px solid var(--border);border-radius:6px;
-    padding:6px 10px;font-size:12px;color:var(--blue);cursor:pointer;
+  .btn-edit-card{color:var(--blue);border-color:rgba(74,144,226,0.3);}
+
+  /* Hero balance (mobile only) */
+  #heroBalance{
+    background:linear-gradient(135deg,#11151c 0%,#161b24 100%);
+    border:1px solid var(--border);border-radius:var(--radius-card);
+    padding:20px 16px;margin-bottom:14px;text-align:center;
+  }
+  #heroAmount{font-size:36px;font-weight:700;color:#fff;letter-spacing:-1px;}
+  #heroDelta{font-size:14px;margin-top:4px;font-weight:600;}
+  #heroDelta.pos{color:var(--green2);}
+  #heroDelta.neg{color:var(--red);}
+  @media(min-width:769px){#heroBalance{display:none !important;}}
+
+  /* Tab animations on mobile */
+  .tab-section{animation:none;}
+  @media(max-width:768px){
+    .tab-section.active{animation:fadeSlideIn 0.2s ease forwards;}
+    @keyframes fadeSlideIn{
+      from{opacity:0;transform:translateY(8px);}
+      to{opacity:1;transform:translateY(0);}
+    }
   }
 </style>
 </head>
@@ -734,6 +784,11 @@
 
 <!-- ══ ONGLET DASHBOARD ══ -->
 <div class="tab-section active" id="section-dashboard">
+
+<div id="heroBalance" style="display:none;">
+  <div id="heroAmount"></div>
+  <div id="heroDelta"></div>
+</div>
 
 <!-- KPIs -->
 <div class="kpi-grid" id="kpiGrid"></div>
@@ -2034,6 +2089,24 @@ function renderTradeCards(trades) {
   container.innerHTML = html;
 }
 
+function updateHero() {
+  var hb = document.getElementById('heroBalance');
+  var ha = document.getElementById('heroAmount');
+  var hd = document.getElementById('heroDelta');
+  if (!hb || !ha || !hd) return;
+  if (window.innerWidth > 768) { hb.style.display='none'; return; }
+  var balEl = document.getElementById('hdrBalance');
+  var balance = balEl ? balEl.textContent : '';
+  var pnlKpi = document.querySelector('.kpi .value');
+  var pnl = pnlKpi ? pnlKpi.textContent : '';
+  ha.textContent = balance || '—';
+  if (pnl && pnl !== '—') {
+    hd.textContent = pnl;
+    hd.className = pnl.includes('-') ? 'neg' : 'pos';
+  }
+  hb.style.display = '';
+}
+
 // Hook into renderAll to also render trade cards
 (function() {
   if (typeof renderAll === 'function') {
@@ -2041,6 +2114,7 @@ function renderTradeCards(trades) {
     window.renderAll = function(trades, ds) {
       _orig(trades, ds);
       renderTradeCards(trades);
+      updateHero();
     };
   }
 })();
