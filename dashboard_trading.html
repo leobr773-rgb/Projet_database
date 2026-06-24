@@ -416,6 +416,90 @@
       to{opacity:1;transform:translateY(0);}
     }
   }
+
+/* Fullscreen chart modal */
+#chartModal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.95);
+  z-index: 9000;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+#chartModal.open { display: flex; }
+#chartModalTitle {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  text-align: center;
+}
+#chartModalClose {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: #232834;
+  border: 1px solid #3a4055;
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9001;
+}
+#chartModalCanvas {
+  width: 100% !important;
+  max-height: 70vh;
+}
+/* Tap indicator on charts */
+@media(max-width:768px) {
+  .chart-wrap { cursor: pointer; position: relative; }
+  .chart-wrap::after {
+    content: '⤢';
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 14px;
+    color: rgba(125,133,151,0.6);
+    pointer-events: none;
+  }
+}
+
+#section-news {
+  display: none;
+  padding: 0;
+}
+#section-news.active { display: block; }
+@media(min-width:769px) {
+  #section-news { display: block !important; }
+}
+.news-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+.news-iframe-wrap {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.news-iframe-wrap iframe {
+  width: 100%;
+  border: none;
+  display: block;
+}
 </style>
 </head>
 <body>
@@ -786,9 +870,9 @@
       <div class="nav-icon-wrap"><span class="icon">🗺️</span></div>
       Plan
     </li>
-    <li onclick="switchTab('comptes')" id="tab-comptes">
-      <div class="nav-icon-wrap"><span class="icon">💼</span></div>
-      Comptes
+    <li onclick="switchTab('news')" id="tab-news">
+      <div class="nav-icon-wrap"><span class="icon">📰</span></div>
+      News
     </li>
   </ul>
 </nav>
@@ -916,6 +1000,22 @@
 </footer>
 
 </div><!-- /section-dashboard -->
+
+<!-- ══ SECTION NEWS ══ -->
+<div id="section-news">
+  <div class="news-header">📰 Calendrier économique</div>
+  <div class="news-iframe-wrap">
+    <iframe
+      src="https://sslecal2.investing.com/widgets/dynamic_economic_calendar.html?columns=act_date,act_time,act_country,act_importance,act_title,act_actual,act_previous,act_forecast&features=datepicker,timezone&countries=4,5,25,22,17&importance=2,3&calType=week&timezone=18&lang=56"
+      height="467"
+      title="Calendrier économique — Investing.com"
+      loading="lazy"
+    ></iframe>
+  </div>
+  <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted);">
+    Source : <a href="https://fr.investing.com" target="_blank" style="color:var(--blue);">Investing.com</a>
+  </div>
+</div>
 
 <script>
 /* =========================================================
@@ -1969,7 +2069,7 @@ async function _tryUnlock(){
 // switchTab: called by bottom nav li elements
 function switchTab(name) {
   // Update active tab indicator
-  ['dashboard','trades','plan','comptes'].forEach(function(n) {
+  ['dashboard','trades','plan','news'].forEach(function(n) {
     var el = document.getElementById('tab-' + n);
     if (el) el.classList.toggle('active', n === name);
   });
@@ -2031,16 +2131,10 @@ function switchTab(name) {
       if (arrow) arrow.textContent = '▲ Masquer';
     }
 
-  } else if (name === 'comptes') {
+  } else if (name === 'news') {
     hideAll();
-    if (dataNote)  dataNote.style.display  = '';
-    if (filtersEl) filtersEl.style.display = '';
-    // Show a simple account-info panel inside secDash
-    if (secDash) {
-      secDash.style.display = '';
-      document.getElementById('kpiGrid') && (document.getElementById('kpiGrid').style.display = '');
-      document.querySelectorAll('#section-dashboard > .grid, #section-dashboard > .reco-grid, #section-dashboard > .panel').forEach(function(el){ el.style.display='none'; });
-    }
+    var newsSection = document.getElementById('section-news');
+    if (newsSection) newsSection.style.display = 'block';
   }
 }
 
@@ -2141,6 +2235,72 @@ if (window.innerWidth <= 768) {
     switchTab('dashboard');
   });
 }
+
+var _modalChart = null;
+
+function openChartModal(sourceCanvas, title) {
+  var modal = document.getElementById('chartModal');
+  var modalCanvas = document.getElementById('chartModalCanvas');
+  var modalTitle = document.getElementById('chartModalTitle');
+  if (!modal || !sourceCanvas || !modalCanvas) return;
+
+  // Copy dimensions
+  modalCanvas.width = sourceCanvas.width;
+  modalCanvas.height = sourceCanvas.height;
+
+  // Copy pixel data
+  var ctx = modalCanvas.getContext('2d');
+  ctx.drawImage(sourceCanvas, 0, 0);
+
+  if (modalTitle) modalTitle.textContent = title || '';
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeChartModal() {
+  var modal = document.getElementById('chartModal');
+  if (modal) modal.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Close on backdrop tap
+document.getElementById('chartModal') && document.getElementById('chartModal').addEventListener('click', function(e) {
+  if (e.target === this) closeChartModal();
+});
+
+// Wire up tap on chart-wrap elements (mobile only)
+function wireChartTaps() {
+  if (window.innerWidth > 768) return;
+  document.querySelectorAll('.chart-wrap').forEach(function(wrap) {
+    if (wrap.dataset.tapWired) return;
+    wrap.dataset.tapWired = '1';
+    wrap.addEventListener('click', function() {
+      var canvas = wrap.querySelector('canvas');
+      var title = wrap.closest('.panel') ? (wrap.closest('.panel').querySelector('h3') || {}).textContent || '' : '';
+      if (canvas) openChartModal(canvas, title.trim());
+    });
+  });
+}
+
+// Wire after charts are rendered
+(function() {
+  var _origRA = typeof renderAll === 'function' ? renderAll : null;
+  if (_origRA) {
+    renderAll = function() {
+      _origRA.apply(this, arguments);
+      setTimeout(wireChartTaps, 300);
+    };
+  }
+  // Also wire on load
+  setTimeout(wireChartTaps, 1000);
+})();
 </script>
+
+<!-- Chart fullscreen modal -->
+<div id="chartModal">
+  <button id="chartModalClose" onclick="closeChartModal()">✕</button>
+  <div id="chartModalTitle"></div>
+  <canvas id="chartModalCanvas"></canvas>
+</div>
 </body>
 </html>
