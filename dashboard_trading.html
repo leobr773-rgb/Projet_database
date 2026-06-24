@@ -189,42 +189,46 @@
     display:none;position:fixed;bottom:0;left:0;right:0;
     background:rgba(17,21,28,0.97);
     border-top:1px solid var(--border);
-    height:72px;z-index:900;
+    height:68px;z-index:900;
     backdrop-filter:blur(12px);
     -webkit-backdrop-filter:blur(12px);
     box-shadow:0 -4px 24px rgba(0,0,0,.4);
   }
   #bottomNav ul{
-    display:flex;list-style:none;height:100%;margin:0;padding:0 4px;
-    align-items:stretch;
+    display:flex;list-style:none;height:100%;margin:0;padding:0;
+    width:100%;
   }
   #bottomNav ul li{
-    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:4px;cursor:pointer;font-size:11px;font-weight:600;
+    flex:1;min-width:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:3px;cursor:pointer;font-size:10px;font-weight:600;
     color:var(--muted);transition:color .18s;
     -webkit-tap-highlight-color:transparent;
-    border-radius:12px;margin:6px 2px;
-    position:relative;
+    padding:6px 0;
   }
-  #bottomNav ul li:active{background:var(--panel2);}
+  #bottomNav ul li:active{opacity:.7;}
   #bottomNav ul li.active{color:#fff;}
   #bottomNav ul li.active .nav-icon-wrap{
     background:var(--blue);
     box-shadow:0 2px 12px rgba(74,144,226,.45);
   }
   #bottomNav ul li .nav-icon-wrap{
-    width:42px;height:28px;border-radius:14px;
+    width:52px;height:30px;border-radius:15px;
     display:flex;align-items:center;justify-content:center;
     transition:background .18s, box-shadow .18s;
   }
-  #bottomNav ul li .icon{font-size:18px;line-height:1;}
+  #bottomNav ul li .icon{font-size:19px;line-height:1;}
+  #bottomNav ul li span:not(.icon){
+    font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    max-width:100%;text-align:center;
+  }
 
   /* Onglet central + (ajouter trade) */
   #bottomNav ul li.nav-add .nav-icon-wrap{
-    width:48px;height:32px;border-radius:16px;
+    width:52px;height:32px;border-radius:16px;
     background:var(--blue);
     box-shadow:0 2px 14px rgba(74,144,226,.5);
-    font-size:24px;color:#fff;font-weight:300;
+    font-size:22px;color:#fff;font-weight:300;
   }
   #bottomNav ul li.nav-add{color:var(--blue);}
   #bottomNav ul li.nav-add.active .nav-icon-wrap{
