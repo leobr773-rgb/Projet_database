@@ -808,6 +808,12 @@
         oninput="previewAutoCalc()">
     </div>
 
+    <div class="group" style="min-width:150px;">
+      <label>Date du trade</label>
+      <input type="date" id="atDate"
+        style="background:var(--panel2);border:1px solid var(--border);color:#fff;padding:7px 10px;border-radius:6px;font-size:14px;font-weight:700;">
+    </div>
+
     <div class="group" style="flex:1 1 260px;">
       <label>Commentaire</label>
       <input type="text" id="atNote" placeholder="Ex : bon setup LS + FVG, confirmation BB..."
@@ -1810,7 +1816,8 @@ function readFormValues(){
   const risqueMax = Math.round(prevSolde * plan.risk / 100 * 100) / 100;
   const rrPrevu = plan.rrMin;
   const rrReel = risqueMax !== 0 ? Math.round(pnl/risqueMax*100)/100 : null;
-  const date = new Date().toISOString().slice(0,10);
+  const dateInput = (document.getElementById('atDate').value||'').trim();
+  const date = dateInput || new Date().toISOString().slice(0,10);
 
   return {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupAvant, setupApres, note, resultat, pct, solde: nouveauSolde};
 }
@@ -1828,6 +1835,7 @@ function fillForm(t){
     document.getElementById('atActifCustom').value = t.actif || '';
   }
   setSens(t.sens || 'Achat');
+  document.getElementById('atDate').value = t.date || '';
   document.getElementById('atLots').value = t.lots ?? '';
   document.getElementById('atNouveauSolde').value = t.solde ?? '';
   document.getElementById('atSetupAvant').value = t.setupAvant || '';
