@@ -847,6 +847,7 @@
         <div><span style="color:var(--muted);">Risque max : </span><b id="previewRisque" style="color:#fff;">—</b></div>
         <div><span style="color:var(--muted);">RR prévu : </span><b id="previewRR" style="color:#fff;">—</b></div>
         <div><span style="color:var(--muted);">Date : </span><b id="previewDate" style="color:#fff;">—</b></div>
+        <div style="width:100%;margin-top:4px;"><span style="color:var(--muted);font-size:11px;" id="previewSoldeRef"></span></div>
       </div>
     </div>
 
@@ -1765,11 +1766,27 @@ function toggleTVLinks(){
   t.textContent = open ? '+ Ajouter les liens TradingView (optionnel)' : '− Masquer les liens TradingView';
 }
 
+function getPrevSolde(){
+  const ds = DATASETS[currentDataset];
+  if(!ds) return 0;
+  const trades = ds.trades;
+  if(editingTradeKey){
+    // Trier par date et trouver le trade précédant celui qu'on édite
+    const sorted = trades.slice().sort((a,b) => new Date(a.date) - new Date(b.date));
+    const idx = sorted.findIndex(t => tradeKey(t) === editingTradeKey);
+    if(idx > 0) return sorted[idx-1].solde;
+    return ds.soldeInitial || 0;
+  }
+  // Nouveau trade : dernier solde en ordre chronologique
+  if(!trades.length) return ds.soldeInitial || 0;
+  const sorted = trades.slice().sort((a,b) => new Date(a.date) - new Date(b.date));
+  return sorted[sorted.length-1].solde;
+}
+
 function previewAutoCalc(){
   const ds = DATASETS[currentDataset];
   if(!ds) return;
-  const trades = ds.trades;
-  const prevSolde = trades.length ? trades[trades.length-1].solde : ds.soldeInitial;
+  const prevSolde = getPrevSolde();
   const nouveauSolde = parseFloat(document.getElementById('atNouveauSolde').value);
   if(isNaN(nouveauSolde)){ document.getElementById('autoCalcPreview').style.display='none'; return; }
   const pnl = Math.round((nouveauSolde - prevSolde)*10000)/10000;
@@ -1787,6 +1804,9 @@ function previewAutoCalc(){
   document.getElementById('previewRisque').textContent = risqueMax + ' $';
   document.getElementById('previewRR').textContent = plan.rrMin + ':1';
   document.getElementById('previewDate').textContent = new Date().toLocaleDateString('fr-FR');
+  // Affiche le solde de référence utilisé
+  var refEl = document.getElementById('previewSoldeRef');
+  if(refEl) refEl.textContent = 'Référence : ' + prevSolde.toFixed(2) + ' $';
   document.getElementById('autoCalcPreview').style.display = 'block';
 }
 
@@ -1794,18 +1814,7 @@ function readFormValues(){
   const ds = DATASETS[currentDataset];
   const trades = ds ? ds.trades : [];
 
-  // En mode édition, prendre le solde du trade PRÉCÉDANT celui qu'on modifie
-  let prevSolde;
-  if(editingTradeKey){
-    const idx = trades.findIndex(t => tradeKey(t) === editingTradeKey);
-    if(idx > 0){
-      prevSolde = trades[idx - 1].solde;
-    } else {
-      prevSolde = ds ? ds.soldeInitial : 0;
-    }
-  } else {
-    prevSolde = trades.length ? trades[trades.length-1].solde : (ds ? ds.soldeInitial : 0);
-  }
+  const prevSolde = getPrevSolde();
 
   // Actif : menu déroulant ou champ personnalisé
   let actif = document.getElementById('atActif').value;
