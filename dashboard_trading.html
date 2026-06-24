@@ -394,6 +394,7 @@
     display:flex;align-items:center;justify-content:center;gap:4px;
   }
   .btn-edit-card{color:var(--blue);border-color:rgba(74,144,226,0.3);}
+  .btn-delete-card{color:var(--red);border-color:rgba(239,83,80,0.3);}
 
   /* Hero balance (mobile only) */
   #heroBalance{
@@ -1695,7 +1696,10 @@ function renderFullTable(trades){
       <td>${fmtMoneyAbs(t.solde)}</td>
       <td style="white-space:nowrap;">${t.setupAvant?`<a href="${t.setupAvant}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:12px;margin-right:6px;">▶ Avant</a>`:''}${t.setupApres?`<a href="${t.setupApres}" target="_blank" style="color:var(--gold);text-decoration:none;font-size:12px;">▶ Après</a>`:''}</td>
       <td class="notes" title="${(t.note||'').replace(/"/g,'&quot;')}">${t.note||'—'}</td>
-      <td><button onclick="openEditTrade('${k}')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;border-radius:5px;cursor:pointer;font-size:12px;">✏️</button></td>
+      <td style="white-space:nowrap;">
+        <button onclick="openEditTrade('${k}')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;border-radius:5px;cursor:pointer;font-size:12px;">✏️</button>
+        <button onclick="deleteTrade('${k}')" style="background:none;border:1px solid rgba(239,83,80,0.3);color:var(--red);padding:3px 8px;border-radius:5px;cursor:pointer;font-size:12px;margin-left:4px;">🗑</button>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -1881,6 +1885,34 @@ function openEditTrade(encodedKey){
   if(window.innerWidth > 768){
     document.getElementById('addTradePanel').scrollIntoView({behavior:'smooth', block:'start'});
   }
+}
+
+function deleteTrade(encodedKey){
+  const key = decodeURIComponent(encodedKey);
+  const ds = DATASETS[currentDataset];
+  if(!ds) return;
+  const t = ds.trades.find(x => tradeKey(x) === key);
+  if(!t) return;
+  const label = (t.date || '') + ' ' + (t.actif || '') + ' ' + (t.sens || '');
+  if(!confirm('Supprimer ce trade ?\n' + label)) return;
+
+  // Retirer du tableau en mémoire
+  ds.trades = ds.trades.filter(x => tradeKey(x) !== key);
+
+  // Retirer du localStorage manualTrades
+  const manualKey = 'manualTrades_' + currentDataset;
+  const manual = JSON.parse(localStorage.getItem(manualKey) || '[]');
+  localStorage.setItem(manualKey, JSON.stringify(manual.filter(x => tradeKey(x) !== key)));
+
+  // Marquer comme supprimé dans editedTrades
+  const editsKey = 'editedTrades_' + currentDataset;
+  const edits = JSON.parse(localStorage.getItem(editsKey) || '{}');
+  edits['__deleted__' + key] = true;
+  delete edits[key];
+  localStorage.setItem(editsKey, JSON.stringify(edits));
+
+  populateFilterOptions();
+  resetFilters();
 }
 
 function toggleAddTradeForm(){
@@ -2240,6 +2272,7 @@ function renderTradeCards(trades) {
       (note ? '<div class="trade-card-note">💬 ' + note + '</div>' : '') +
       '<div class="trade-card-actions">' +
         '<button class="btn-edit-card" onclick="' + editCall + '" style="flex:1;min-height:44px;">✏️ Modifier</button>' +
+        '<button class="btn-delete-card btn-tv" onclick="deleteTrade(\'' + editKey + '\')" style="flex:0 0 auto;min-height:44px;color:var(--red);border-color:rgba(239,83,80,0.3);">🗑</button>' +
         tvLinks +
       '</div>' +
     '</div>';
