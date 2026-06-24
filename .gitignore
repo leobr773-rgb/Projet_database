@@ -9,3 +9,4 @@ __pycache__/
 # Raw debug dumps (may contain account details)
 kraken_sync/data/debug_*.json
 .staticrypt.json
+.claude/
