@@ -1,4 +1,4 @@
-name: Déploiement Dashboard Trading
+name: Chiffrement + Déploiement Dashboard Trading
 
 on:
   push:
@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  encrypt-and-deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -24,6 +24,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install staticrypt
+        run: npm install -g staticrypt
+
+      - name: Chiffrer tous les fichiers HTML
+        env:
+          STATICRYPT_PASSWORD: ${{ secrets.STATICRYPT_PASSWORD }}
+        run: |
+          for f in $(find . -name "*.html" -not -path "./.git/*"); do
+            echo "Chiffrement de $f..."
+            staticrypt "$f" \
+              -p "$STATICRYPT_PASSWORD" \
+              --remember 30 \
+              --salt a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4 \
+              -d "$(dirname $f)"
+          done
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
