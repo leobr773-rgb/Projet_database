@@ -1767,6 +1767,7 @@ function renderSessionChart(trades){
   const ctx = document.getElementById('chartSession');
   if(!ctx) return;
   if(charts.session) charts.session.destroy();
+  charts.session = null;
   const sessions = ['London','New York','NY PM','Asian','Non renseigné'];
   const data = sessions.map(s => {
     const ts = trades.filter(t => (t.session || 'Non renseigné') === s);
@@ -1788,6 +1789,7 @@ function renderHeureChart(trades){
   const ctx = document.getElementById('chartHeure');
   if(!ctx) return;
   if(charts.heure) charts.heure.destroy();
+  charts.heure = null;
   const counts = {};
   trades.forEach(t => {
     if(!t.heure) return;
