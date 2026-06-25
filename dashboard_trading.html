@@ -611,6 +611,24 @@
         </div>
       </div>
 
+      <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <div style="font-size:13px;font-weight:700;color:#fff;">📓 Journal du jour</div>
+    <div style="font-size:11px;color:var(--muted);" id="journalDate"></div>
+  </div>
+  <textarea id="journalTexte" rows="5" placeholder="Contexte du marché, état d'esprit, ce que tu as appris aujourd'hui..."
+    style="width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-size:13px;resize:vertical;font-family:inherit;"
+    oninput="saveJournal()"></textarea>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px;">
+    <div style="display:flex;gap:6px;">
+      <button type="button" onclick="navJournal(-1)" style="background:var(--panel);border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:13px;">← Hier</button>
+      <button type="button" onclick="navJournal(1)" style="background:var(--panel);border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:13px;">Demain →</button>
+      <button type="button" onclick="navJournal(0)" style="background:var(--panel);border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:13px;">Aujourd'hui</button>
+    </div>
+    <div id="journalSaveStatus" style="font-size:11px;color:var(--green2);opacity:0;transition:opacity 0.5s;">✓ Sauvegardé</div>
+  </div>
+</div>
+
       <div class="plan-block">
         <h3>⚡ Avant chaque trade</h3>
         <div class="plan-rule"><span class="num">↗</span><span class="txt"><b>Quand entrer :</b></span></div>
