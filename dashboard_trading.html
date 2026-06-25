@@ -2463,6 +2463,41 @@ function submitAddTrade(e){
    ========================================================= */
 const PLAN_DEFAULTS = { risk: 4, fees: 0.9, rrMin: 2, maxTrades: 1 };
 
+let journalCurrentDate = new Date().toISOString().slice(0,10);
+
+function loadJournal(){
+  const el = document.getElementById('journalTexte');
+  const dateEl = document.getElementById('journalDate');
+  if(!el) return;
+  const key = 'journal_' + journalCurrentDate;
+  el.value = localStorage.getItem(key) || '';
+  if(dateEl){
+    const d = new Date(journalCurrentDate + 'T12:00:00');
+    const opts = {weekday:'long', year:'numeric', month:'long', day:'numeric'};
+    dateEl.textContent = d.toLocaleDateString('fr-FR', opts);
+  }
+}
+
+function saveJournal(){
+  const el = document.getElementById('journalTexte');
+  if(!el) return;
+  const key = 'journal_' + journalCurrentDate;
+  localStorage.setItem(key, el.value);
+  const status = document.getElementById('journalSaveStatus');
+  if(status){ status.style.opacity='1'; setTimeout(()=>status.style.opacity='0', 1500); }
+}
+
+function navJournal(direction){
+  const d = new Date(journalCurrentDate + 'T12:00:00');
+  if(direction === 0){
+    journalCurrentDate = new Date().toISOString().slice(0,10);
+  } else {
+    d.setDate(d.getDate() + direction);
+    journalCurrentDate = d.toISOString().slice(0,10);
+  }
+  loadJournal();
+}
+
 function savePlanObjectif(){
   const val = parseFloat(document.getElementById('planObjectifMensuel').value)||0;
   const plan = JSON.parse(localStorage.getItem('planSettings')||'null') || {};
@@ -2512,6 +2547,7 @@ function loadPlanSettings(){
   document.getElementById('dispMaxTrades').textContent = s.maxTrades;
   document.getElementById('dispMaxTrades2').textContent = s.maxTrades;
   loadRoutine();
+  loadJournal();
   updateObjectifProgress();
 }
 
