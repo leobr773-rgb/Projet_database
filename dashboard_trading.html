@@ -70,12 +70,15 @@
     gap:14px;margin-bottom:24px;
   }
   .kpi{
-    background:linear-gradient(180deg,var(--panel2),var(--panel));
-    border:1px solid var(--border);border-radius:10px;padding:16px;
-    position:relative;overflow:hidden;
+    background:linear-gradient(135deg,var(--panel2) 0%,var(--panel) 100%);
+    border:1px solid var(--border);border-radius:12px;padding:18px;
+    position:relative;overflow:hidden;transition:border-color 0.2s;
   }
+  .kpi:hover{border-color:rgba(74,144,226,0.3);}
+  .kpi.pos:hover{border-color:rgba(76,175,80,0.3);}
+  .kpi.neg:hover{border-color:rgba(239,83,80,0.3);}
   .kpi .label{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px;}
-  .kpi .value{font-size:24px;font-weight:700;color:#fff;}
+  .kpi .value{font-size:24px;font-weight:700;color:#fff;letter-spacing:-0.5px;}
   .kpi .sub{font-size:12px;color:var(--muted);margin-top:4px;}
   .kpi.pos .value{color:var(--green2);}
   .kpi.neg .value{color:var(--red);}
@@ -89,9 +92,10 @@
   .grid.cols-2{grid-template-columns:repeat(auto-fit,minmax(420px,1fr));}
   .grid.cols-3{grid-template-columns:repeat(auto-fit,minmax(320px,1fr));}
   .panel{
-    background:var(--panel);border:1px solid var(--border);border-radius:10px;
-    padding:16px;
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:18px;transition:border-color 0.2s;
   }
+  .panel:hover{border-color:rgba(74,144,226,0.2);}
   .panel h3{font-size:14px;color:#fff;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
   .panel h3 .tag{font-size:11px;color:var(--muted);font-weight:400;}
   .chart-wrap{position:relative;height:280px;}
@@ -1076,7 +1080,7 @@
   <h3>Journal complet des trades</h3>
   <div id="tradesTableWrapper" style="overflow-x:auto;">
   <table id="tableAll"><thead><tr>
-    <th>Jour</th><th>Date</th><th>Actif</th><th>Sens</th><th>Lots</th><th>RR prévu</th><th>RR réel</th>
+    <th>Jour</th><th>Date</th><th>Heure</th><th>Session</th><th>Actif</th><th>Sens</th><th>Lots</th><th>RR prévu</th><th>RR réel</th>
     <th>Résultat</th><th>P&L ($)</th><th>Risque max ($)</th><th>%</th><th>Solde après</th><th>Charts TV</th><th>Note</th><th>Setup</th><th>Qualité</th><th></th>
   </tr></thead><tbody></tbody></table>
   </div>
@@ -1499,10 +1503,11 @@ function renderHealthBar(s, trades, streakData) {
   el.innerHTML = badges.join('');
 }
 
-function kpiCard(label, value, sub, cls){
+function kpiCard(label, value, sub, cls, trend){
+  const arrow = trend === 'up' ? '<span style="color:var(--green2);font-size:13px;margin-left:6px;">▲</span>' : trend === 'down' ? '<span style="color:var(--red);font-size:13px;margin-left:6px;">▼</span>' : '';
   return `<div class="kpi ${cls||''}"><div class="accent"></div>
     <div class="label">${label}</div>
-    <div class="value">${value}</div>
+    <div class="value">${value}${arrow}</div>
     ${sub?`<div class="sub">${sub}</div>`:''}
   </div>`;
 }
@@ -1511,10 +1516,10 @@ function renderKPIs(s, ds, trades){
   const pnlPct = s.startBalance ? (s.totalPnl/s.startBalance*100) : 0;
   const grid = document.getElementById('kpiGrid');
   const cards = [
-    kpiCard('P&L Trading (période)', fmtMoney(s.totalPnl), `${fmtPct(pnlPct)} du capital de début de période`, s.totalPnl>=0?'pos':'neg'),
-    kpiCard('Solde actuel', fmtMoneyAbs(s.finalBalance), `Capital initial du compte : ${fmtMoneyAbs(ds.soldeInitial)}`, s.finalBalance>=ds.soldeInitial?'pos':'neg'),
-    kpiCard('Win Rate', s.n? s.winRate.toFixed(1)+' %':'—', `${s.wins.length} gains / ${s.losses.length} pertes / ${s.be.length} BE sur ${s.n}`, s.winRate>=50?'pos':'neg'),
-    kpiCard('Profit Factor', isFinite(s.profitFactor)? s.profitFactor.toFixed(2): '∞', 'Gains bruts / Pertes brutes', s.profitFactor>=1?'pos':'neg'),
+    kpiCard('P&L Trading (période)', fmtMoney(s.totalPnl), `${fmtPct(pnlPct)} du capital de début de période`, s.totalPnl>=0?'pos':'neg', s.totalPnl>=0?'up':'down'),
+    kpiCard('Solde actuel', fmtMoneyAbs(s.finalBalance), `Capital initial du compte : ${fmtMoneyAbs(ds.soldeInitial)}`, s.finalBalance>=ds.soldeInitial?'pos':'neg', s.finalBalance>=ds.soldeInitial?'up':'down'),
+    kpiCard('Win Rate', s.n? s.winRate.toFixed(1)+' %':'—', `${s.wins.length} gains / ${s.losses.length} pertes / ${s.be.length} BE sur ${s.n}`, s.winRate>=50?'pos':'neg', s.winRate>=50?'up':'down'),
+    kpiCard('Profit Factor', isFinite(s.profitFactor)? s.profitFactor.toFixed(2): '∞', 'Gains bruts / Pertes brutes', s.profitFactor>=1?'pos':'neg', s.profitFactor>=1.5?'up':s.profitFactor>=1?null:'down'),
     kpiCard('RR Réel Moyen', s.n? s.avgRRReel.toFixed(2):'—', `RR prévu moyen : ${s.avgRRPrevu.toFixed(2)}`, s.avgRRReel>=0?'pos':'neg'),
     kpiCard('Drawdown Max', fmtMoneyAbs(s.maxDDAbs), `${s.maxDDPct.toFixed(2)} % depuis le plus haut`, 'neg'),
     kpiCard('Meilleur Trade', s.best? fmtMoney(s.best.pnl):'—', s.best? `${s.best.actif} — ${fmtDate(s.best.date)}`:'', 'pos'),
@@ -1973,7 +1978,7 @@ function renderRecommendations(s, trades, ds){
 function renderFullTable(trades){
   const tbody = document.querySelector('#tableAll tbody');
   if(!trades.length){
-    tbody.innerHTML = `<tr><td colspan="17" class="empty-msg">Aucun trade ne correspond aux filtres sélectionnés</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="19" class="empty-msg">Aucun trade ne correspond aux filtres sélectionnés</td></tr>`;
     return;
   }
   tbody.innerHTML = trades.map(t=>{
@@ -1981,6 +1986,8 @@ function renderFullTable(trades){
     return `<tr>
       <td>${t.jour}</td>
       <td>${fmtDate(t.date)}</td>
+      <td>${t.heure||'—'}</td>
+      <td>${t.session||'—'}</td>
       <td>${t.actif}</td>
       <td>${t.sens}</td>
       <td>${t.lots ?? '—'}</td>
@@ -2600,8 +2607,10 @@ function renderTradeCards(trades) {
     var dayLabel = isNaN(d) ? '' : days[d.getDay()];
     var note = t.note || '';
     var tvLinks = '';
-    if (t.setupAvant) tvLinks += '<a href="' + t.setupAvant + '" target="_blank" class="trade-card-actions btn-tv" style="flex:0 0 auto;padding:8px 12px;">📸</a>';
-    if (t.setupApres) tvLinks += '<a href="' + t.setupApres + '" target="_blank" class="trade-card-actions btn-tv" style="flex:0 0 auto;padding:8px 12px;">📈</a>';
+    if (t.setupAvant) tvLinks += '<a href="' + t.setupAvant + '" target="_blank" class="trade-card-actions btn-tv" style="flex:0 0 auto;padding:8px 12px;" title="Setup avant">📸 Avant</a>';
+    if (t.setupApres) tvLinks += '<a href="' + t.setupApres + '" target="_blank" class="trade-card-actions btn-tv" style="flex:0 0 auto;padding:8px 12px;" title="Setup après">📈 Après</a>';
+    var sessionChip = t.session ? ('<span class="trade-card-chip" style="background:rgba(38,166,154,0.12);color:var(--green);border-color:rgba(38,166,154,0.3);">🌍 ' + t.session + '</span>') : '';
+    var heureChip = t.heure ? ('<span class="trade-card-chip">🕐 ' + t.heure + '</span>') : '';
     var idxAttr = t._idx !== undefined ? t._idx : '';
     var editKey = encodeURIComponent((t.jour||'') + '|' + (t.date||'') + '|' + (t.sens||''));
     var editCall = 'openEditTrade(\'' + editKey + '\')';
@@ -2620,6 +2629,7 @@ function renderTradeCards(trades) {
         (t.resultat ? '<span class="trade-card-chip">' + t.resultat + '</span>' : '') +
         (t.setupICT ? '<span class="trade-card-chip" style="background:rgba(74,144,226,0.18);color:var(--blue);border-color:rgba(74,144,226,0.3);">📐 ' + t.setupICT + '</span>' : '') +
         (t.qualite ? '<span class="trade-card-chip" style="background:rgba(240,185,11,0.12);color:var(--gold);border-color:rgba(240,185,11,0.25);">' + '⭐'.repeat(t.qualite) + '</span>' : '') +
+        sessionChip + heureChip +
       '</div>' +
       (note ? '<div class="trade-card-note">💬 ' + note + '</div>' : '') +
       '<div class="trade-card-actions">' +
@@ -2630,6 +2640,24 @@ function renderTradeCards(trades) {
     '</div>';
   });
   container.innerHTML = html;
+}
+
+function exportCSV(){
+  const ds = DATASETS[currentDataset];
+  if(!ds || !ds.trades.length){ alert('Aucun trade à exporter.'); return; }
+  const headers = ['Jour','Date','Heure','Session','Actif','Sens','Lots','Setup ICT','Qualité','RR Prévu','RR Réel','Résultat','P&L ($)','%','Solde ($)','Note'];
+  const rows = ds.trades.map(t => [
+    t.jour||'', t.date||'', t.heure||'', t.session||'', t.actif||'', t.sens||'',
+    t.lots??'', t.setupICT||'', t.qualite??'', t.rrPrevu??'', t.rrReel??'',
+    t.resultat||'', t.pnl??'', t.pct??'', t.solde??'', (t.note||'').replace(/,/g,' ')
+  ]);
+  const csv = [headers, ...rows].map(r=>r.join(',')).join('\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `trades_${currentDataset}_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function updateHero() {
