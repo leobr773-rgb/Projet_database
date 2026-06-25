@@ -98,6 +98,18 @@
   .panel:hover{border-color:rgba(74,144,226,0.2);}
   .panel h3{font-size:14px;color:#fff;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
   .panel h3 .tag{font-size:11px;color:var(--muted);font-weight:400;}
+  .psycho-problem{background:var(--panel2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px;}
+  .psycho-problem-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;cursor:pointer;user-select:none;}
+  .psycho-problem-header:hover{background:rgba(255,255,255,0.03);}
+  .psycho-problem-body{display:none;padding:0 16px 16px;border-top:1px solid var(--border);}
+  .psycho-problem-body.open{display:block;}
+  .psycho-profile-card{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px;transition:border-color 0.2s;}
+  .psycho-profile-card:hover{border-color:rgba(74,144,226,0.3);}
+  .psycho-exercise-card{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px;}
+  .psycho-tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;}
+  .psycho-tag.danger{background:rgba(239,83,80,0.15);color:#ef5350;}
+  .psycho-tag.warning{background:rgba(240,185,11,0.15);color:#f0b90b;}
+  .psycho-tag.good{background:rgba(76,175,80,0.15);color:#4caf50;}
   .chart-wrap{position:relative;height:280px;}
   .chart-wrap.small{height:220px;}
 
@@ -556,6 +568,7 @@
   📋 Mon Plan de Trading — Stratégie ICT
   <span id="planToggleArrow">▼ Afficher</span>
 </button>
+<button id="psychoToggleBtn" onclick="togglePsychoSection()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;">🧠 Psychologie <span id="psychoToggleArrow">▼ Afficher</span></button>
 <div class="plan-section" id="planSection">
   <h2>📋 Plan de Trading — Stratégie <span style="background:#1a2a4a;color:var(--blue);border-radius:4px;padding:2px 10px;font-size:13px;">ICT</span></h2>
 
@@ -1033,6 +1046,9 @@
       <div class="nav-icon-wrap"><span class="icon">📰</span></div>
       News
     </li>
+    <li onclick="switchTab('psycho')" id="tab-psycho">
+      <div class="nav-icon-wrap"><span class="icon">🧠</span></div>Psycho
+    </li>
   </ul>
 </nav>
 <button id="fabAdd" style="display:none"></button>
@@ -1191,6 +1207,44 @@
 </footer>
 
 </div><!-- /section-dashboard -->
+
+<!-- ═══════════════════ SECTION PSYCHOLOGIE ═══════════════════ -->
+<div id="psychoSection" style="display:none;margin-top:24px;">
+
+  <!-- DIAGNOSTIC AUTOMATIQUE -->
+  <div class="panel" style="margin-bottom:20px;">
+    <h3>🔬 Diagnostic automatique <span class="tag">basé sur tes trades</span></h3>
+    <div id="psychoDiagnostic" style="margin-top:4px;">
+      <div style="color:var(--muted);font-size:13px;padding:10px 0;">Ajoute des trades pour générer ton diagnostic personnalisé.</div>
+    </div>
+  </div>
+
+  <!-- PROFILS PSYCHOLOGIQUES -->
+  <div class="panel" style="margin-bottom:20px;">
+    <h3>🧬 Les 7 profils du trader — Lequel es-tu ?</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:12px;" id="psychoProfiles"></div>
+  </div>
+
+  <!-- PROBLÈMES & SOLUTIONS -->
+  <div class="panel" style="margin-bottom:20px;">
+    <h3>🛠 Problèmes identifiés & solutions concrètes</h3>
+    <div id="psychoProblems" style="margin-top:12px;"></div>
+  </div>
+
+  <!-- EXERCICES PRATIQUES -->
+  <div class="panel" style="margin-bottom:20px;">
+    <h3>🏋️ Exercices pratiques quotidiens</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:12px;" id="psychoExercices"></div>
+  </div>
+
+  <!-- RÈGLES MENTALES -->
+  <div class="panel">
+    <h3>📜 Les 10 lois du trader discipliné</h3>
+    <div id="psychoLaws" style="margin-top:12px;"></div>
+  </div>
+
+</div>
+<!-- /psychoSection -->
 
 <!-- ══ SECTION NEWS ══ -->
 <div id="section-news">
