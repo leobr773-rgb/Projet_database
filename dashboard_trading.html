@@ -1615,6 +1615,8 @@ function renderAll(trades, ds){
   renderFullTable(trades);
   updateObjectifProgress();
   analysePlan();
+  var ps = document.getElementById('psychoSection');
+  if(ps && ps.style.display === 'block') renderPsychoSection();
 }
 
 function renderDataNote(stats, ds, trades){
@@ -2811,7 +2813,7 @@ async function _tryUnlock(){
 // switchTab: called by bottom nav li elements
 function switchTab(name) {
   // Update active tab indicator
-  ['dashboard','trades','plan','news'].forEach(function(n) {
+  ['dashboard','trades','plan','news','psycho'].forEach(function(n) {
     var el = document.getElementById('tab-' + n);
     if (el) el.classList.toggle('active', n === name);
   });
@@ -2878,6 +2880,11 @@ function switchTab(name) {
     var newsSection = document.getElementById('section-news');
     if (newsSection) newsSection.style.display = 'block';
   }
+    else if (name === 'psycho') {
+      hideAll();
+      var psychoSection = document.getElementById('psychoSection');
+      if(psychoSection){ psychoSection.style.display = 'block'; renderPsychoSection(); }
+    }
 }
 
 // Track plan section open state
@@ -2952,6 +2959,302 @@ function renderTradeCards(trades) {
 /* =========================================================
    ANALYSE INTELLIGENTE DU PLAN DE TRADING
    ========================================================= */
+/* =========================================================
+   SECTION PSYCHOLOGIE TRADING
+   ========================================================= */
+
+function togglePsychoSection(){
+  const sec = document.getElementById('psychoSection');
+  const arrow = document.getElementById('psychoToggleArrow');
+  if(!sec) return;
+  const open = sec.style.display === 'block';
+  sec.style.display = open ? 'none' : 'block';
+  if(arrow) arrow.textContent = open ? '▼ Afficher' : '▲ Masquer';
+  if(!open) renderPsychoSection();
+}
+
+function togglePsychoProblem(el){
+  const body = el.nextElementSibling;
+  if(!body) return;
+  body.classList.toggle('open');
+  const arrow = el.querySelector('.psycho-arrow');
+  if(arrow) arrow.textContent = body.classList.contains('open') ? '▲' : '▼';
+}
+
+function renderPsychoSection(){
+  const ds = DATASETS[currentDataset];
+  const trades = ds ? (ds.trades || []).slice().sort((a,b)=>new Date(a.date)-new Date(b.date)) : [];
+  renderPsychoDiagnostic(trades);
+  renderPsychoProfiles();
+  renderPsychoProblems(trades);
+  renderPsychoExercices();
+  renderPsychoLaws();
+}
+
+/* ── DIAGNOSTIC AUTOMATIQUE ── */
+function renderPsychoDiagnostic(trades){
+  const el = document.getElementById('psychoDiagnostic');
+  if(!el) return;
+  if(trades.length < 3){
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:10px 0;">Ajoute au moins 3 trades pour générer ton diagnostic personnalisé.</div>';
+    return;
+  }
+
+  const n = trades.length;
+  const last10 = trades.slice(-10);
+  const wins = trades.filter(t=>(parseFloat(t.pnl)||0)>0);
+  const losses = trades.filter(t=>(parseFloat(t.pnl)||0)<0);
+  const winRate = Math.round(wins.length/n*100);
+  const fomoTrades = trades.filter(t=>t.qualite&&t.qualite<=2);
+  const fomoRate = Math.round(fomoTrades.length/n*100);
+  const streak = computeStreaks(trades);
+  const lossStreak = streak.current.type==='P'?streak.current.len:0;
+  const ds2 = DATASETS[currentDataset];
+  const maxBal = Math.max(...trades.map(t=>parseFloat(t.solde)||0), ds2.soldeInitial||0);
+  const lastBal = parseFloat(trades[trades.length-1].solde)||0;
+  const ddPct = maxBal>0?Math.round((maxBal-lastBal)/maxBal*100*10)/10:0;
+  const avgQual = trades.filter(t=>t.qualite).length ? Math.round(trades.filter(t=>t.qualite).reduce((s,t)=>s+t.qualite,0)/trades.filter(t=>t.qualite).length*10)/10 : null;
+  const recentLosses = last10.filter(t=>(parseFloat(t.pnl)||0)<0).length;
+
+  // Identifier les problèmes
+  const issues = [];
+  if(fomoRate >= 30) issues.push({sev:'danger', icon:'⚡', label:'FOMO chronique', detail:`${fomoRate}% de tes trades sont hors plan (qualité ≤ 2⭐)`});
+  if(ddPct >= 8) issues.push({sev:'danger', icon:'📉', label:`Drawdown critique (${ddPct}%)`, detail:'Capital significativement sous le plus haut'});
+  if(lossStreak >= 3) issues.push({sev:'danger', icon:'🔴', label:`Série de ${lossStreak} pertes`, detail:'Risque élevé de trading émotionnel'});
+  if(recentLosses >= 7) issues.push({sev:'warning', icon:'📊', label:'Dégradation récente', detail:`${recentLosses}/10 derniers trades perdants`});
+  if(avgQual && avgQual < 3) issues.push({sev:'warning', icon:'⚠️', label:'Qualité d\'exécution faible', detail:`Moyenne de ${avgQual}⭐/5 sur tes trades notés`});
+  if(winRate < 40 && n >= 10) issues.push({sev:'warning', icon:'🎯', label:'Win rate faible', detail:`${winRate}% — revoir les critères d'entrée`});
+
+  const positifs = [];
+  if(fomoRate < 20) positifs.push({icon:'✅', label:'Bonne discipline d\'entrée', detail:`Seulement ${fomoRate}% de trades hors plan`});
+  if(avgQual && avgQual >= 4) positifs.push({icon:'⭐', label:'Excellente exécution', detail:`Qualité moyenne de ${avgQual}⭐/5`});
+  if(winRate >= 55) positifs.push({icon:'🏆', label:'Win rate solide', detail:`${winRate}% sur ${n} trades`});
+  if(ddPct < 3) positifs.push({icon:'🛡️', label:'Capital bien protégé', detail:`Drawdown de seulement ${ddPct}%`});
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;">';
+
+  // Problèmes
+  html += '<div><div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">🔴 Points de vigilance</div>';
+  if(issues.length){
+    html += issues.map(i=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:${i.sev==='danger'?'rgba(239,83,80,0.08)':'rgba(240,185,11,0.06)'};border:1px solid ${i.sev==='danger'?'rgba(239,83,80,0.25)':'rgba(240,185,11,0.25)'};border-radius:8px;margin-bottom:8px;">
+      <span style="font-size:18px;">${i.icon}</span>
+      <div><div style="font-size:13px;font-weight:600;color:${i.sev==='danger'?'#ef5350':'#f0b90b'};">${i.label}</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">${i.detail}</div></div>
+    </div>`).join('');
+  } else {
+    html += '<div style="color:var(--muted);font-size:13px;padding:8px 0;">Aucun signal d\'alarme détecté 👍</div>';
+  }
+  html += '</div>';
+
+  // Points positifs
+  html += '<div><div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">🟢 Points forts</div>';
+  if(positifs.length){
+    html += positifs.map(p=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(76,175,80,0.06);border:1px solid rgba(76,175,80,0.2);border-radius:8px;margin-bottom:8px;">
+      <span style="font-size:18px;">${p.icon}</span>
+      <div><div style="font-size:13px;font-weight:600;color:#4caf50;">${p.label}</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">${p.detail}</div></div>
+    </div>`).join('');
+  } else {
+    html += '<div style="color:var(--muted);font-size:13px;padding:8px 0;">Continue à trader pour identifier tes points forts.</div>';
+  }
+  html += '</div>';
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+/* ── 7 PROFILS ── */
+function renderPsychoProfiles(){
+  const el = document.getElementById('psychoProfiles');
+  if(!el) return;
+  const profiles = [
+    {icon:'⚡',name:'Le chasseur de FOMO',color:'#ef5350',desc:'Rentre sur les trades par peur de rater un mouvement. Entre souvent trop tard, après la première bougie de confirmation.',signes:['Achète au sommet / vend au creux','Notes de trade : "j\'aurais dû rentrer plus tôt"','Plus de trades en fin de session qu\'en début'],fix:'Règle des 3 C : Contexte + Confluence + Confirmation. Si un des trois manque, pas de trade.'},
+    {icon:'🎰',name:'Le revenge trader',color:'#f0b90b',desc:'Après une perte, cherche immédiatement à la compenser. Augmente souvent sa taille de position pour "récupérer vite".',signes:['Plusieurs trades dans l\'heure après une perte','Tailles de position irrégulières','Pertes plus importantes que les gains'],fix:'Règle du cooldown : 2h minimum après chaque perte avant tout nouveau trade. Obligatoire.'},
+    {icon:'🧊',name:'Le sur-trader',color:'#f0b90b',desc:'Prend trop de trades par session. Confond activité et performance. Un bon trader peut ne pas trader pendant des jours.',signes:['Plus de 2 trades/jour régulièrement','Win rate qui baisse en fin de session','Fatigue décisionnelle visible dans les notes'],fix:'Limite journalière stricte : 1 trade par jour max en phase d\'apprentissage. Qualité > quantité.'},
+    {icon:'😱',name:'Le coupeur anticipé',color:'#4a90e2',desc:'Ferme ses positions gagnantes trop tôt par peur de perdre le profit. Son RR réel est toujours bien en dessous du RR prévu.',signes:['RR réel systématiquement < RR prévu','Notes "j\'aurais dû tenir"','Beaucoup de BE là où il aurait dû gagner'],fix:'Utilise un TP fixe et ne le touche pas. Place le SL + TP à l\'entrée et ferme l\'écran.'},
+    {icon:'🦁',name:'Le trop confiant',color:'#4caf50',desc:'Sur une bonne série, prend plus de risques. Pense avoir "compris le marché". Cette phase précède souvent un drawdown majeur.',signes:['Tailles de position qui augmentent après 3+ gains','Trades pris sur des setups moins qualifiés','"Je suis chaud en ce moment"'],fix:'Système fixe de sizing — jamais plus de 2% par trade indépendamment des résultats précédents.'},
+    {icon:'🐢',name:'Le paralysé par la peur',color:'#7d8597',desc:'Après une série de pertes, hésite à rentrer même sur des setups parfaits. La peur de perdre l\'emporte sur l\'analyse.',signes:['Win rate récent OK mais peu de trades','Annule des trades à la dernière minute','Ressent un soulagement quand il ne prend pas de trade'],fix:'Journaling de confiance : après chaque trade raté (non pris), note combien il aurait gagné. Réalise le coût de l\'inaction.'},
+    {icon:'🎯',name:'Le trader discipliné',color:'#4caf50',desc:'Suit son plan à la lettre. Ne trade pas si le setup n\'est pas parfait. Accepte les pertes comme partie du processus.',signes:['Qualité d\'exécution ≥ 4⭐ en moyenne','1 trade/jour maximum','Note ses trades avant et après'],fix:'Maintenir la discipline : relis ton plan chaque matin. La discipline n\'est pas une compétence innée — c\'est une habitude quotidienne.'},
+  ];
+  el.innerHTML = profiles.map(p=>`<div class="psycho-profile-card" style="border-color:${p.color}30;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <span style="font-size:24px;">${p.icon}</span>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:${p.color};">${p.name}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text);margin-bottom:10px;line-height:1.5;">${p.desc}</div>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px;">SIGNES RÉVÉLATEURS</div>
+      ${p.signes.map(s=>`<div style="font-size:11px;color:var(--muted);padding:3px 0;border-left:2px solid ${p.color}40;padding-left:8px;margin-bottom:4px;">• ${s}</div>`).join('')}
+    </div>
+    <div style="background:${p.color}10;border-radius:8px;padding:10px;border:1px solid ${p.color}25;">
+      <div style="font-size:11px;font-weight:600;color:${p.color};margin-bottom:4px;">💊 SOLUTION</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.5;">${p.fix}</div>
+    </div>
+  </div>`).join('');
+}
+
+/* ── PROBLÈMES & SOLUTIONS (accordéon) ── */
+function renderPsychoProblems(trades){
+  const el = document.getElementById('psychoProblems');
+  if(!el) return;
+  const n = trades.length;
+  const fomoTrades = trades.filter(t=>t.qualite&&t.qualite<=2);
+  const fomoRate = n ? Math.round(fomoTrades.length/n*100) : 0;
+  const streak = computeStreaks(trades);
+  const lossStreak = streak.current.type==='P'?streak.current.len:0;
+
+  const problems = [
+    {
+      id:'fomo', sev: fomoRate>=30?'danger':fomoRate>=15?'warning':'good',
+      title:'FOMO (Fear Of Missing Out)',
+      detected: fomoRate>=20 ? `⚠️ Détecté : ${fomoRate}% de tes trades ont une qualité ≤ 2⭐` : `✅ Non détecté actuellement (${fomoRate}% de trades hors plan)`,
+      cause:'Le FOMO est déclenché par la dopamine : voir une bougie monter active les mêmes circuits que l\'addiction. Ce n\'est pas une faiblesse — c\'est de la biologie.',
+      signes:['Rentrer sur un trade après avoir vu "le marché partir"','Sentir de l\'urgence quand tu regardes un graphique','Regretter de ne pas avoir pris un trade 30 minutes après'],
+      solutions:['<b>Règle des 3C :</b> Contexte + Confluence + Confirmation — les 3 doivent être présents','<b>Timer de 5 minutes :</b> si tu penses avoir vu un setup, attends 5 min avant d\'entrer. Si toujours valide, prends-le','<b>Mantra :</b> "Il y aura toujours un autre trade. Ce n\'est pas le dernier"','<b>Désactive les notifications :</b> ne regarde les graphiques qu\'à heures fixes (pre-session et killzone)'],
+      ressource:'Mark Douglas — Trading in the Zone, chapitre 8',
+    },
+    {
+      id:'revenge', sev: lossStreak>=2?'danger':'good',
+      title:'Revenge Trading',
+      detected: lossStreak>=2 ? `⚠️ Détecté : ${lossStreak} pertes consécutives en cours` : '✅ Non détecté actuellement',
+      cause:'Après une perte, le cerveau entre en mode "récupération". La douleur d\'une perte est 2x plus intense que le plaisir d\'un gain équivalent (biais de l\'aversion aux pertes). Tu veux effacer cette douleur immédiatement.',
+      signes:['Reprendre un trade dans les 30min après une perte','Augmenter sa taille après une perte','Prendre le trade "inverse" de celui qui a perdu'],
+      solutions:['<b>Règle absolue :</b> 2h de pause après chaque perte, sans exception','<b>Journal émotionnel :</b> écris ce que tu ressens immédiatement après une perte (ici dans le journal du jour)','<b>Question de contrôle :</b> "Est-ce que je prends ce trade parce que c\'est un bon setup, ou pour récupérer ma perte ?"','<b>Système de limite :</b> -2% de drawdown dans la journée = fin des trades pour la journée'],
+      ressource:'Brett Steenbarger — The Psychology of Trading',
+    },
+    {
+      id:'peur', sev:'warning',
+      title:'Peur de perdre / Paralysie décisionnelle',
+      detected:'Difficile à détecter automatiquement — analyse tes trades non-pris',
+      cause:'Après une série de pertes, l\'amygdale (centre de la peur) prend le contrôle sur le cortex préfrontal (raisonnement). Tu "vois" le danger là où il n\'est pas.',
+      signes:['Annuler des trades valides à la dernière seconde','Sortir trop tôt d\'un trade gagnant par peur','Sentir du soulagement quand le marché "repart sans toi"'],
+      solutions:['<b>Back-testing mental :</b> rappelle-toi que ce setup a fonctionné X fois dans le passé','<b>Taille réduite :</b> si tu as peur, trade la moitié de ta taille habituelle. Le risque réduit = peur réduite','<b>Focus sur le processus, pas le résultat :</b> "Ai-je bien suivi mon plan ?" est la seule vraie question','<b>Exposition progressive :</b> reprends paper trading quelques jours pour retrouver confiance'],
+      ressource:'Steenbarger — Enhancing Trader Performance',
+    },
+    {
+      id:'overconfidence', sev:'warning',
+      title:'Excès de confiance post-gain',
+      detected:'Surveille tes tailles de position après 3+ gains consécutifs',
+      cause:'Les gains activent la dopamine ET la testostérone. Cette combinaison crée un état d\'euphorie qui réduit la perception du risque. Les traders professionnels connaissent cet état et le redoutent.',
+      signes:['Augmenter sa taille après une bonne série','Prendre des trades "car je me sens dans le flow"','Ignorer des signaux d\'invalidation "parce que ça va monter"'],
+      solutions:['<b>Sizing fixe et immuable :</b> jamais plus de 2% par trade, quelle que soit la série','<b>Règle de la série :</b> après 4 gains consécutifs, réduire la taille de 50% par précaution','<b>Journal de confiance :</b> note ton niveau de confiance de 1 à 10 avant chaque trade. Si > 8, sois encore plus prudent','<b>Rappel systématique :</b> chaque nouveau trade est indépendant des précédents — le marché n\'a pas de "mémoire" de tes gains'],
+      ressource:'Nassim Taleb — Le Cygne Noir, partie II',
+    },
+    {
+      id:'impatience', sev:'warning',
+      title:'Impatience & sortie anticipée',
+      detected:'Compare ton RR réel vs ton RR prévu dans les statistiques',
+      cause:'Dès qu\'un trade est en profit, le cerveau veut "sécuriser". C\'est un mécanisme de survie — mais le trading n\'est pas la survie.',
+      signes:['RR réel systématiquement inférieur au RR prévu','Sortir sur le premier pull-back d\'un trade gagnant','Déplacer son TP à la baisse "pour sécuriser"'],
+      solutions:['<b>TP + SL fixés à l\'entrée, ne plus toucher :</b> place tes ordres et ferme l\'écran','<b>Règle du "partiel" :</b> si l\'impatience est forte, ferme 50% à R:1 et laisse courir le reste','<b>Visualisation :</b> avant d\'entrer, visualise le trade arriver au TP. Tiens cette image mentale','<b>Statistiques de référence :</b> consulte régulièrement tes stats "trades tenus vs sorties anticipées"'],
+      ressource:'ICT — The Consequential Trade, inner circle trader',
+    },
+    {
+      id:'surtrading', sev:'warning',
+      title:'Sur-trading (overtrading)',
+      detected:'Analyse le nombre de trades par jour dans ton journal',
+      cause:'Le trading crée une stimulation constante. Le cerveau assimile l\'action au contrôle et à la compétence. Ne pas trader semble être une perte de temps — c\'est l\'inverse.',
+      signes:['Plus de 2 trades par jour régulièrement','Qualité des trades qui se dégrade en fin de session','"Il doit bien y avoir quelque chose à prendre sur ce graphique"'],
+      solutions:['<b>Quota journalier :</b> maximum 1 trade de qualité par jour en apprentissage','<b>Planning horaire :</b> tu ne regardes les graphiques qu\'à 2 moments fixes (06h30 analyse + 14h30 killzone NY)','<b>Critère de non-trade :</b> si tu dois chercher le setup, il n\'existe pas. Les bons setups sautent aux yeux','<b>Activité alternative :</b> prépare ta journée du lendemain, lis sur ICT, fais du sport — ne reste pas devant les graphiques'],
+      ressource:'ICT — Why Most Traders Overtrade',
+    },
+    {
+      id:'biais', sev:'warning',
+      title:'Biais directionnel (bullish/bearish only)',
+      detected:'Analyse la répartition Achat vs Vente dans tes trades',
+      cause:'Nous avons naturellement tendance à avoir un "biais" (haussier ou baissier) selon nos convictions macro ou notre dernier trade. Ce biais filtre les opportunités opposées.',
+      signes:['90%+ des trades dans un seul sens (achat ou vente)','Ignorer les setups short "parce que ça va monter à long terme"','Inverser sa position après une perte (revenge à l\'envers)'],
+      solutions:['<b>Analyse bi-directionnelle :</b> chaque matin, identifie les setups haussiers ET baissiers','<b>Question de biais :</b> "Si je pensais que ça allait dans l\'autre sens, qu\'est-ce que je verrais ?"','<b>Règle ICT :</b> trade la structure du marché — pas ta conviction. Le marché a toujours raison','<b>Stats de suivi :</b> tes stats Achat vs Vente dans le tableau te montrent ta performance réelle dans chaque sens'],
+      ressource:'ICT — Market Structure & Dealing Ranges',
+    },
+  ];
+
+  const sevColors = {danger:'#ef5350', warning:'#f0b90b', good:'#4caf50'};
+  el.innerHTML = problems.map((p,i)=>`<div class="psycho-problem">
+    <div class="psycho-problem-header" onclick="togglePsychoProblem(this)">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="psycho-tag ${p.sev}">${p.sev==='danger'?'⚠️ Détecté':p.sev==='warning'?'À surveiller':'✅ OK'}</span>
+        <span style="font-size:14px;font-weight:600;color:#fff;">${p.title}</span>
+      </div>
+      <span class="psycho-arrow" style="color:var(--muted);font-size:13px;">▼</span>
+    </div>
+    <div class="psycho-problem-body">
+      <div style="padding-top:14px;">
+        <div style="background:${sevColors[p.sev]}12;border:1px solid ${sevColors[p.sev]}30;border-radius:8px;padding:10px 13px;margin-bottom:14px;font-size:13px;color:var(--text);">${p.detected}</div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Pourquoi ça arrive</div>
+          <div style="font-size:13px;color:var(--text);line-height:1.6;">${p.cause}</div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Signes révélateurs</div>
+          <ul style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:5px;">
+            ${p.signes.map(s=>`<li style="font-size:12px;color:var(--text);line-height:1.5;">${s}</li>`).join('')}
+          </ul>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Solutions concrètes</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            ${p.solutions.map(s=>`<div style="font-size:12px;color:var(--text);line-height:1.5;padding:8px 10px;background:rgba(74,144,226,0.06);border-radius:6px;border-left:2px solid var(--blue);">${s}</div>`).join('')}
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);padding-top:8px;border-top:1px solid var(--border);">📚 Ressource : ${p.ressource}</div>
+      </div>
+    </div>
+  </div>`).join('');
+}
+
+/* ── EXERCICES PRATIQUES ── */
+function renderPsychoExercices(){
+  const el = document.getElementById('psychoExercices');
+  if(!el) return;
+  const exercices = [
+    {icon:'📓', freq:'Chaque soir', title:'Journal de trading émotionnel', desc:'Note en 3 lignes : 1) Qu\'est-ce que j\'ai ressenti pendant mes trades ? 2) Ai-je respecté mon plan à 100% ? 3) Qu\'est-ce que j\'aurais fait différemment ?', duree:'5 minutes'},
+    {icon:'🎯', freq:'Avant chaque session', title:'Check-list pré-session', desc:'1) Quel est le biais du marché aujourd\'hui ? 2) Quels niveaux clés surveiller ? 3) Quelle est ma limite de perte journalière ? 4) Mon état d\'esprit est-il neutre ?', duree:'10 minutes'},
+    {icon:'🧘', freq:'Après chaque perte', title:'Reset émotionnel 5 min', desc:'Ferme les graphiques. Fais 10 respirations profondes (4s inspire, 7s retiens, 8s expire). Bois de l\'eau. Demande-toi : "Ce trade a-t-il respecté mon plan ?" Si oui, c\'est une bonne perte.', duree:'5 minutes'},
+    {icon:'📊', freq:'Chaque semaine', title:'Review hebdomadaire', desc:'Passe en revue tes 5-10 derniers trades. Pour chaque perte : était-ce une erreur de méthode (mauvais setup) ou une erreur d\'exécution (bon setup mal exécuté) ? Les deux ont des solutions différentes.', duree:'20 minutes'},
+    {icon:'📹', freq:'1x par semaine', title:'Rejoue tes trades sur TradingView', desc:'Utilise le mode replay TradingView pour revoir exactement tes entrées/sorties. Identifie : aurais-tu pu tenir plus longtemps ? As-tu coupé trop tôt ? C\'est le meilleur outil d\'amélioration qui existe.', duree:'30 minutes'},
+    {icon:'🏃', freq:'Chaque jour', title:'Sport avant de trader', desc:'30 minutes de cardio avant ta session réduit le cortisol (hormone du stress) et améliore le cortex préfrontal (prise de décision). C\'est prouvé scientifiquement. Les meilleurs traders ont quasi tous une routine sportive matinale.', duree:'30 minutes'},
+  ];
+  el.innerHTML = exercices.map(e=>`<div class="psycho-exercise-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:20px;">${e.icon}</span>
+        <div style="font-size:13px;font-weight:700;color:#fff;">${e.title}</div>
+      </div>
+      <span style="font-size:10px;background:rgba(74,144,226,0.15);color:var(--blue);border-radius:10px;padding:2px 8px;white-space:nowrap;flex-shrink:0;margin-left:8px;">${e.freq}</span>
+    </div>
+    <div style="font-size:12px;color:var(--text);line-height:1.6;margin-bottom:8px;">${e.desc}</div>
+    <div style="font-size:11px;color:var(--muted);">⏱ ${e.duree}</div>
+  </div>`).join('');
+}
+
+/* ── 10 LOIS DU TRADER ── */
+function renderPsychoLaws(){
+  const el = document.getElementById('psychoLaws');
+  if(!el) return;
+  const laws = [
+    ['Le marché te doit rien', 'Tu n\'as pas "droit" à un gain. Chaque trade est une probabilité, pas une certitude. Aborde chaque position avec humilité.'],
+    ['Un trade raté n\'est pas une perte', 'Ne pas prendre un trade hors plan est une victoire. Le FOMO est l\'ennemi de la performance long terme.'],
+    ['La discipline précède la méthode', 'Un trader moyen avec une discipline parfaite bat un trader brillant avec une discipline faible. Toujours.'],
+    ['Les émotions ne prennent de décision que si tu les laisses faire', 'Tu ressentiras toujours de la peur et de l\'avidité. La compétence c\'est de ne pas agir sur ces émotions.'],
+    ['Un trade perdu correctement exécuté est une réussite', 'Si tu as suivi ton plan à 100% et perdu, c\'est un bon trade. Le résultat n\'évalue pas la qualité de la décision.'],
+    ['La taille de position détermine ta psychologie', 'Si tu as du mal à laisser courir tes trades, c\'est que tu es trop gros. Réduis jusqu\'à te sentir indifférent au résultat.'],
+    ['Chaque jour de marché est indépendant', 'Hier n\'existe pas quand tu trades aujourd\'hui. Ni ta série de gains, ni ta série de pertes ne prédisent le prochain trade.'],
+    ['Le seul contrôle que tu as : l\'entrée et la taille', 'Tu ne contrôles pas le marché, ni les news, ni la liquidité. Tu contrôles uniquement ton point d\'entrée et ton risque.'],
+    ['Plus tu cherches un trade, moins il existe', 'Les meilleurs setups te sautent aux yeux immédiatement. Si tu dois te convaincre, le setup n\'est pas là.'],
+    ['Le trading se gagne dans la préparation, pas l\'exécution', 'L\'analyse du matin, le plan de trading, les niveaux clés — 80% du travail se fait avant l\'ouverture des marchés.'],
+  ];
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:0;">
+    ${laws.map(([title,text],i)=>`<div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:22px;font-weight:800;color:rgba(74,144,226,0.3);min-width:30px;text-align:center;margin-top:1px;">${i+1}</div>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:4px;">${title}</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.6;">${text}</div>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
 function analysePlan(){
   const el = document.getElementById('planAnalyseContent');
   if(!el) return;
@@ -3006,7 +3309,7 @@ function analysePlan(){
   const sessionList = Object.entries(sessionMap).map(([name,v])=>({name,wr:Math.round(v.wins/v.total*100),total:v.total,pnl:Math.round(v.pnl*100)/100})).sort((a,b)=>b.pnl-a.pnl);
 
   // Quality analysis
-  const qualMap={1:{p:0,t:0},2:{p:0,t:0},3:{p:0,t:0},4:{p:0,t:0},5:{p:0,t:0}};
+  const qualMap={1:{pnl:0,t:0},2:{pnl:0,t:0},3:{pnl:0,t:0},4:{pnl:0,t:0},5:{pnl:0,t:0}};
   trades.forEach(t=>{if(t.qualite){qualMap[t.qualite].pnl=(qualMap[t.qualite].pnl||0)+(parseFloat(t.pnl)||0);qualMap[t.qualite].t++;}});
   const highQualPnl = [4,5].map(q=>qualMap[q].pnl||0).reduce((a,b)=>a+b,0);
   const lowQualPnl = [1,2].map(q=>qualMap[q].pnl||0).reduce((a,b)=>a+b,0);
