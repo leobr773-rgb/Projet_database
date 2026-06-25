@@ -772,6 +772,7 @@
   </div>
   <button onclick="applyFilters()">Filtrer</button>
   <button class="secondary" onclick="resetFilters()">Réinitialiser</button>
+      <button class="secondary" onclick="exportCSV()" style="border-color:var(--green);color:var(--green);">⬇ CSV</button>
   <button class="secondary btn-add-trade-desktop" id="btnAddTradeDesktop" onclick="toggleAddTradeForm()" style="margin-left:auto;">+ Ajouter un trade</button>
   <button class="secondary" onclick="clearSavedTrades()" title="Supprime les trades ajoutés via le formulaire (pas ceux du fichier HTML)" style="color:#e05c5c;">🗑 Vider le cache</button>
 </div>
@@ -831,6 +832,23 @@
       <label>Date du trade</label>
       <input type="date" id="atDate"
         style="background:var(--panel2);border:1px solid var(--border);color:#fff;padding:7px 10px;border-radius:6px;font-size:14px;font-weight:700;">
+    </div>
+
+    <div class="group" style="min-width:110px;">
+      <label>Heure d'entrée</label>
+      <input type="time" id="atHeure"
+        style="background:var(--panel2);border:1px solid var(--border);color:#fff;padding:7px 10px;border-radius:6px;font-size:14px;font-weight:700;">
+    </div>
+
+    <div class="group" style="min-width:130px;">
+      <label>Session</label>
+      <select id="atSession" style="background:var(--panel2);border:1px solid var(--border);color:#fff;padding:7px 10px;border-radius:6px;font-size:13px;">
+        <option value="">—</option>
+        <option value="London">🇬🇧 London</option>
+        <option value="New York">🇺🇸 New York</option>
+        <option value="Asian">🌏 Asian</option>
+        <option value="NY PM">🌆 NY PM</option>
+      </select>
     </div>
 
     <div class="group" style="min-width:180px;">
@@ -998,6 +1016,18 @@
   <div class="panel">
     <h3>⭐ P&L moyen par qualité d'exécution <span class="tag">self-discipline score</span></h3>
     <div class="chart-wrap small"><canvas id="chartQualite"></canvas></div>
+  </div>
+</div>
+
+<!-- Row 5 : Session + Heure -->
+<div class="grid cols-2">
+  <div class="panel">
+    <h3>🌍 P&L par session <span class="tag">London / NY / Asian</span></h3>
+    <div class="chart-wrap small"><canvas id="chartSession"></canvas></div>
+  </div>
+  <div class="panel">
+    <h3>🕐 Nb trades par heure d'entrée <span class="tag">distribution horaire</span></h3>
+    <div class="chart-wrap small"><canvas id="chartHeure"></canvas></div>
   </div>
 </div>
 
@@ -1405,7 +1435,8 @@ function renderAll(trades, ds){
 
   renderDataNote(stats, ds, trades);
   renderKPIs(stats, ds, trades);
-  renderHealthBar(stats, trades);
+  const streakData = computeStreaks(trades);
+  renderHealthBar(stats, trades, streakData);
   renderEquityChart(stats);
   renderMonthlyChart(computeMonthly(trades));
   renderRepartitionChart(stats);
@@ -1415,8 +1446,10 @@ function renderAll(trades, ds){
   renderRRChart(trades);
   renderSetupChart(trades);
   renderQualiteChart(trades);
+  renderSessionChart(trades);
+  renderHeureChart(trades);
   renderTopFlop(trades);
-  renderStreaks(computeStreaks(trades));
+  renderStreaks(streakData);
   renderRecommendations(stats, trades, ds);
   renderFullTable(trades);
 }
@@ -1449,7 +1482,7 @@ function renderDataNote(stats, ds, trades){
   box.innerHTML = html;
 }
 
-function renderHealthBar(s, trades) {
+function renderHealthBar(s, trades, streakData) {
   const el = document.getElementById('healthMetrics');
   if (!el) return;
   const badges = [];
@@ -1459,7 +1492,6 @@ function renderHealthBar(s, trades) {
   badges.push(`<span style="background:${pfColor}22;color:${pfColor};border:1px solid ${pfColor}44;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">PF ${isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : '∞'}</span>`);
   const ddColor = s.maxDDPct <= 5 ? '#4caf50' : s.maxDDPct <= 10 ? '#f0b90b' : '#ef5350';
   badges.push(`<span style="background:${ddColor}22;color:${ddColor};border:1px solid ${ddColor}44;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">DD ${s.maxDDPct.toFixed(1)}%</span>`);
-  const streakData = computeStreaks(trades);
   const sColor = streakData.current.type === 'G' ? '#4caf50' : streakData.current.type === 'P' ? '#ef5350' : '#f0b90b';
   const sLabel = streakData.current.type === 'G' ? `🔥 ${streakData.current.len} gains` : streakData.current.type === 'P' ? `⚠️ ${streakData.current.len} pertes` : `${streakData.current.len} BE`;
   badges.push(`<span style="background:${sColor}22;color:${sColor};border:1px solid ${sColor}44;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">${sLabel}</span>`);
@@ -1723,6 +1755,47 @@ function renderQualiteChart(trades){
         y:{ticks:{color:'#7d8597'},grid:{color:'#232834'}}
       }
     }
+  });
+}
+
+function renderSessionChart(trades){
+  const ctx = document.getElementById('chartSession');
+  if(!ctx) return;
+  if(charts.session) charts.session.destroy();
+  const sessions = ['London','New York','NY PM','Asian','Non renseigné'];
+  const data = sessions.map(s => {
+    const ts = trades.filter(t => (t.session || 'Non renseigné') === s);
+    return { label: s, pnl: Math.round(ts.reduce((a,t)=>a+(parseFloat(t.pnl)||0),0)*100)/100, count: ts.length };
+  }).filter(d => d.count > 0);
+  if(!data.length) return;
+  charts.session = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: data.map(d=>`${d.label} (${d.count})`),
+      datasets:[{ label:'P&L net ($)', data: data.map(d=>d.pnl),
+        backgroundColor: data.map(d=>d.pnl>=0?'rgba(76,175,80,0.7)':'rgba(239,83,80,0.7)'), borderRadius:4 }]
+    },
+    options: chartOptionsBar(true)
+  });
+}
+
+function renderHeureChart(trades){
+  const ctx = document.getElementById('chartHeure');
+  if(!ctx) return;
+  if(charts.heure) charts.heure.destroy();
+  const counts = {};
+  trades.forEach(t => {
+    if(!t.heure) return;
+    const h = t.heure.slice(0,2)+'h';
+    counts[h] = (counts[h]||0)+1;
+  });
+  const labels = Object.keys(counts).sort();
+  if(!labels.length) return;
+  charts.heure = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'Nb trades', data: labels.map(h=>counts[h]),
+      backgroundColor:'rgba(74,144,226,0.65)', borderRadius:4 }] },
+    options: chartOptionsBar(true)
   });
 }
 
@@ -2057,6 +2130,8 @@ function readFormValues(){
   const note = document.getElementById('atNote').value.trim();
   const setupICT = document.getElementById('atSetupICT').value || null;
   const qualite = document.getElementById('atQualite').value ? parseInt(document.getElementById('atQualite').value) : null;
+  const heure = (document.getElementById('atHeure').value||'').trim() || null;
+  const session = document.getElementById('atSession').value || null;
   const setupAvant = (document.getElementById('atSetupAvant').value||'').trim() || null;
   const setupApres = (document.getElementById('atSetupApres').value||'').trim() || null;
 
@@ -2072,7 +2147,7 @@ function readFormValues(){
   const dateInput = (document.getElementById('atDate').value||'').trim();
   const date = dateInput || new Date().toISOString().slice(0,10);
 
-  return {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupICT, qualite, setupAvant, setupApres, note, resultat, pct, solde: nouveauSolde};
+  return {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupICT, qualite, heure, session, setupAvant, setupApres, note, resultat, pct, solde: nouveauSolde};
 }
 
 function fillForm(t){
@@ -2093,6 +2168,8 @@ function fillForm(t){
   document.getElementById('atNouveauSolde').value = t.solde ?? '';
   document.getElementById('atSetupICT').value = t.setupICT || '';
   document.getElementById('atQualite').value = t.qualite || '';
+  document.getElementById('atHeure').value = t.heure || '';
+  document.getElementById('atSession').value = t.session || '';
   document.getElementById('atSetupAvant').value = t.setupAvant || '';
   document.getElementById('atSetupApres').value = t.setupApres || '';
   document.getElementById('atNote').value = t.note || '';
@@ -2164,7 +2241,7 @@ function toggleAddTradeForm(){
 function submitAddTrade(e){
   e.preventDefault();
   const ds = DATASETS[currentDataset];
-  const {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupICT, qualite, setupAvant, setupApres, note, resultat, pct, solde} = readFormValues();
+  const {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupICT, qualite, heure, session, setupAvant, setupApres, note, resultat, pct, solde} = readFormValues();
 
   if(!actif){
     alert("Merci de choisir une paire de trading.");
@@ -2179,7 +2256,7 @@ function submitAddTrade(e){
     const updated = Object.assign({}, original, {
       date, actif, sens, lots, rrPrevu, rrReel, resultat,
       pnl: Math.round(pnl*10000)/10000,
-      risqueMax, setupICT, qualite, setupAvant, setupApres, note,
+      risqueMax, setupICT, qualite, heure, session, setupAvant, setupApres, note,
       solde: Math.round(solde*10000)/10000, pct,
     });
     ds.trades[idx] = updated;
@@ -2198,7 +2275,7 @@ function submitAddTrade(e){
     const newTrade = {
       jour:`JOUR ${maxJour+1}`, date, actif, sens, lots, rrPrevu, rrReel, resultat,
       pnl:Math.round(pnl*10000)/10000, risqueMax,
-      pct, setupICT, qualite, setupAvant, setupApres, note,
+      pct, setupICT, qualite, heure, session, setupAvant, setupApres, note,
       solde: Math.round(solde*10000)/10000,
     };
     trades.push(newTrade);
