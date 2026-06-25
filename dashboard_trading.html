@@ -559,6 +559,25 @@
 <div class="plan-section" id="planSection">
   <h2>📋 Plan de Trading — Stratégie <span style="background:#1a2a4a;color:var(--blue);border-radius:4px;padding:2px 10px;font-size:13px;">ICT</span></h2>
 
+  <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px;">
+  <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:12px;">🎯 Objectif mensuel</div>
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+    <div>
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">Objectif P&L ($)</label>
+      <input type="number" id="planObjectifMensuel" step="any" placeholder="ex: 500"
+        style="background:var(--panel);border:1px solid var(--border);color:#fff;padding:7px 12px;border-radius:6px;font-size:14px;font-weight:700;width:130px;"
+        oninput="savePlanObjectif()">
+    </div>
+    <div id="objectifProgressWrap" style="flex:1;min-width:200px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Progression ce mois</div>
+      <div style="background:var(--panel);border-radius:8px;height:14px;overflow:hidden;position:relative;">
+        <div id="objectifProgressBar" style="height:100%;border-radius:8px;transition:width 0.5s ease;width:0%;background:var(--green2);"></div>
+      </div>
+      <div id="objectifProgressLabel" style="font-size:12px;color:var(--muted);margin-top:5px;">—</div>
+    </div>
+  </div>
+</div>
+
   <div class="plan-cols">
     <!-- COLONNE GAUCHE -->
     <div>
@@ -775,6 +794,33 @@
     </select>
   </div>
   <button onclick="applyFilters()">Filtrer</button>
+  <div class="group">
+        <label>Setup ICT</label>
+        <select id="filterSetup" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:13px;min-width:130px;">
+          <option value="">Tous</option>
+        </select>
+      </div>
+      <div class="group">
+        <label>Session</label>
+        <select id="filterSession" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:13px;min-width:120px;">
+          <option value="">Toutes</option>
+          <option value="London">🇬🇧 London</option>
+          <option value="New York">🇺🇸 New York</option>
+          <option value="NY PM">🌆 NY PM</option>
+          <option value="Asian">🌏 Asian</option>
+        </select>
+      </div>
+      <div class="group">
+        <label>Qualité min</label>
+        <select id="filterQualite" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:13px;min-width:110px;">
+          <option value="">Toutes</option>
+          <option value="5">⭐⭐⭐⭐⭐ 5</option>
+          <option value="4">⭐⭐⭐⭐ 4+</option>
+          <option value="3">⭐⭐⭐ 3+</option>
+          <option value="2">⭐⭐ 2+</option>
+          <option value="1">⭐ 1+</option>
+        </select>
+      </div>
   <button class="secondary" onclick="resetFilters()">Réinitialiser</button>
       <button class="secondary" onclick="exportCSV()" style="border-color:var(--green);color:var(--green);">⬇ CSV</button>
   <button class="secondary btn-add-trade-desktop" id="btnAddTradeDesktop" onclick="toggleAddTradeForm()" style="margin-left:auto;">+ Ajouter un trade</button>
@@ -841,6 +887,12 @@
     <div class="group" style="min-width:110px;">
       <label>Heure d'entrée</label>
       <input type="time" id="atHeure"
+        style="background:var(--panel2);border:1px solid var(--border);color:#fff;padding:7px 10px;border-radius:6px;font-size:14px;font-weight:700;">
+    </div>
+
+    <div class="group" style="min-width:110px;">
+      <label>Heure de sortie</label>
+      <input type="time" id="atHeureSortie"
         style="background:var(--panel2);border:1px solid var(--border);color:#fff;padding:7px 10px;border-radius:6px;font-size:14px;font-weight:700;">
     </div>
 
@@ -978,6 +1030,10 @@
     <div class="chart-wrap"><canvas id="chartEquity"></canvas></div>
   </div>
   <div class="panel">
+    <h3>📈 Win Rate glissant <span class="tag">sur les 10 derniers trades</span></h3>
+    <div class="chart-wrap"><canvas id="chartWinRateGlissant"></canvas></div>
+  </div>
+  <div class="panel">
     <h3>Performance mensuelle <span class="tag">P&L net trading par mois ($)</span></h3>
     <div class="chart-wrap"><canvas id="chartMonthly"></canvas></div>
   </div>
@@ -1080,7 +1136,7 @@
   <h3>Journal complet des trades</h3>
   <div id="tradesTableWrapper" style="overflow-x:auto;">
   <table id="tableAll"><thead><tr>
-    <th>Jour</th><th>Date</th><th>Heure</th><th>Session</th><th>Actif</th><th>Sens</th><th>Lots</th><th>RR prévu</th><th>RR réel</th>
+    <th>Jour</th><th>Date</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Session</th><th>Actif</th><th>Sens</th><th>Lots</th><th>RR prévu</th><th>RR réel</th>
     <th>Résultat</th><th>P&L ($)</th><th>Risque max ($)</th><th>%</th><th>Solde après</th><th>Charts TV</th><th>Note</th><th>Setup</th><th>Qualité</th><th></th>
   </tr></thead><tbody></tbody></table>
   </div>
@@ -1221,6 +1277,13 @@ function populateFilterOptions(){
   const dates = trades.map(t=>t.date).sort();
   document.getElementById('fDateStart').value = dates[0];
   document.getElementById('fDateEnd').value = dates[dates.length-1];
+  // Setup ICT
+  const setupSel = document.getElementById('filterSetup');
+  if(setupSel){
+    const ds = DATASETS[currentDataset];
+    const setups = [...new Set(ds.trades.map(t=>t.setupICT).filter(Boolean))].sort();
+    setupSel.innerHTML = '<option value="">Tous</option>' + setups.map(s=>`<option value="${s}">${s}</option>`).join('');
+  }
 }
 
 function resetFilters(){
@@ -1230,6 +1293,9 @@ function resetFilters(){
   const dates = DATASETS[currentDataset].trades.map(t=>t.date).sort();
   document.getElementById('fDateStart').value = dates[0];
   document.getElementById('fDateEnd').value = dates[dates.length-1];
+  const fs = document.getElementById('filterSetup'); if(fs) fs.value='';
+  const fse = document.getElementById('filterSession'); if(fse) fse.value='';
+  const fq = document.getElementById('filterQualite'); if(fq) fq.value='';
   applyFilters();
 }
 
@@ -1241,7 +1307,7 @@ function applyFilters(){
   const sens = document.getElementById('fSens').value;
   const resultat = document.getElementById('fResultat').value;
 
-  const filtered = ds.trades.filter(t=>{
+  let filtered = ds.trades.filter(t=>{
     if(start && t.date < start) return false;
     if(end && t.date > end) return false;
     if(actif !== 'all' && t.actif !== actif) return false;
@@ -1249,6 +1315,13 @@ function applyFilters(){
     if(resultat !== 'all' && t.resultat !== resultat) return false;
     return true;
   }).sort((a,b)=> a.date.localeCompare(b.date) || a.jour.localeCompare(b.jour));
+
+  const fSetup = document.getElementById('filterSetup');
+  if(fSetup && fSetup.value) filtered = filtered.filter(t => t.setupICT === fSetup.value);
+  const fSession = document.getElementById('filterSession');
+  if(fSession && fSession.value) filtered = filtered.filter(t => t.session === fSession.value);
+  const fQualite = document.getElementById('filterQualite');
+  if(fQualite && fQualite.value) filtered = filtered.filter(t => (t.qualite||0) >= parseInt(fQualite.value));
 
   document.getElementById('hdrSubtitle').textContent =
     `${ds.label} — Capital initial : ${fmtMoneyAbs(ds.soldeInitial)}`;
@@ -1442,6 +1515,7 @@ function renderAll(trades, ds){
   const streakData = computeStreaks(trades);
   renderHealthBar(stats, trades, streakData);
   renderEquityChart(stats);
+  renderWinRateGlissant(trades);
   renderMonthlyChart(computeMonthly(trades));
   renderRepartitionChart(stats);
   renderDistributionChart(computeDistribution(trades));
@@ -1456,6 +1530,7 @@ function renderAll(trades, ds){
   renderStreaks(streakData);
   renderRecommendations(stats, trades, ds);
   renderFullTable(trades);
+  updateObjectifProgress();
 }
 
 function renderDataNote(stats, ds, trades){
@@ -1554,6 +1629,61 @@ function renderKPIs(s, ds, trades){
     daysProfitable >= daysTotal/2 ? 'pos' : 'neg'));
 
   grid.innerHTML = cards.join('');
+}
+
+function renderWinRateGlissant(trades){
+  const ctx = document.getElementById('chartWinRateGlissant');
+  if(!ctx) return;
+  if(charts.winRateGlissant) charts.winRateGlissant.destroy();
+  const sorted = trades.slice().sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(sorted.length < 2) return;
+  const window = 10;
+  const labels = [];
+  const data = [];
+  const colors = [];
+  for(let i = 0; i < sorted.length; i++){
+    const slice = sorted.slice(Math.max(0, i - window + 1), i + 1);
+    const wins = slice.filter(t => (parseFloat(t.pnl)||0) > 0).length;
+    const wr = Math.round(wins / slice.length * 100);
+    labels.push(sorted[i].date ? fmtDate(sorted[i].date) : `T${i+1}`);
+    data.push(wr);
+    colors.push(wr >= 60 ? '#4caf50' : wr >= 40 ? '#f0b90b' : '#ef5350');
+  }
+  charts.winRateGlissant = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Win Rate glissant (%)',
+        data,
+        borderColor: '#4a90e2',
+        backgroundColor: 'rgba(74,144,226,0.08)',
+        fill: true,
+        tension: 0.3,
+        pointBackgroundColor: colors,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+      }, {
+        label: 'Seuil rentabilité (50%)',
+        data: labels.map(() => 50),
+        borderColor: 'rgba(239,83,80,0.5)',
+        borderDash: [4,4],
+        pointRadius: 0,
+        fill: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#d1d4dc' } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.raw}%` } }
+      },
+      scales: {
+        x: { ticks: { color: '#7d8597' }, grid: { color: '#232834' } },
+        y: { min: 0, max: 100, ticks: { color: '#7d8597', callback: v => v+'%' }, grid: { color: '#232834' } }
+      }
+    }
+  });
 }
 
 function renderEquityChart(s){
@@ -1980,7 +2110,7 @@ function renderRecommendations(s, trades, ds){
 function renderFullTable(trades){
   const tbody = document.querySelector('#tableAll tbody');
   if(!trades.length){
-    tbody.innerHTML = `<tr><td colspan="19" class="empty-msg">Aucun trade ne correspond aux filtres sélectionnés</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="21" class="empty-msg">Aucun trade ne correspond aux filtres sélectionnés</td></tr>`;
     return;
   }
   tbody.innerHTML = trades.map(t=>{
@@ -1989,6 +2119,8 @@ function renderFullTable(trades){
       <td>${t.jour}</td>
       <td>${fmtDate(t.date)}</td>
       <td>${t.heure||'—'}</td>
+      <td>${t.heureSortie||'—'}</td>
+      <td>${t.duree||'—'}</td>
       <td>${t.session||'—'}</td>
       <td>${t.actif}</td>
       <td>${t.sens}</td>
@@ -2140,6 +2272,14 @@ function readFormValues(){
   const setupICT = document.getElementById('atSetupICT').value || null;
   const qualite = document.getElementById('atQualite').value ? parseInt(document.getElementById('atQualite').value) : null;
   const heure = (document.getElementById('atHeure').value||'').trim() || null;
+  const heureSortie = (document.getElementById('atHeureSortie').value||'').trim() || null;
+  let duree = null;
+  if(heure && heureSortie){
+    const [h1,m1] = heure.split(':').map(Number);
+    const [h2,m2] = heureSortie.split(':').map(Number);
+    const mins = (h2*60+m2) - (h1*60+m1);
+    if(mins > 0) duree = mins >= 60 ? `${Math.floor(mins/60)}h${(mins%60).toString().padStart(2,'0')}` : `${mins}min`;
+  }
   const session = document.getElementById('atSession').value || null;
   const setupAvant = (document.getElementById('atSetupAvant').value||'').trim() || null;
   const setupApres = (document.getElementById('atSetupApres').value||'').trim() || null;
@@ -2156,7 +2296,7 @@ function readFormValues(){
   const dateInput = (document.getElementById('atDate').value||'').trim();
   const date = dateInput || new Date().toISOString().slice(0,10);
 
-  return {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupICT, qualite, heure, session, setupAvant, setupApres, note, resultat, pct, solde: nouveauSolde};
+  return {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupICT, qualite, heure, heureSortie, duree, session, setupAvant, setupApres, note, resultat, pct, solde: nouveauSolde};
 }
 
 function fillForm(t){
@@ -2178,6 +2318,7 @@ function fillForm(t){
   document.getElementById('atSetupICT').value = t.setupICT || '';
   document.getElementById('atQualite').value = t.qualite || '';
   document.getElementById('atHeure').value = t.heure || '';
+  document.getElementById('atHeureSortie').value = t.heureSortie || '';
   document.getElementById('atSession').value = t.session || '';
   document.getElementById('atSetupAvant').value = t.setupAvant || '';
   document.getElementById('atSetupApres').value = t.setupApres || '';
@@ -2250,7 +2391,7 @@ function toggleAddTradeForm(){
 function submitAddTrade(e){
   e.preventDefault();
   const ds = DATASETS[currentDataset];
-  const {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupICT, qualite, heure, session, setupAvant, setupApres, note, resultat, pct, solde} = readFormValues();
+  const {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupICT, qualite, heure, heureSortie, duree, session, setupAvant, setupApres, note, resultat, pct, solde} = readFormValues();
 
   if(!actif){
     alert("Merci de choisir une paire de trading.");
@@ -2265,7 +2406,7 @@ function submitAddTrade(e){
     const updated = Object.assign({}, original, {
       date, actif, sens, lots, rrPrevu, rrReel, resultat,
       pnl: Math.round(pnl*10000)/10000,
-      risqueMax, setupICT, qualite, heure, session, setupAvant, setupApres, note,
+      risqueMax, setupICT, qualite, heure, heureSortie, duree, session, setupAvant, setupApres, note,
       solde: Math.round(solde*10000)/10000, pct,
     });
     ds.trades[idx] = updated;
@@ -2284,7 +2425,7 @@ function submitAddTrade(e){
     const newTrade = {
       jour:`JOUR ${maxJour+1}`, date, actif, sens, lots, rrPrevu, rrReel, resultat,
       pnl:Math.round(pnl*10000)/10000, risqueMax,
-      pct, setupICT, qualite, heure, session, setupAvant, setupApres, note,
+      pct, setupICT, qualite, heure, heureSortie, duree, session, setupAvant, setupApres, note,
       solde: Math.round(solde*10000)/10000,
     };
     trades.push(newTrade);
@@ -2304,6 +2445,45 @@ function submitAddTrade(e){
    ========================================================= */
 const PLAN_DEFAULTS = { risk: 4, fees: 0.9, rrMin: 2, maxTrades: 1 };
 
+function savePlanObjectif(){
+  const val = parseFloat(document.getElementById('planObjectifMensuel').value)||0;
+  const plan = JSON.parse(localStorage.getItem('planSettings')||'null') || {};
+  plan.objectifMensuel = val;
+  localStorage.setItem('planSettings', JSON.stringify(plan));
+  updateObjectifProgress();
+}
+
+function updateObjectifProgress(){
+  const plan = JSON.parse(localStorage.getItem('planSettings')||'null') || {};
+  const objectif = plan.objectifMensuel || 0;
+  const inp = document.getElementById('planObjectifMensuel');
+  if(inp && objectif) inp.value = objectif;
+
+  const bar = document.getElementById('objectifProgressBar');
+  const label = document.getElementById('objectifProgressLabel');
+  if(!bar || !label) return;
+
+  if(!objectif || !DATASETS[currentDataset]){
+    label.textContent = 'Définissez un objectif ci-dessus';
+    bar.style.width = '0%';
+    return;
+  }
+
+  const now = new Date();
+  const monthStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  const trades = DATASETS[currentDataset].trades || [];
+  const pnlMois = trades
+    .filter(t => (t.date||'').startsWith(monthStr))
+    .reduce((s,t) => s + (parseFloat(t.pnl)||0), 0);
+  const pct = Math.min(Math.round(pnlMois/objectif*100), 100);
+  const pctDisplay = Math.round(pnlMois/objectif*100);
+
+  bar.style.width = Math.max(0, pct) + '%';
+  bar.style.background = pnlMois >= objectif ? 'var(--green2)' : pnlMois >= 0 ? 'var(--blue)' : 'var(--red)';
+  label.textContent = `${pnlMois >= 0 ? '+' : ''}${pnlMois.toFixed(2)}$ / ${objectif}$ objectif (${pctDisplay}%)`;
+  label.style.color = pnlMois >= objectif ? 'var(--green2)' : 'var(--text)';
+}
+
 function loadPlanSettings(){
   const s = JSON.parse(localStorage.getItem('planSettings') || 'null') || PLAN_DEFAULTS;
   document.getElementById('dispRisk').textContent = s.risk;
@@ -2314,6 +2494,7 @@ function loadPlanSettings(){
   document.getElementById('dispMaxTrades').textContent = s.maxTrades;
   document.getElementById('dispMaxTrades2').textContent = s.maxTrades;
   loadRoutine();
+  updateObjectifProgress();
 }
 
 function togglePlanEdit(){
@@ -2632,6 +2813,7 @@ function renderTradeCards(trades) {
         (t.setupICT ? '<span class="trade-card-chip" style="background:rgba(74,144,226,0.18);color:var(--blue);border-color:rgba(74,144,226,0.3);">📐 ' + t.setupICT + '</span>' : '') +
         (t.qualite ? '<span class="trade-card-chip" style="background:rgba(240,185,11,0.12);color:var(--gold);border-color:rgba(240,185,11,0.25);">' + '⭐'.repeat(t.qualite) + '</span>' : '') +
         sessionChip + heureChip +
+        (t.duree ? '<span class="trade-card-chip">⏱ ' + t.duree + '</span>' : '') +
       '</div>' +
       (note ? '<div class="trade-card-note">💬 ' + note + '</div>' : '') +
       '<div class="trade-card-actions">' +
