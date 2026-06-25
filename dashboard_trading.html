@@ -833,6 +833,34 @@
         style="background:var(--panel2);border:1px solid var(--border);color:#fff;padding:7px 10px;border-radius:6px;font-size:14px;font-weight:700;">
     </div>
 
+    <div class="group" style="min-width:180px;">
+      <label>Setup ICT</label>
+      <select id="atSetupICT" style="background:var(--panel2);border:1px solid var(--border);color:#fff;padding:7px 10px;border-radius:6px;font-size:13px;">
+        <option value="">— Non renseigné —</option>
+        <option value="OB">Order Block (OB)</option>
+        <option value="FVG">Fair Value Gap (FVG)</option>
+        <option value="BOS">Break of Structure (BOS)</option>
+        <option value="Liquidity Sweep">Liquidity Sweep</option>
+        <option value="MSS">Market Structure Shift (MSS)</option>
+        <option value="CISD">CISD</option>
+        <option value="OTE">OTE (Optimal Trade Entry)</option>
+        <option value="Killzone">Killzone</option>
+        <option value="Autre">Autre</option>
+      </select>
+    </div>
+
+    <div class="group" style="min-width:140px;">
+      <label>Qualité d'exécution</label>
+      <select id="atQualite" style="background:var(--panel2);border:1px solid var(--border);color:#fff;padding:7px 10px;border-radius:6px;font-size:13px;">
+        <option value="">—</option>
+        <option value="5">⭐⭐⭐⭐⭐ Parfaite</option>
+        <option value="4">⭐⭐⭐⭐ Bonne</option>
+        <option value="3">⭐⭐⭐ Correcte</option>
+        <option value="2">⭐⭐ Impatience</option>
+        <option value="1">⭐ FOMO / Hors plan</option>
+      </select>
+    </div>
+
     <div class="group" style="flex:1 1 260px;">
       <label>Commentaire</label>
       <input type="text" id="atNote" placeholder="Ex : bon setup LS + FVG, confirmation BB..."
@@ -952,6 +980,18 @@
   <div class="panel">
     <h3>RR réel vs RR prévu par trade</h3>
     <div class="chart-wrap small"><canvas id="chartRR"></canvas></div>
+  </div>
+</div>
+
+<!-- Row 4 : Setup ICT -->
+<div class="grid cols-2">
+  <div class="panel">
+    <h3>📐 Win rate par setup ICT <span class="tag">% gains / nb trades</span></h3>
+    <div class="chart-wrap small"><canvas id="chartSetup"></canvas></div>
+  </div>
+  <div class="panel">
+    <h3>⭐ P&L moyen par qualité d'exécution <span class="tag">self-discipline score</span></h3>
+    <div class="chart-wrap small"><canvas id="chartQualite"></canvas></div>
   </div>
 </div>
 
@@ -1366,6 +1406,8 @@ function renderAll(trades, ds){
   renderAssetChart(computeByAsset(trades));
   renderWeekdayChart(computeWeekday(trades));
   renderRRChart(trades);
+  renderSetupChart(trades);
+  renderQualiteChart(trades);
   renderTopFlop(trades);
   renderStreaks(computeStreaks(trades));
   renderRecommendations(stats, trades, ds);
@@ -1543,6 +1585,96 @@ function renderRRChart(trades){
       {label:'RR réel', data: trades.map(t=>t.rrReel), backgroundColor: trades.map(t=> t.rrReel>=0?'rgba(76,175,80,0.8)':'rgba(239,83,80,0.8)'), borderRadius:4}
     ]},
     options: chartOptionsBar()
+  });
+}
+
+function computeSetupStats(trades){
+  const map = {};
+  trades.forEach(t => {
+    const s = t.setupICT || 'Non renseigné';
+    if(!map[s]) map[s] = {wins:0, total:0, pnl:0};
+    map[s].total++;
+    map[s].pnl += parseFloat(t.pnl)||0;
+    if((parseFloat(t.pnl)||0) > 0) map[s].wins++;
+  });
+  return Object.entries(map)
+    .filter(([,v]) => v.total > 0)
+    .map(([name,v]) => ({name, winRate: Math.round(v.wins/v.total*100), total: v.total, pnl: Math.round(v.pnl*100)/100}))
+    .sort((a,b) => b.winRate - a.winRate);
+}
+
+function computeQualiteStats(trades){
+  const map = {1:{pnl:0,count:0},2:{pnl:0,count:0},3:{pnl:0,count:0},4:{pnl:0,count:0},5:{pnl:0,count:0}};
+  trades.forEach(t => {
+    if(t.qualite) {
+      map[t.qualite].pnl += parseFloat(t.pnl)||0;
+      map[t.qualite].count++;
+    }
+  });
+  return [1,2,3,4,5].map(q => ({
+    label: '⭐'.repeat(q),
+    avg: map[q].count > 0 ? Math.round(map[q].pnl/map[q].count*100)/100 : 0,
+    count: map[q].count
+  }));
+}
+
+function renderSetupChart(trades){
+  const ctx = document.getElementById('chartSetup');
+  if(!ctx) return;
+  if(charts.setup) charts.setup.destroy();
+  const data = computeSetupStats(trades);
+  if(!data.length || data.every(d=>d.name==='Non renseigné')){
+    ctx.getContext('2d');
+    return;
+  }
+  charts.setup = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: data.map(d=>`${d.name} (${d.total})`),
+      datasets:[{
+        label:'Win rate (%)',
+        data: data.map(d=>d.winRate),
+        backgroundColor: data.map(d=> d.winRate>=50?'rgba(76,175,80,0.7)':'rgba(239,83,80,0.7)'),
+        borderRadius:4
+      }]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw}%`}}},
+      scales:{
+        x:{min:0,max:100,ticks:{color:'#7d8597',callback:v=>v+'%'},grid:{color:'#232834'}},
+        y:{ticks:{color:'#d1d4dc'},grid:{color:'#232834'}}
+      }
+    }
+  });
+}
+
+function renderQualiteChart(trades){
+  const ctx = document.getElementById('chartQualite');
+  if(!ctx) return;
+  if(charts.qualite) charts.qualite.destroy();
+  const data = computeQualiteStats(trades);
+  if(data.every(d=>d.count===0)) return;
+  charts.qualite = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: data.map(d=>`${d.label}${d.count?' ('+d.count+')':''}`),
+      datasets:[{
+        label:'P&L moyen ($)',
+        data: data.map(d=>d.count>0?d.avg:null),
+        backgroundColor: data.map(d=> d.avg>=0?'rgba(76,175,80,0.7)':'rgba(239,83,80,0.7)'),
+        borderRadius:4
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'#d1d4dc'},grid:{color:'#232834'}},
+        y:{ticks:{color:'#7d8597'},grid:{color:'#232834'}}
+      }
+    }
   });
 }
 
@@ -1847,6 +1979,8 @@ function readFormValues(){
   const sens = document.getElementById('atSens').value || 'Achat';
   const lots = document.getElementById('atLots').value === '' ? null : parseFloat(document.getElementById('atLots').value);
   const note = document.getElementById('atNote').value.trim();
+  const setupICT = document.getElementById('atSetupICT').value || null;
+  const qualite = document.getElementById('atQualite').value ? parseInt(document.getElementById('atQualite').value) : null;
   const setupAvant = (document.getElementById('atSetupAvant').value||'').trim() || null;
   const setupApres = (document.getElementById('atSetupApres').value||'').trim() || null;
 
@@ -1862,7 +1996,7 @@ function readFormValues(){
   const dateInput = (document.getElementById('atDate').value||'').trim();
   const date = dateInput || new Date().toISOString().slice(0,10);
 
-  return {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupAvant, setupApres, note, resultat, pct, solde: nouveauSolde};
+  return {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupICT, qualite, setupAvant, setupApres, note, resultat, pct, solde: nouveauSolde};
 }
 
 function fillForm(t){
@@ -1881,6 +2015,8 @@ function fillForm(t){
   document.getElementById('atDate').value = t.date || '';
   document.getElementById('atLots').value = t.lots ?? '';
   document.getElementById('atNouveauSolde').value = t.solde ?? '';
+  document.getElementById('atSetupICT').value = t.setupICT || '';
+  document.getElementById('atQualite').value = t.qualite || '';
   document.getElementById('atSetupAvant').value = t.setupAvant || '';
   document.getElementById('atSetupApres').value = t.setupApres || '';
   document.getElementById('atNote').value = t.note || '';
@@ -1952,7 +2088,7 @@ function toggleAddTradeForm(){
 function submitAddTrade(e){
   e.preventDefault();
   const ds = DATASETS[currentDataset];
-  const {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupAvant, setupApres, note, resultat, pct, solde} = readFormValues();
+  const {date, actif, sens, lots, rrPrevu, rrReel, pnl, risqueMax, setupICT, qualite, setupAvant, setupApres, note, resultat, pct, solde} = readFormValues();
 
   if(!actif){
     alert("Merci de choisir une paire de trading.");
@@ -1967,7 +2103,7 @@ function submitAddTrade(e){
     const updated = Object.assign({}, original, {
       date, actif, sens, lots, rrPrevu, rrReel, resultat,
       pnl: Math.round(pnl*10000)/10000,
-      risqueMax, setupAvant, setupApres, note,
+      risqueMax, setupICT, qualite, setupAvant, setupApres, note,
       solde: Math.round(solde*10000)/10000, pct,
     });
     ds.trades[idx] = updated;
@@ -1986,7 +2122,7 @@ function submitAddTrade(e){
     const newTrade = {
       jour:`JOUR ${maxJour+1}`, date, actif, sens, lots, rrPrevu, rrReel, resultat,
       pnl:Math.round(pnl*10000)/10000, risqueMax,
-      pct, setupAvant, setupApres, note,
+      pct, setupICT, qualite, setupAvant, setupApres, note,
       solde: Math.round(solde*10000)/10000,
     };
     trades.push(newTrade);
@@ -2329,6 +2465,8 @@ function renderTradeCards(trades) {
         (t.rr ? '<span class="trade-card-chip">RR ' + t.rr + '</span>' : '') +
         (t.lots ? '<span class="trade-card-chip">' + t.lots + ' lots</span>' : '') +
         (t.resultat ? '<span class="trade-card-chip">' + t.resultat + '</span>' : '') +
+        (t.setupICT ? '<span class="trade-card-chip" style="background:rgba(74,144,226,0.18);color:var(--blue);border-color:rgba(74,144,226,0.3);">📐 ' + t.setupICT + '</span>' : '') +
+        (t.qualite ? '<span class="trade-card-chip" style="background:rgba(240,185,11,0.12);color:var(--gold);border-color:rgba(240,185,11,0.25);">' + '⭐'.repeat(t.qualite) + '</span>' : '') +
       '</div>' +
       (note ? '<div class="trade-card-note">💬 ' + note + '</div>' : '') +
       '<div class="trade-card-actions">' +
