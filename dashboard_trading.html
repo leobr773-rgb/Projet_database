@@ -629,6 +629,17 @@
   </div>
 </div>
 
+<!-- ANALYSE DU PLAN -->
+<div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+    <div style="font-size:13px;font-weight:700;color:#fff;">🧠 Analyse de ton plan de trading</div>
+    <div style="font-size:11px;color:var(--muted);" id="planAnalyseUpdate">Mise à jour après chaque trade</div>
+  </div>
+  <div id="planAnalyseContent">
+    <div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Ajoute des trades pour voir l'analyse de ton plan</div>
+  </div>
+</div>
+
       <div class="plan-block">
         <h3>⚡ Avant chaque trade</h3>
         <div class="plan-rule"><span class="num">↗</span><span class="txt"><b>Quand entrer :</b></span></div>
@@ -1549,6 +1560,7 @@ function renderAll(trades, ds){
   renderRecommendations(stats, trades, ds);
   renderFullTable(trades);
   updateObjectifProgress();
+  analysePlan();
 }
 
 function renderDataNote(stats, ds, trades){
@@ -2551,6 +2563,7 @@ function loadPlanSettings(){
   loadRoutine();
   loadJournal();
   updateObjectifProgress();
+  analysePlan();
 }
 
 function togglePlanEdit(){
@@ -2880,6 +2893,202 @@ function renderTradeCards(trades) {
     '</div>';
   });
   container.innerHTML = html;
+}
+
+/* =========================================================
+   ANALYSE INTELLIGENTE DU PLAN DE TRADING
+   ========================================================= */
+function analysePlan(){
+  const el = document.getElementById('planAnalyseContent');
+  if(!el) return;
+  const ds = DATASETS[currentDataset];
+  if(!ds || !ds.trades || ds.trades.length < 3){
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Ajoute au moins 3 trades pour générer une analyse</div>';
+    return;
+  }
+
+  const trades = ds.trades.slice().sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const plan = JSON.parse(localStorage.getItem('planSettings')||'null') || {risk:4, rrMin:2, maxTrades:1};
+  const n = trades.length;
+  const wins = trades.filter(t=>(parseFloat(t.pnl)||0)>0);
+  const losses = trades.filter(t=>(parseFloat(t.pnl)||0)<0);
+  const winRate = n ? Math.round(wins.length/n*100) : 0;
+  const grossGain = wins.reduce((s,t)=>s+(parseFloat(t.pnl)||0),0);
+  const grossLoss = Math.abs(losses.reduce((s,t)=>s+(parseFloat(t.pnl)||0),0));
+  const pf = grossLoss > 0 ? Math.round(grossGain/grossLoss*100)/100 : (grossGain>0?Infinity:0);
+  const avgWin = wins.length ? grossGain/wins.length : 0;
+  const avgLoss = losses.length ? grossLoss/losses.length : 0;
+  const esperance = n ? Math.round((winRate/100*avgWin - (1-winRate/100)*avgLoss)*100)/100 : 0;
+  const streak = computeStreaks(trades);
+  const last10 = trades.slice(-10);
+  const recentWR = last10.length ? Math.round(last10.filter(t=>(parseFloat(t.pnl)||0)>0).length/last10.length*100) : 0;
+  const lossStreak = streak.current.type==='P' ? streak.current.len : 0;
+  const maxBalance = Math.max(...trades.map(t=>parseFloat(t.solde)||0), ds.soldeInitial||0);
+  const lastBalance = parseFloat(trades[trades.length-1].solde)||0;
+  const ddPct = maxBalance>0 ? Math.round((maxBalance-lastBalance)/maxBalance*100*10)/10 : 0;
+
+  // Setup analysis
+  const setupMap = {};
+  trades.forEach(t=>{
+    if(!t.setupICT) return;
+    if(!setupMap[t.setupICT]) setupMap[t.setupICT]={wins:0,total:0,pnl:0};
+    setupMap[t.setupICT].total++;
+    setupMap[t.setupICT].pnl += parseFloat(t.pnl)||0;
+    if((parseFloat(t.pnl)||0)>0) setupMap[t.setupICT].wins++;
+  });
+  const setupList = Object.entries(setupMap).map(([name,v])=>({name,wr:Math.round(v.wins/v.total*100),total:v.total,pnl:Math.round(v.pnl*100)/100})).sort((a,b)=>b.wr-a.wr);
+  const bestSetup = setupList[0];
+  const worstSetup = setupList[setupList.length-1];
+
+  // Session analysis
+  const sessionMap = {};
+  trades.forEach(t=>{
+    if(!t.session) return;
+    if(!sessionMap[t.session]) sessionMap[t.session]={wins:0,total:0,pnl:0};
+    sessionMap[t.session].total++;
+    sessionMap[t.session].pnl += parseFloat(t.pnl)||0;
+    if((parseFloat(t.pnl)||0)>0) sessionMap[t.session].wins++;
+  });
+  const sessionList = Object.entries(sessionMap).map(([name,v])=>({name,wr:Math.round(v.wins/v.total*100),total:v.total,pnl:Math.round(v.pnl*100)/100})).sort((a,b)=>b.pnl-a.pnl);
+
+  // Quality analysis
+  const qualMap={1:{p:0,t:0},2:{p:0,t:0},3:{p:0,t:0},4:{p:0,t:0},5:{p:0,t:0}};
+  trades.forEach(t=>{if(t.qualite){qualMap[t.qualite].pnl=(qualMap[t.qualite].pnl||0)+(parseFloat(t.pnl)||0);qualMap[t.qualite].t++;}});
+  const highQualPnl = [4,5].map(q=>qualMap[q].pnl||0).reduce((a,b)=>a+b,0);
+  const lowQualPnl = [1,2].map(q=>qualMap[q].pnl||0).reduce((a,b)=>a+b,0);
+  const highQualN = [4,5].map(q=>qualMap[q].t||0).reduce((a,b)=>a+b,0);
+  const lowQualN = [1,2].map(q=>qualMap[q].t||0).reduce((a,b)=>a+b,0);
+
+  // Breakeven WR needed
+  const rrMoyen = trades.filter(t=>t.rrPrevu).length ? trades.filter(t=>t.rrPrevu).reduce((s,t)=>s+(t.rrPrevu||0),0)/trades.filter(t=>t.rrPrevu).length : plan.rrMin;
+  const breakevenWR = Math.round(1/(1+rrMoyen)*100);
+
+  // Trend (WR globale vs récente)
+  const trend = recentWR > winRate ? 'up' : recentWR < winRate - 10 ? 'down' : 'stable';
+
+  const sections = [];
+
+  // Section 1 : Verdict global
+  let verdictColor, verdictIcon, verdictText, verdictDetail;
+  if(esperance > 5 && pf >= 1.5 && winRate >= breakevenWR){
+    verdictColor='#4caf50'; verdictIcon='🟢'; verdictText='Plan rentable et solide';
+    verdictDetail=`Espérance +${esperance}$/trade, PF ${isFinite(pf)?pf:'∞'}, WR ${winRate}% > seuil ${breakevenWR}%. Continue exactement comme ça.`;
+  } else if(esperance > 0 && pf >= 1){
+    verdictColor='#f0b90b'; verdictIcon='🟡'; verdictText='Plan viable mais à consolider';
+    verdictDetail=`Espérance +${esperance}$/trade positive, mais la marge est faible. Besoin de plus de trades pour confirmer la robustesse.`;
+  } else if(n < 15){
+    verdictColor='#4a90e2'; verdictIcon='🔵'; verdictText='Trop tôt pour juger';
+    verdictDetail=`${n} trades seulement. Les statistiques deviennent fiables à partir de 30 trades. Continue à journaliser avec rigueur.`;
+  } else {
+    verdictColor='#ef5350'; verdictIcon='🔴'; verdictText='Plan à revoir';
+    verdictDetail=`Espérance ${esperance}$/trade${esperance<0?' négative':' trop faible'}. Le plan actuel ne génère pas assez de valeur sur la durée.`;
+  }
+  sections.push(`<div style="background:${verdictColor}15;border:1px solid ${verdictColor}40;border-radius:10px;padding:14px 16px;margin-bottom:12px;">
+    <div style="font-size:14px;font-weight:700;color:${verdictColor};margin-bottom:6px;">${verdictIcon} ${verdictText}</div>
+    <div style="font-size:13px;color:var(--text);">${verdictDetail}</div>
+  </div>`);
+
+  // Section 2 : Métriques clés en grille
+  sections.push(`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px;">
+    ${metricChip('Win Rate', winRate+'%', winRate>=breakevenWR?'#4caf50':'#ef5350', `Seuil min : ${breakevenWR}%`)}
+    ${metricChip('Profit Factor', isFinite(pf)?pf.toFixed(2):'∞', pf>=1.5?'#4caf50':pf>=1?'#f0b90b':'#ef5350', pf>=1.5?'Solide':pf>=1?'Fragile':'Perdant')}
+    ${metricChip('Espérance', (esperance>=0?'+':'')+esperance+'$', esperance>0?'#4caf50':'#ef5350', 'Par trade en moyenne')}
+    ${metricChip('WR récent', recentWR+'%', trend==='up'?'#4caf50':trend==='down'?'#ef5350':'#f0b90b', trend==='up'?'↗ En hausse':trend==='down'?'↘ En baisse':'→ Stable')}
+  </div>`);
+
+  // Section 3 : Recommandations spécifiques
+  const recs = [];
+
+  if(winRate < breakevenWR){
+    recs.push({type:'danger', icon:'🎯', title:'Win rate insuffisant pour ce RR', text:`Avec un RR moyen de ${Math.round(rrMoyen*10)/10}:1, tu as besoin d'au moins ${breakevenWR}% de win rate pour être rentable. Ton WR actuel est ${winRate}%. Solution : soit tu augmentes ton win rate (meilleures confirmations d'entrée), soit tu cibles un RR plus proche de 1:1 avec un WR plus élevé.`});
+  }
+
+  if(ddPct > 8){
+    recs.push({type:'danger', icon:'📉', title:`Drawdown critique : -${ddPct}%`, text:`Tu es ${ddPct}% sous ton plus haut. Règle empirique : en dessous de -10%, réduire la taille de position de 50%. En dessous de -15%, s'arrêter et revoir le plan. Tu es ${ddPct<10?'proche de':'au-dessus de'} ce premier seuil.`});
+  }
+
+  if(lossStreak >= 3){
+    recs.push({type:'danger', icon:'🚨', title:`${lossStreak} pertes consécutives`, text:`Une série de ${lossStreak} pertes n'est pas anormale statistiquement, mais elle crée un état émotionnel propice aux mauvaises décisions. La règle ICT recommend une pause après 3 pertes. Prends une journée off.`});
+  }
+
+  if(lowQualN >= 3 && lowQualPnl < 0){
+    recs.push({type:'warning', icon:'⚠️', title:'Tes trades hors plan te coûtent de l\'argent', text:`${lowQualN} trades notés 1-2⭐ pour un total de ${lowQualPnl.toFixed(2)}$. Si tu avais évité ces trades, ton résultat serait ${(trades.reduce((s,t)=>s+(parseFloat(t.pnl)||0),0)-lowQualPnl).toFixed(2)}$ au lieu de ${trades.reduce((s,t)=>s+(parseFloat(t.pnl)||0),0).toFixed(2)}$. La discipline vaut plus que la méthode.`});
+  }
+
+  if(highQualN >= 2 && lowQualN >= 2){
+    const avgHighQ = highQualPnl/highQualN;
+    const avgLowQ = lowQualPnl/lowQualN;
+    if(avgHighQ > avgLowQ){
+      recs.push({type:'good', icon:'✅', title:'La qualité d\'exécution est corrélée aux gains', text:`Tes trades 4-5⭐ génèrent en moyenne ${avgHighQ.toFixed(2)}$/trade vs ${avgLowQ.toFixed(2)}$/trade pour les 1-2⭐. La donnée confirme ce que tu sais intuitivement : attendre le setup parfait est la bonne approche.`});
+    }
+  }
+
+  if(bestSetup && bestSetup.total >= 2 && worstSetup && worstSetup !== bestSetup && worstSetup.total >= 2){
+    if(bestSetup.wr >= 60){
+      recs.push({type:'good', icon:'📐', title:`Setup ${bestSetup.name} : ton meilleur setup`, text:`${bestSetup.wr}% de win rate sur ${bestSetup.total} trades, P&L net ${bestSetup.pnl>=0?'+':''}${bestSetup.pnl}$. Priorise ce setup dans ta recherche de trades.`});
+    }
+    if(worstSetup.wr < 40){
+      recs.push({type:'warning', icon:'❌', title:`Setup ${worstSetup.name} : à limiter`, text:`Seulement ${worstSetup.wr}% de win rate sur ${worstSetup.total} trades. Soit ce setup ne correspond pas à ton style, soit il manque des confluences. Ajoute des conditions supplémentaires avant de le valider.`});
+    }
+  }
+
+  if(sessionList.length >= 2){
+    const bestSession = sessionList[0];
+    const worstSession = sessionList[sessionList.length-1];
+    if(bestSession.pnl > 0 && worstSession.pnl < -20){
+      recs.push({type:'warning', icon:'🕐', title:`Session ${worstSession.name} : moins performante`, text:`Tu perds ${worstSession.pnl.toFixed(2)}$ sur la session ${worstSession.name} vs +${bestSession.pnl.toFixed(2)}$ sur ${bestSession.name}. Envisage de limiter ou d'éviter la session ${worstSession.name}.`});
+    }
+  }
+
+  if(trend === 'down' && recentWR < breakevenWR){
+    recs.push({type:'danger', icon:'📊', title:'Performance en dégradation récente', text:`Ton WR sur les 10 derniers trades est de ${recentWR}% contre ${winRate}% global. La stratégie se dégrade récemment. Cause possible : marché moins favorable, fatigue, ou dérive dans les critères d'entrée. Reviens aux bases de ton plan ICT.`});
+  }
+
+  if(!recs.length){
+    recs.push({type:'good', icon:'🏆', title:'Plan en bonne santé', text:'Toutes les métriques sont dans les normes. Continue à suivre ton plan avec la même rigueur.'});
+  }
+
+  const recColors = {danger:'#ef5350', warning:'#f0b90b', good:'#4caf50'};
+  sections.push(`<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+    ${recs.map(r=>`<div style="background:${recColors[r.type]}08;border-left:3px solid ${recColors[r.type]};padding:11px 13px;border-radius:0 8px 8px 0;">
+      <div style="font-size:13px;font-weight:600;color:${recColors[r.type]};margin-bottom:4px;">${r.icon} ${r.title}</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.5;">${r.text}</div>
+    </div>`).join('')}
+  </div>`);
+
+  // Section 4 : Ajustements suggérés au plan
+  const adjustments = [];
+  if(winRate < breakevenWR - 10) adjustments.push('Augmenter les confluences requises avant de valider un setup (3 minimum au lieu de 2)');
+  if(avgLoss > avgWin * 1.5) adjustments.push('Revoir le placement du stop-loss — tes pertes sont disproportionnées par rapport aux gains');
+  if(lowQualN > highQualN && n >= 10) adjustments.push('Instaurer une règle : ne pas prendre de trade si tu n\'es pas sûr à 80% (qualité ≥ 4⭐)');
+  if(ddPct > 5) adjustments.push('Appliquer la règle "half sizing" jusqu\'au retour au plus haut de capital');
+  if(lossStreak >= 3) adjustments.push('Ajouter une règle de stop journalier : 2 pertes consécutives = fin de journée');
+
+  if(adjustments.length){
+    sections.push(`<div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 15px;">
+      <div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">🔧 Ajustements suggérés à ton plan</div>
+      <ul style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:7px;">
+        ${adjustments.map(a=>`<li style="font-size:12px;color:var(--text);line-height:1.5;">${a}</li>`).join('')}
+      </ul>
+    </div>`);
+  }
+
+  el.innerHTML = sections.join('');
+
+  // Update timestamp
+  const ts = document.getElementById('planAnalyseUpdate');
+  if(ts){
+    const now = new Date();
+    ts.textContent = `Mis à jour à ${now.getHours()}h${String(now.getMinutes()).padStart(2,'0')}`;
+  }
+}
+
+function metricChip(label, value, color, sub){
+  return `<div style="background:${color}12;border:1px solid ${color}30;border-radius:8px;padding:10px 12px;text-align:center;">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">${label}</div>
+    <div style="font-size:18px;font-weight:700;color:${color};">${value}</div>
+    <div style="font-size:10px;color:var(--muted);margin-top:3px;">${sub}</div>
+  </div>`;
 }
 
 /* =========================================================
