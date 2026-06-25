@@ -2452,10 +2452,12 @@ function submitAddTrade(e){
     localStorage.setItem('manualTrades_'+currentDataset, JSON.stringify(saved));
   }
 
+  const _tradeForEmotion = {pnl, resultat, qualite, setupICT, session};
   document.getElementById('addTradeForm').reset();
   document.getElementById('addTradePanel').style.display = 'none';
   populateFilterOptions();
   resetFilters();
+  setTimeout(() => showEmotionModal(_tradeForEmotion), 400);
 }
 
 /* =========================================================
@@ -2880,6 +2882,170 @@ function renderTradeCards(trades) {
   container.innerHTML = html;
 }
 
+/* =========================================================
+   GESTION ÉMOTIONS — Conseils psychologiques post-trade
+   ========================================================= */
+
+function closeEmotionModal(){
+  document.getElementById('emotionModal').style.display = 'none';
+}
+
+function showEmotionModal(tradeData){
+  const ds = DATASETS[currentDataset];
+  if(!ds) return;
+  const trades = ds.trades;
+  const {pnl, resultat, qualite, setupICT, session} = tradeData;
+  const pnlVal = parseFloat(pnl) || 0;
+
+  // Contexte global
+  const streak = computeStreaks(trades);
+  const last10 = trades.slice().sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(-10);
+  const recentWins = last10.filter(t=>(parseFloat(t.pnl)||0)>0).length;
+  const recentWR = last10.length ? Math.round(recentWins/last10.length*100) : 0;
+  const totalPnl = trades.reduce((s,t)=>s+(parseFloat(t.pnl)||0),0);
+  const maxBalance = Math.max(...trades.map(t=>parseFloat(t.solde)||0), ds.soldeInitial||0);
+  const currentBalance = trades.length ? (parseFloat(trades[trades.length-1].solde)||0) : (ds.soldeInitial||0);
+  const ddPct = maxBalance > 0 ? Math.round((maxBalance-currentBalance)/maxBalance*100*10)/10 : 0;
+  const inDrawdown = ddPct > 5;
+  const lossStreak = streak.current.type === 'P' ? streak.current.len : 0;
+  const winStreak = streak.current.type === 'G' ? streak.current.len : 0;
+  const isFOMO = qualite && qualite <= 2;
+  const recentFOMO = last10.filter(t=>t.qualite&&t.qualite<=2).length;
+  const avgQualite = last10.filter(t=>t.qualite).length ?
+    Math.round(last10.filter(t=>t.qualite).reduce((s,t)=>s+t.qualite,0)/last10.filter(t=>t.qualite).length*10)/10 : null;
+
+  // Couleur et emoji selon résultat
+  let color, emoji, title, subtitle;
+  if(resultat === 'Gain'){
+    color = '#4caf50'; emoji = '🏆';
+    title = `+${pnlVal.toFixed(2)}$ — Trade gagnant`;
+    subtitle = winStreak > 1 ? `${winStreak} gains consécutifs en cours` : 'Bon travail';
+  } else if(resultat === 'Perte'){
+    color = '#ef5350'; emoji = lossStreak >= 3 ? '🚨' : '📉';
+    title = `${pnlVal.toFixed(2)}$ — Trade perdant`;
+    subtitle = lossStreak > 1 ? `${lossStreak} pertes consécutives` : 'Ça fait partie du trading';
+  } else {
+    color = '#f0b90b'; emoji = '⚖️';
+    title = `Breakeven — Ni gain ni perte`;
+    subtitle = 'Le capital est préservé';
+  }
+
+  document.getElementById('emotionEmoji').textContent = emoji;
+  document.getElementById('emotionTitle').textContent = title;
+  document.getElementById('emotionTitle').style.color = color;
+  document.getElementById('emotionSubtitle').textContent = subtitle;
+  document.getElementById('emotionHeader').style.borderColor = color + '44';
+
+  // Bloc psychologique principal
+  let psyHtml = '';
+  if(resultat === 'Gain'){
+    if(winStreak >= 4){
+      psyHtml = `<div style="background:rgba(76,175,80,0.08);border-left:3px solid #4caf50;padding:12px 14px;border-radius:0 8px 8px 0;margin-bottom:10px;">
+        <b style="color:#4caf50;">⚠️ Attention à l'euphorie</b><br>
+        <span style="font-size:13px;color:var(--text);">Tu es sur une série de ${winStreak} gains — c'est excellent, mais c'est souvent là que les traders prennent trop de risques. Ton prochain trade doit respecter exactement le même plan que les précédents. Pas d'augmentation de taille de position impulsive.</span>
+      </div>`;
+    } else if(isFOMO){
+      psyHtml = `<div style="background:rgba(240,185,11,0.08);border-left:3px solid #f0b90b;padding:12px 14px;border-radius:0 8px 8px 0;margin-bottom:10px;">
+        <b style="color:#f0b90b;">🤔 Gain mais exécution faible</b><br>
+        <span style="font-size:13px;color:var(--text);">Tu as gagné sur ce trade, mais tu as noté toi-même que l'exécution était mauvaise (${qualite}⭐). Un gain sur une mauvaise exécution peut renforcer de mauvaises habitudes. Ce n'est pas la méthode — c'est la chance. Reste rigoureux sur le processus.</span>
+      </div>`;
+    } else {
+      psyHtml = `<div style="background:rgba(76,175,80,0.08);border-left:3px solid #4caf50;padding:12px 14px;border-radius:0 8px 8px 0;margin-bottom:10px;">
+        <b style="color:#4caf50;">✅ Bien joué</b><br>
+        <span style="font-size:13px;color:var(--text);">Trade gagnant${qualite>=4?' avec une bonne exécution — c\'est exactement ce qu\'il faut reproduire':''}.${inDrawdown?' Tu récupères du drawdown — continue avec la même discipline.':' Garde la même approche sur le prochain trade.'}</span>
+      </div>`;
+    }
+  } else if(resultat === 'Perte'){
+    if(lossStreak >= 3){
+      psyHtml = `<div style="background:rgba(239,83,80,0.1);border-left:3px solid #ef5350;padding:12px 14px;border-radius:0 8px 8px 0;margin-bottom:10px;">
+        <b style="color:#ef5350;">🚨 Série de pertes — Stop obligatoire</b><br>
+        <span style="font-size:13px;color:var(--text);">${lossStreak} pertes consécutives. Ton cerveau est maintenant en mode "récupération" — c'est l'état le plus dangereux pour un trader. Le prochain trade pris dans cet état a une très forte probabilité d'être émotionnel. <b>Pause minimum 1h avant tout nouveau trade.</b></span>
+      </div>`;
+    } else if(isFOMO){
+      psyHtml = `<div style="background:rgba(239,83,80,0.1);border-left:3px solid #ef5350;padding:12px 14px;border-radius:0 8px 8px 0;margin-bottom:10px;">
+        <b style="color:#ef5350;">⚠️ Perte sur trade hors plan</b><br>
+        <span style="font-size:13px;color:var(--text);">Tu as toi-même noté que ce trade était de mauvaise qualité (${qualite}⭐). Une perte sur un trade hors plan est la plus douloureuse — non pas à cause de l'argent, mais parce que tu savais. La prochaine fois, si tu ressens ce doute, <b>ne prends pas le trade</b>.</span>
+      </div>`;
+    } else if(inDrawdown){
+      psyHtml = `<div style="background:rgba(239,83,80,0.1);border-left:3px solid #ef5350;padding:12px 14px;border-radius:0 8px 8px 0;margin-bottom:10px;">
+        <b style="color:#ef5350;">📉 Drawdown de ${ddPct}%</b><br>
+        <span style="font-size:13px;color:var(--text);">Tu es en drawdown de ${ddPct}% depuis le plus haut. Dans ces moments, il est naturel de vouloir "récupérer vite" — c'est exactement l'inverse de ce qu'il faut faire. Réduis ta taille de position de 50% jusqu'à retrouver le plus haut. Moins de risque = moins de stress = meilleures décisions.</span>
+      </div>`;
+    } else {
+      psyHtml = `<div style="background:rgba(239,83,80,0.08);border-left:3px solid #ef5350;padding:12px 14px;border-radius:0 8px 8px 0;margin-bottom:10px;">
+        <b style="color:#ef5350;">📉 Perte normale — fait partie du trading</b><br>
+        <span style="font-size:13px;color:var(--text);">Même les meilleurs traders perdent 40-50% de leurs trades. Ce qui compte c'est ton profit factor sur la durée, pas ce trade isolé. Ton win rate récent sur 10 trades est de <b>${recentWR}%</b>. ${recentWR >= 50 ? 'Ta stratégie reste positive.' : 'Surveille la tendance récente.'}</span>
+      </div>`;
+    }
+  } else {
+    // BE
+    psyHtml = `<div style="background:rgba(240,185,11,0.08);border-left:3px solid #f0b90b;padding:12px 14px;border-radius:0 8px 8px 0;margin-bottom:10px;">
+      <b style="color:#f0b90b;">⚖️ Breakeven — capital préservé</b><br>
+      <span style="font-size:13px;color:var(--text);">${inDrawdown ? 'En période de drawdown, un BE c\'est un score positif — tu n\'aggraves pas la situation.' : 'Préserver le capital est une victoire défensive. Analyse pourquoi le trade ne s\'est pas déclenché complètement — setup valide mais timing ?'}${isFOMO ? ' Tu as noté une exécution faible — peut-être que le setup n\'était pas optimal au départ.' : ''}</span>
+    </div>`;
+  }
+  document.getElementById('emotionPsyBlock').innerHTML = psyHtml;
+
+  // Bloc contexte (drawdown, FOMO récurrent, etc.)
+  let contextHtml = '';
+  if(recentFOMO >= 3){
+    contextHtml += `<div style="background:rgba(240,185,11,0.06);border:1px solid rgba(240,185,11,0.2);border-radius:8px;padding:12px 14px;margin-bottom:8px;">
+      <b style="color:#f0b90b;font-size:13px;">📊 Tendance FOMO détectée</b><br>
+      <span style="font-size:12px;color:var(--muted);">${recentFOMO}/10 trades récents notés ≤ 2⭐. Tu prends régulièrement des trades hors plan. Pose-toi la question : est-ce que j'attends vraiment la confluence complète avant d'entrer ?</span>
+    </div>`;
+  }
+  if(avgQualite && avgQualite <= 3 && last10.filter(t=>t.qualite).length >= 5){
+    contextHtml += `<div style="background:rgba(239,83,80,0.06);border:1px solid rgba(239,83,80,0.2);border-radius:8px;padding:12px 14px;margin-bottom:8px;">
+      <b style="color:#ef5350;font-size:13px;">⚠️ Qualité d'exécution en baisse</b><br>
+      <span style="font-size:12px;color:var(--muted);">Ta qualité moyenne récente est de ${avgQualite}⭐/5 — en dessous du seuil acceptable de 3. Cela suggère de la fatigue, du stress ou un manque de patience. Envisage une pause ou revois tes critères d'entrée.</span>
+    </div>`;
+  }
+  document.getElementById('emotionContextBlock').innerHTML = contextHtml;
+
+  // Bloc action (conseil concret)
+  let actionHtml = '';
+  if(resultat === 'Perte' && lossStreak >= 2){
+    actionHtml = `<div style="font-size:13px;color:var(--text);padding:10px 0;">
+      <b style="color:#fff;">🔵 Conseil concret :</b> Avant le prochain trade, ferme les graphiques 30 minutes. Prends l'air, bois de l'eau. Reviens avec un état d'esprit neutre — pas pour "récupérer" mais pour "trader".
+    </div>`;
+  } else if(resultat === 'Gain' && winStreak >= 3){
+    actionHtml = `<div style="font-size:13px;color:var(--text);padding:10px 0;">
+      <b style="color:#fff;">🔵 Conseil concret :</b> Sur une belle série, résiste à l'envie d'augmenter tes positions. Respecte ton sizing habituel — une série de gains peut se retourner rapidement.
+    </div>`;
+  } else if(inDrawdown){
+    actionHtml = `<div style="font-size:13px;color:var(--text);padding:10px 0;">
+      <b style="color:#fff;">🔵 Conseil concret :</b> En drawdown de ${ddPct}%, applique la règle "half sizing" : réduis ta taille de position de 50% jusqu'à retrouver le plus haut de capital. Cela réduit la pression émotionnelle et préserve le capital.
+    </div>`;
+  }
+  document.getElementById('emotionActionBlock').innerHTML = actionHtml;
+
+  // Check-list
+  const checks = resultat === 'Perte' ? [
+    'Mon prochain trade respectera exactement mon plan',
+    lossStreak >= 2 ? 'Je prends une pause avant de retourner sur les marchés' : 'Je ne cherche pas à "me venger" sur le marché',
+    'J\'ai analysé pourquoi ce trade a perdu',
+    inDrawdown ? 'Je réduis ma taille de position pour le prochain trade' : 'Mon drawdown reste dans les limites acceptables'
+  ] : resultat === 'Gain' ? [
+    'Je ne modifie pas mon plan après un gain',
+    isFOMO ? 'Je travaille ma discipline d\'entrée pour le prochain trade' : 'J\'ai bien respecté mon processus',
+    winStreak >= 3 ? 'Je ne sur-trade pas sous l\'effet de la confiance' : 'Je reste humble et rigoureux',
+    'Je documente ce trade dans mon journal'
+  ] : [
+    'Je comprends pourquoi ce trade n\'a pas atteint son objectif',
+    'Le capital est préservé — c\'est l\'essentiel',
+    'Je reste patient pour le prochain setup de qualité',
+    'Mon plan reste valide'
+  ];
+  document.getElementById('emotionChecklist').innerHTML = checks.map(c =>
+    `<label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:13px;color:var(--text);">
+      <input type="checkbox" style="margin-top:2px;accent-color:var(--blue);flex-shrink:0;">
+      <span>${c}</span>
+    </label>`
+  ).join('');
+
+  document.getElementById('emotionModal').style.display = 'block';
+}
+
 function exportCSV(){
   const ds = DATASETS[currentDataset];
   if(!ds || !ds.trades.length){ alert('Aucun trade à exporter.'); return; }
@@ -3000,6 +3166,35 @@ function wireChartTaps() {
   <button id="chartModalClose" onclick="closeChartModal()">✕</button>
   <div id="chartModalTitle"></div>
   <canvas id="chartModalCanvas"></canvas>
+</div>
+
+<!-- MODAL ÉMOTIONS -->
+<div id="emotionModal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);padding:20px;overflow-y:auto;">
+  <div style="max-width:520px;margin:40px auto;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:0;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+    <!-- Header -->
+    <div id="emotionHeader" style="padding:20px 24px 16px;border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div id="emotionEmoji" style="font-size:36px;margin-bottom:6px;">🧘</div>
+          <div id="emotionTitle" style="font-size:18px;font-weight:700;color:#fff;"></div>
+          <div id="emotionSubtitle" style="font-size:13px;color:var(--muted);margin-top:3px;"></div>
+        </div>
+        <button onclick="closeEmotionModal()" style="background:none;border:1px solid var(--border);color:var(--muted);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">✕</button>
+      </div>
+    </div>
+    <!-- Contenu psychologique -->
+    <div style="padding:20px 24px;">
+      <div id="emotionPsyBlock" style="margin-bottom:18px;"></div>
+      <div id="emotionContextBlock" style="margin-bottom:18px;"></div>
+      <div id="emotionActionBlock" style="margin-bottom:20px;"></div>
+      <!-- Check-list rapide -->
+      <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:18px;">
+        <div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">✅ Avant de continuer</div>
+        <div id="emotionChecklist" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+      <button onclick="closeEmotionModal()" style="width:100%;padding:13px;background:var(--blue);border:none;color:#fff;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">J'ai lu — continuer</button>
+    </div>
+  </div>
 </div>
 </body>
 </html>
