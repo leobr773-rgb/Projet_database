@@ -941,6 +941,10 @@
 </div>
 
 <!-- KPIs -->
+<div id="healthBar" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:16px;">
+  <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;flex:0 0 auto;">Santé du compte :</div>
+  <div id="healthMetrics" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+</div>
 <div class="kpi-grid" id="kpiGrid"></div>
 
 <!-- Row 1 : equity + monthly -->
@@ -1000,13 +1004,13 @@
   <div class="panel">
     <h3>🏆 Top trades (meilleurs gains)</h3>
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-    <table id="tableTop"><thead><tr><th>Date</th><th>Actif</th><th>Sens</th><th>P&L ($)</th><th>RR réel</th><th>%</th><th>Charts TV</th><th>Note</th></tr></thead><tbody></tbody></table>
+    <table id="tableTop"><thead><tr><th>Date</th><th>Actif</th><th>Sens</th><th>P&L ($)</th><th>RR réel</th><th>%</th><th>Charts TV</th><th>Note</th><th>Setup</th></tr></thead><tbody></tbody></table>
     </div>
   </div>
   <div class="panel">
     <h3>📉 Flop trades (pires pertes)</h3>
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-    <table id="tableFlop"><thead><tr><th>Date</th><th>Actif</th><th>Sens</th><th>P&L ($)</th><th>RR réel</th><th>%</th><th>Charts TV</th><th>Note</th></tr></thead><tbody></tbody></table>
+    <table id="tableFlop"><thead><tr><th>Date</th><th>Actif</th><th>Sens</th><th>P&L ($)</th><th>RR réel</th><th>%</th><th>Charts TV</th><th>Note</th><th>Setup</th></tr></thead><tbody></tbody></table>
     </div>
   </div>
 </div>
@@ -1041,7 +1045,7 @@
   <div id="tradesTableWrapper" style="overflow-x:auto;">
   <table id="tableAll"><thead><tr>
     <th>Jour</th><th>Date</th><th>Actif</th><th>Sens</th><th>Lots</th><th>RR prévu</th><th>RR réel</th>
-    <th>Résultat</th><th>P&L ($)</th><th>Risque max ($)</th><th>%</th><th>Solde après</th><th>Charts TV</th><th>Note</th><th></th>
+    <th>Résultat</th><th>P&L ($)</th><th>Risque max ($)</th><th>%</th><th>Solde après</th><th>Charts TV</th><th>Note</th><th>Setup</th><th>Qualité</th><th></th>
   </tr></thead><tbody></tbody></table>
   </div>
   <!-- Mobile trade cards (shown on mobile instead of table) -->
@@ -1398,7 +1402,8 @@ function renderAll(trades, ds){
   document.getElementById('hdrBalance').textContent = fmtMoneyAbs(stats.finalBalance);
 
   renderDataNote(stats, ds, trades);
-  renderKPIs(stats, ds);
+  renderKPIs(stats, ds, trades);
+  renderHealthBar(stats, trades);
   renderEquityChart(stats);
   renderMonthlyChart(computeMonthly(trades));
   renderRepartitionChart(stats);
@@ -1442,6 +1447,24 @@ function renderDataNote(stats, ds, trades){
   box.innerHTML = html;
 }
 
+function renderHealthBar(s, trades) {
+  const el = document.getElementById('healthMetrics');
+  if (!el) return;
+  const badges = [];
+  const wrColor = s.winRate >= 60 ? '#4caf50' : s.winRate >= 40 ? '#f0b90b' : '#ef5350';
+  badges.push(`<span style="background:${wrColor}22;color:${wrColor};border:1px solid ${wrColor}44;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">WR ${s.n ? s.winRate.toFixed(0)+'%' : '—'}</span>`);
+  const pfColor = s.profitFactor >= 1.5 ? '#4caf50' : s.profitFactor >= 1 ? '#f0b90b' : '#ef5350';
+  badges.push(`<span style="background:${pfColor}22;color:${pfColor};border:1px solid ${pfColor}44;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">PF ${isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : '∞'}</span>`);
+  const ddColor = s.maxDDPct <= 5 ? '#4caf50' : s.maxDDPct <= 10 ? '#f0b90b' : '#ef5350';
+  badges.push(`<span style="background:${ddColor}22;color:${ddColor};border:1px solid ${ddColor}44;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">DD ${s.maxDDPct.toFixed(1)}%</span>`);
+  const streakData = computeStreaks(trades);
+  const sColor = streakData.current.type === 'G' ? '#4caf50' : streakData.current.type === 'P' ? '#ef5350' : '#f0b90b';
+  const sLabel = streakData.current.type === 'G' ? `🔥 ${streakData.current.len} gains` : streakData.current.type === 'P' ? `⚠️ ${streakData.current.len} pertes` : `${streakData.current.len} BE`;
+  badges.push(`<span style="background:${sColor}22;color:${sColor};border:1px solid ${sColor}44;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">${sLabel}</span>`);
+  badges.push(`<span style="background:rgba(74,144,226,0.12);color:var(--blue);border:1px solid rgba(74,144,226,0.25);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">${s.n} trades</span>`);
+  el.innerHTML = badges.join('');
+}
+
 function kpiCard(label, value, sub, cls){
   return `<div class="kpi ${cls||''}"><div class="accent"></div>
     <div class="label">${label}</div>
@@ -1450,7 +1473,7 @@ function kpiCard(label, value, sub, cls){
   </div>`;
 }
 
-function renderKPIs(s, ds){
+function renderKPIs(s, ds, trades){
   const pnlPct = s.startBalance ? (s.totalPnl/s.startBalance*100) : 0;
   const grid = document.getElementById('kpiGrid');
   const cards = [
@@ -1468,6 +1491,29 @@ function renderKPIs(s, ds){
   if(Math.abs(s.depositsTotal) > 0.005){
     cards.push(kpiCard('Dépôts/Retraits nets', fmtMoney(s.depositsTotal), `${s.depositEvents.length} mouvement(s) détecté(s) hors trading`, 'neutral'));
   }
+
+  // Espérance mathématique
+  const esperance = s.wins.length && s.losses.length
+    ? Math.round((s.winRate/100 * s.avgWin + (1-s.winRate/100) * s.avgLoss)*100)/100
+    : null;
+  cards.push(kpiCard('Espérance par trade', esperance !== null ? fmtMoney(esperance) : '—',
+    esperance > 0 ? 'Stratégie rentable en moyenne' : 'Stratégie perdante en moyenne',
+    esperance > 0 ? 'pos' : 'neg'));
+
+  const avgWinLoss = s.avgLoss !== 0 ? Math.round(Math.abs(s.avgWin/s.avgLoss)*100)/100 : null;
+  cards.push(kpiCard('Ratio Gain/Perte moyen', avgWinLoss !== null ? avgWinLoss.toFixed(2) : '—',
+    'Gain moyen divisé par perte moyenne (absolu)',
+    avgWinLoss >= 1 ? 'pos' : 'neg'));
+
+  // Jours profitables
+  const byDay2 = {};
+  trades.forEach(t => { if(!byDay2[t.date]) byDay2[t.date]=0; byDay2[t.date] += parseFloat(t.pnl)||0; });
+  const daysProfitable = Object.values(byDay2).filter(v=>v>0).length;
+  const daysTotal = Object.keys(byDay2).length;
+  cards.push(kpiCard('Jours profitables', daysTotal ? `${daysProfitable}/${daysTotal}` : '—',
+    daysTotal ? `${Math.round(daysProfitable/daysTotal*100)} % des jours de trading` : '',
+    daysProfitable >= daysTotal/2 ? 'pos' : 'neg'));
+
   grid.innerHTML = cards.join('');
 }
 
@@ -1711,10 +1757,11 @@ function renderTopFlop(trades){
     <td>${t.rrReel ?? '—'}</td><td class="${t.pct>=0?'pos':'neg'}">${fmtPct(t.pct)}</td>
     <td style="white-space:nowrap;">${t.setupAvant?`<a href="${t.setupAvant}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:12px;margin-right:6px;">▶ Avant</a>`:''}${t.setupApres?`<a href="${t.setupApres}" target="_blank" style="color:var(--gold);text-decoration:none;font-size:12px;">▶ Après</a>`:''}</td>
     <td class="notes" title="${(t.note||'').replace(/"/g,'&quot;')}">${t.note||'—'}</td>
+    <td>${t.setupICT || '—'}</td>
   </tr>`;
 
-  document.querySelector('#tableTop tbody').innerHTML = top.length ? top.map(rowHtml).join('') : `<tr><td colspan="7" class="empty-msg">Aucun trade gagnant sur la période sélectionnée</td></tr>`;
-  document.querySelector('#tableFlop tbody').innerHTML = flop.length ? flop.map(rowHtml).join('') : `<tr><td colspan="7" class="empty-msg">Aucun trade perdant sur la période sélectionnée</td></tr>`;
+  document.querySelector('#tableTop tbody').innerHTML = top.length ? top.map(rowHtml).join('') : `<tr><td colspan="9" class="empty-msg">Aucun trade gagnant sur la période sélectionnée</td></tr>`;
+  document.querySelector('#tableFlop tbody').innerHTML = flop.length ? flop.map(rowHtml).join('') : `<tr><td colspan="9" class="empty-msg">Aucun trade perdant sur la période sélectionnée</td></tr>`;
 }
 
 function renderStreaks(streak){
@@ -1819,6 +1866,31 @@ function renderRecommendations(s, trades, ds){
     good.push(`<b>Profit factor solide de ${s.profitFactor.toFixed(2)}</b> — les gains cumulés dépassent nettement les pertes cumulées sur cette période.`);
   }
 
+  // Setup le plus profitable
+  const setupStats = computeSetupStats(trades).filter(d => d.name !== 'Non renseigné' && d.total >= 2);
+  if(setupStats.length) {
+    const best = setupStats[0];
+    const worst = setupStats[setupStats.length-1];
+    good.push(`<b>Setup le plus fiable : ${best.name}</b> — ${best.winRate}% de réussite sur ${best.total} trade(s), P&L net : ${best.pnl > 0 ? '+' : ''}${best.pnl}$.`);
+    if(worst.winRate < 40 && worst !== best) {
+      bad.push(`<b>Setup à éviter : ${worst.name}</b> — seulement ${worst.winRate}% de réussite sur ${worst.total} trade(s). Attendre plus de confluences avant de valider ce type d'entrée.`);
+    }
+  }
+
+  // Qualité d'exécution
+  const qualTrades = trades.filter(t => t.qualite);
+  if(qualTrades.length >= 3) {
+    const avgPnlHigh = qualTrades.filter(t=>t.qualite>=4).reduce((s,t)=>s+(parseFloat(t.pnl)||0),0) / Math.max(qualTrades.filter(t=>t.qualite>=4).length, 1);
+    const avgPnlLow = qualTrades.filter(t=>t.qualite<=2).reduce((s,t)=>s+(parseFloat(t.pnl)||0),0) / Math.max(qualTrades.filter(t=>t.qualite<=2).length, 1);
+    if(qualTrades.filter(t=>t.qualite>=4).length && qualTrades.filter(t=>t.qualite<=2).length) {
+      if(avgPnlHigh > avgPnlLow) {
+        good.push(`<b>Discipline = performance :</b> tes trades en exécution 4-5⭐ rapportent en moyenne ${fmtMoney(avgPnlHigh)} vs ${fmtMoney(avgPnlLow)} pour les trades 1-2⭐. La discipline est payante.`);
+      } else {
+        bad.push(`<b>Paradoxe d'exécution :</b> tes trades notés 1-2⭐ performent aussi bien (ou mieux) que ceux notés 4-5⭐. Revoir le critère de qualité ou l'objectivité de la notation.`);
+      }
+    }
+  }
+
   document.getElementById('goodList').innerHTML = good.map(g=>`<li>${g}</li>`).join('') || `<li class="empty-msg">Pas encore de point fort identifié sur cet échantillon</li>`;
   document.getElementById('badList').innerHTML = bad.map(b=>`<li>${b}</li>`).join('');
 }
@@ -1826,7 +1898,7 @@ function renderRecommendations(s, trades, ds){
 function renderFullTable(trades){
   const tbody = document.querySelector('#tableAll tbody');
   if(!trades.length){
-    tbody.innerHTML = `<tr><td colspan="15" class="empty-msg">Aucun trade ne correspond aux filtres sélectionnés</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="17" class="empty-msg">Aucun trade ne correspond aux filtres sélectionnés</td></tr>`;
     return;
   }
   tbody.innerHTML = trades.map(t=>{
@@ -1846,6 +1918,8 @@ function renderFullTable(trades){
       <td>${fmtMoneyAbs(t.solde)}</td>
       <td style="white-space:nowrap;">${t.setupAvant?`<a href="${t.setupAvant}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:12px;margin-right:6px;">▶ Avant</a>`:''}${t.setupApres?`<a href="${t.setupApres}" target="_blank" style="color:var(--gold);text-decoration:none;font-size:12px;">▶ Après</a>`:''}</td>
       <td class="notes" title="${(t.note||'').replace(/"/g,'&quot;')}">${t.note||'—'}</td>
+      <td>${t.setupICT || '—'}</td>
+      <td>${t.qualite ? '⭐'.repeat(t.qualite) : '—'}</td>
       <td style="white-space:nowrap;">
         <button onclick="openEditTrade('${k}')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;border-radius:5px;cursor:pointer;font-size:12px;">✏️</button>
         <button onclick="deleteTrade('${k}')" style="background:none;border:1px solid rgba(239,83,80,0.3);color:var(--red);padding:3px 8px;border-radius:5px;cursor:pointer;font-size:12px;margin-left:4px;">🗑</button>
