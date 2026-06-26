@@ -2311,8 +2311,8 @@ function renderFullTable(trades){
       <td>${t.lots ?? '—'}</td>
       <td>${t.rrPrevu ?? '—'}</td>
       <td class="${t.rrReel==null?'':t.rrReel>=0?'pos':'neg'}">${t.rrReel ?? '—'}</td>
-      <td class="${t.resultat==='Gain'?'pos':t.resultat==='Perte'?'neg':'neutral'}">${t.resultat}</td>
-      <td class="${t.pnl>=0?'pos':'neg'}">${fmtMoney(t.pnl)}<br><span style="font-size:11px;opacity:.75;">${t.pct!=null?fmtPct(t.pct):'—'}</span></td>
+      <td class="${t.resultat==='Gain'?'pos':t.resultat==='Perte'?'neg':'neutral'}">${t.resultat}<br><span style="font-size:11px;opacity:.75;">${t.pct!=null?fmtPct(t.pct):'—'}</span></td>
+      <td class="${t.pnl>=0?'pos':'neg'}">${fmtMoney(t.pnl)}</td>
       <td>${t.risqueMax!=null ? fmtMoneyAbs(t.risqueMax) : '—'}</td>
       <td class="${t.pct>=0?'pos':'neg'}" style="display:none;">${fmtPct(t.pct)}</td>
       <td>${fmtMoneyAbs(t.solde)}</td>
@@ -3356,13 +3356,13 @@ function renderTradeCards(trades) {
           '<div class="trade-card-jour">' + dayLabel + ' · ' + (t.date || '') + '</div>' +
           '<div style="font-size:14px;font-weight:700;color:var(--text);">' + (t.actif || '') + ' <span style="font-size:12px;font-weight:400;color:var(--muted);">' + sens + '</span></div>' +
         '</div>' +
-        '<div class="trade-card-pnl ' + pnlClass + '">' + pnlStr + '<span style="display:block;font-size:11px;font-weight:400;opacity:.8;">' + pctStr + '</span></div>' +
+        '<div class="trade-card-pnl ' + pnlClass + '">' + pnlStr + '</div>' +
       '</div>' +
       '<div class="trade-card-chips">' +
         '<span class="trade-card-chip">💰 ' + solde.toFixed(2) + '$</span>' +
         (t.rr ? '<span class="trade-card-chip">RR ' + t.rr + '</span>' : '') +
         (t.lots ? '<span class="trade-card-chip">' + t.lots + ' lots</span>' : '') +
-        (t.resultat ? '<span class="trade-card-chip">' + t.resultat + '</span>' : '') +
+        (t.resultat ? '<span class="trade-card-chip">' + t.resultat + '<span style="display:block;font-size:10px;opacity:.8;margin-top:1px;">' + pctStr + '</span></span>' : '') +
         (t.setupICT ? '<span class="trade-card-chip" style="background:rgba(74,144,226,0.18);color:var(--blue);border-color:rgba(74,144,226,0.3);">📐 ' + t.setupICT + '</span>' : '') +
         (t.qualite ? '<span class="trade-card-chip" style="background:rgba(240,185,11,0.12);color:var(--gold);border-color:rgba(240,185,11,0.25);">' + '⭐'.repeat(t.qualite) + '</span>' : '') +
         sessionChip + heureChip +
