@@ -1051,6 +1051,28 @@
       </div>
     </div>
 
+    <!-- SIZING PROCHAIN TRADE -->
+    <div id="riskSizingBox" style="width:100%;background:rgba(38,166,154,0.07);border:1.5px solid rgba(38,166,154,0.35);border-radius:10px;padding:12px 16px;">
+      <div style="font-size:11px;color:#26a69a;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🎯 Sizing — 0.5% de risque</div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:13px;align-items:center;">
+        <div><span style="color:var(--muted);">Solde actuel : </span><b id="sizingBalance" style="color:#fff;">—</b></div>
+        <div style="font-size:18px;color:var(--border);">→</div>
+        <div><span style="color:var(--muted);">Risque max : </span><b id="sizingRisk" style="color:#26a69a;font-size:16px;">—</b></div>
+        <div style="font-size:18px;color:var(--border);">→</div>
+        <div><span style="color:var(--muted);">SL à </span><b id="sizingSL" style="color:#fff;">—</b><span style="color:var(--muted);"> points = </span><b id="sizingLots" style="color:#f0b90b;">— lots</b></div>
+      </div>
+      <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:var(--muted);">Distance SL (points) :</span>
+        <input type="number" id="sizingSLInput" placeholder="ex: 150" min="1" step="1"
+          style="background:var(--panel);border:1px solid var(--border);color:#fff;padding:4px 10px;border-radius:6px;font-size:13px;width:100px;"
+          oninput="updateSizing()">
+        <span style="font-size:11px;color:var(--muted);">Valeur pip ($) :</span>
+        <input type="number" id="sizingPipValue" placeholder="ex: 0.10" step="any" min="0.001"
+          style="background:var(--panel);border:1px solid var(--border);color:#fff;padding:4px 10px;border-radius:6px;font-size:13px;width:90px;"
+          oninput="updateSizing()">
+      </div>
+    </div>
+
     <div class="group" style="align-self:flex-end;flex-direction:row;gap:8px;margin-top:4px;">
       <button type="submit" style="background:var(--green2);border:none;color:#fff;padding:10px 24px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;">✅ Enregistrer</button>
       <button type="button" class="secondary" onclick="toggleAddTradeForm()">Annuler</button>
@@ -1678,6 +1700,29 @@ function renderDataNote(stats, ds, trades){
       <li>100% des trades sont sur BTC/USDT — pas de comparaison entre actifs possible.</li>
       <li>Pas d'heure d'entrée/sortie ni de durée de trade disponibles — analyse horaire/session impossible.</li>
     </ul>`;
+  } else if(currentDataset==='challenge5k'){
+    const balance = trades.length ? trades[trades.length-1].solde : ds.soldeInitial;
+    const pnlTotal = balance - ds.soldeInitial;
+    const pct = (pnlTotal / ds.soldeInitial * 100).toFixed(2);
+    const ddMaxJ = (ds.soldeInitial * ds.ddMaxJourPct / 100).toFixed(2);
+    const ddMaxT = (ds.soldeInitial * ds.ddMaxTotalPct / 100).toFixed(2);
+    const objectif = (ds.soldeInitial * ds.objectifPct / 100).toFixed(2);
+    const progress = Math.min(100, Math.max(0, pnlTotal / (ds.soldeInitial * ds.objectifPct / 100) * 100)).toFixed(1);
+    html += `
+    <div style="background:rgba(240,185,11,0.07);border:1.5px solid rgba(240,185,11,0.3);border-radius:10px;padding:10px 14px;margin:8px 0;">
+      <b style="color:#f0b90b;">⚠️ Règles du Challenge Kraken 5K</b>
+      <ul style="margin:6px 0 0 0;">
+        <li>Objectif : <b>+${objectif} $ (+${ds.objectifPct}%)</b> — Progression : <b style="color:${pnlTotal>=0?'#4caf50':'#ef5350'}">${pct}%</b>
+          <div style="background:#1a1a2e;border-radius:6px;height:8px;margin-top:4px;overflow:hidden;">
+            <div style="height:8px;border-radius:6px;background:#f0b90b;width:${progress}%;transition:width .4s;"></div>
+          </div>
+        </li>
+        <li>Perte quotidienne max : <b style="color:#ef5350;">${ddMaxJ} $ (${ds.ddMaxJourPct}%)</b></li>
+        <li>Drawdown total max : <b style="color:#ef5350;">${ddMaxT} $ (${ds.ddMaxTotalPct}%)</b></li>
+        <li>Effet de levier max : <b>5x</b> — Part bénéfices trader : <b>80–90%</b></li>
+      </ul>
+    </div>
+    <ul><li>Saisie manuelle des trades via le formulaire ➕. Le sizing 0,5% de risque s'adapte à ton solde en temps réel.</li></ul>`;
   }
   box.innerHTML = html;
 }
@@ -1696,6 +1741,24 @@ function renderHealthBar(s, trades, streakData) {
   const sLabel = streakData.current.type === 'G' ? `🔥 ${streakData.current.len} gains` : streakData.current.type === 'P' ? `⚠️ ${streakData.current.len} pertes` : `${streakData.current.len} BE`;
   badges.push(`<span style="background:${sColor}22;color:${sColor};border:1px solid ${sColor}44;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">${sLabel}</span>`);
   badges.push(`<span style="background:rgba(74,144,226,0.12);color:var(--blue);border:1px solid rgba(74,144,226,0.25);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">${s.n} trades</span>`);
+  // Risque prochain trade (0.5%)
+  const riskAmt = Math.round(s.finalBalance * 0.005 * 100) / 100;
+  const riskColor = '#26a69a';
+  badges.push(`<span style="background:${riskColor}22;color:${riskColor};border:2px solid ${riskColor}55;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700;" title="Risque max sur le prochain trade (0.5% du solde actuel)">🎯 Risque : ${riskAmt.toFixed(2)}$</span>`);
+  // Challenge 5K — badges spécifiques
+  const dsCurrent = DATASETS[currentDataset];
+  if(dsCurrent && dsCurrent.ddMaxTotalPct){
+    const ddLimit = dsCurrent.soldeInitial * dsCurrent.ddMaxTotalPct / 100;
+    const ddUsed = (s.maxDDAbs || 0);
+    const ddPct = (ddUsed / dsCurrent.soldeInitial * 100).toFixed(1);
+    const ddLeft = (ddLimit - ddUsed).toFixed(2);
+    const ddChalColor = ddUsed >= ddLimit * 0.8 ? '#ef5350' : ddUsed >= ddLimit * 0.5 ? '#f0b90b' : '#4caf50';
+    badges.push(`<span style="background:${ddChalColor}22;color:${ddChalColor};border:2px solid ${ddChalColor}55;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700;" title="Drawdown utilisé vs limite challenge (${dsCurrent.ddMaxTotalPct}%)">🛡 DD challenge : ${ddPct}% / ${dsCurrent.ddMaxTotalPct}%</span>`);
+    const objTarget = dsCurrent.soldeInitial * dsCurrent.objectifPct / 100;
+    const pnlVsObj = (s.totalPnl / objTarget * 100).toFixed(1);
+    const objColor = s.totalPnl >= objTarget ? '#4caf50' : s.totalPnl >= 0 ? '#f0b90b' : '#ef5350';
+    badges.push(`<span style="background:${objColor}22;color:${objColor};border:2px solid ${objColor}55;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700;" title="Progression vers objectif +${dsCurrent.objectifPct}%">🏆 Objectif : ${pnlVsObj}%</span>`);
+  }
   el.innerHTML = badges.join('');
 }
 
@@ -2637,6 +2700,26 @@ function deleteTrade(encodedKey){
   resetFilters();
 }
 
+function updateSizing(){
+  const ds = DATASETS[currentDataset];
+  if(!ds) return;
+  const trades = ds.trades || [];
+  const balance = trades.length ? trades[trades.length-1].solde : ds.soldeInitial;
+  const risk = Math.round(balance * 0.005 * 100) / 100;
+  const slPts = parseFloat(document.getElementById('sizingSLInput').value);
+  const pipVal = parseFloat(document.getElementById('sizingPipValue').value);
+  document.getElementById('sizingBalance').textContent = balance.toFixed(2) + ' $';
+  document.getElementById('sizingRisk').textContent = risk.toFixed(2) + ' $';
+  if(slPts > 0 && pipVal > 0){
+    const lots = risk / (slPts * pipVal);
+    document.getElementById('sizingSL').textContent = slPts;
+    document.getElementById('sizingLots').textContent = lots.toFixed(2) + ' lots';
+  } else {
+    document.getElementById('sizingSL').textContent = '—';
+    document.getElementById('sizingLots').textContent = '— lots';
+  }
+}
+
 function toggleAddTradeForm(){
   const panel = document.getElementById('addTradePanel');
   const show = panel.style.display === 'none';
@@ -2649,6 +2732,7 @@ function toggleAddTradeForm(){
     document.getElementById('tvLinksToggle').textContent='+ Ajouter les liens TradingView (optionnel)';
     document.getElementById('atActifCustomGroup').style.display='none';
     document.getElementById('formTitle').innerHTML='➕ Nouveau trade <span style="font-size:11px;color:var(--muted);font-weight:400;">Les autres données sont calculées automatiquement</span>';
+    updateSizing();
   }
   panel.style.display = show ? 'block' : 'none';
 }
@@ -2944,6 +3028,18 @@ async function init(){
     }
   } catch(e){
     console.log('Compte Kraken connecté non chargé (fichier absent, ou ouverture en file:// — utilisez un serveur local) :', e.message);
+  }
+
+  // Challenge Kraken 5K — compte prop trading (saisie manuelle)
+  if(!DATASETS.challenge5k){
+    DATASETS.challenge5k = {
+      label: '🏆 Challenge Kraken 5K',
+      soldeInitial: 5000,
+      objectifPct: 10,     // +500$ pour valider
+      ddMaxJourPct: 3,     // perte quotidienne max 3%
+      ddMaxTotalPct: 6,    // drawdown max 6%
+      trades: [],
+    };
   }
 
   loadManualTrades();
