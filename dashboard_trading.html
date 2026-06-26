@@ -2859,22 +2859,23 @@ function updateObjectifProgress(){
   if(!objectif || !DATASETS[currentDataset]){
     label.textContent = 'Définissez un objectif ci-dessus';
     bar.style.width = '0%';
+    bar.style.background = 'var(--blue)';
     return;
   }
 
-  const now = new Date();
-  const monthStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
-  const trades = DATASETS[currentDataset].trades || [];
-  const pnlMois = trades
-    .filter(t => (t.date||'').startsWith(monthStr))
-    .reduce((s,t) => s + (parseFloat(t.pnl)||0), 0);
-  const pct = Math.min(Math.round(pnlMois/objectif*100), 100);
-  const pctDisplay = Math.round(pnlMois/objectif*100);
+  const ds = DATASETS[currentDataset];
+  const trades = ds.trades || [];
+  // P&L total = solde actuel - solde initial
+  const finalBalance = trades.length ? trades[trades.length-1].solde : ds.soldeInitial;
+  const pnlTotal = finalBalance - ds.soldeInitial;
 
-  bar.style.width = Math.max(0, pct) + '%';
-  bar.style.background = pnlMois >= objectif ? 'var(--green2)' : pnlMois >= 0 ? 'var(--blue)' : 'var(--red)';
-  label.textContent = `${pnlMois >= 0 ? '+' : ''}${pnlMois.toFixed(2)}$ / ${objectif}$ objectif (${pctDisplay}%)`;
-  label.style.color = pnlMois >= objectif ? 'var(--green2)' : 'var(--text)';
+  const pct = objectif > 0 ? Math.round(pnlTotal / objectif * 100) : 0;
+  const pctClamped = Math.min(Math.max(pct, 0), 100);
+
+  bar.style.width = pctClamped + '%';
+  bar.style.background = pnlTotal >= objectif ? 'var(--green2)' : pnlTotal >= 0 ? 'var(--blue)' : 'var(--red)';
+  label.textContent = `${pnlTotal >= 0 ? '+' : ''}${pnlTotal.toFixed(2)}$ / ${objectif}$ objectif (${pct}%)`;
+  label.style.color = pnlTotal >= objectif ? 'var(--green2)' : pnlTotal >= 0 ? '#4a90e2' : 'var(--red)';
 }
 
 function loadPlanSettings(){
