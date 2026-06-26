@@ -110,6 +110,9 @@
   .psycho-tag.danger{background:rgba(239,83,80,0.15);color:#ef5350;}
   .psycho-tag.warning{background:rgba(240,185,11,0.15);color:#f0b90b;}
   .psycho-tag.good{background:rgba(76,175,80,0.15);color:#4caf50;}
+  .mindset-btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:20px;font-size:13px;cursor:pointer;transition:all .2s;}
+  .mindset-btn:hover{border-color:var(--blue);color:#fff;}
+  .mindset-btn.selected{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600;}
   .chart-wrap{position:relative;height:280px;}
   .chart-wrap.small{height:220px;}
 
@@ -2949,6 +2952,147 @@ async function init(){
   applyFilters();
   restoreScreenshots();
   loadPlanSettings();
+  initPresessionNotification();
+}
+
+/* =========================================================
+   NOTIFICATION PRÉ-SESSION 14H — Lundi–Vendredi
+   ========================================================= */
+const PSY_TIPS = [
+  { day: 1, emoji: '🎯', title: 'Lundi — Semaine fraîche, esprit neuf', tip: 'Tu arrives avec le week-end pour récupérer. C\'est souvent là que les traders sur-tradent par impatience. Souviens-toi : <b>le premier setup de la semaine doit être le meilleur, pas le premier venu.</b> Attends la confluence complète avant d\'appuyer sur "Buy".', checklist: ['J\'ai analysé le contexte macro ce matin', 'Je n\'ai pas de "objectif de récupération" du week-end en tête', 'Mon plan est clair : 1 trade max aujourd\'hui si le setup est parfait'] },
+  { day: 2, emoji: '🔥', title: 'Mardi — Momentum ou piège ?', tip: 'Le mardi suit souvent le mouvement du lundi. Le danger : <b>le biais de confirmation</b>. Si lundi était haussier, ton cerveau va chercher des raisons de ne voir que des setups longs. Force-toi à analyser les deux directions avant d\'ouvrir un trade.', checklist: ['J\'ai regardé les deux côtés du marché (long ET short)', 'Je n\'ai pas de biais directionnel hérité d\'hier', 'Mes niveaux de support/résistance sont tracés'] },
+  { day: 3, emoji: '⚖️', title: 'Mercredi — Le milieu de semaine', tip: 'C\'est souvent le jour de la semaine avec le plus de faux signaux. Les institutionnels "liquident" les positions des retail avant les grands mouvements de fin de semaine. <b>Méfie-toi des breakouts mercredi — la plupart sont des pièges à liquidité.</b>', checklist: ['Je suis conscient des pièges à liquidité du mercredi', 'Je ne suis pas un breakout sans confirmation claire', 'Mon stop-loss est bien positionné au-delà des niveaux évidents'] },
+  { day: 4, emoji: '📊', title: 'Jeudi — La vraie direction se révèle', tip: 'Le jeudi, les institutionnels commencent à positionner leurs books de fin de semaine. C\'est souvent là que les vrais mouvements démarrent. <b>Sois patient : un bon trade jeudi après-midi peut être le meilleur de la semaine.</b> Ne rate pas une belle opportunité pour avoir déjà épuisé ta limite sur des setups médiocres.', checklist: ['J\'ai gardé des "munitions" (pas sur-tradé lundi-mercredi)', 'Je suis dans le bon état d\'esprit pour saisir une belle opportunité', 'Je ne suis pas fatigué ou stressé par la semaine'] },
+  { day: 5, emoji: '🛡️', title: 'Vendredi — Protège ce que tu as gagné', tip: 'Le vendredi, <b>le capital préservé vaut de l\'or.</b> Les marchés ferment dans quelques heures et la liquidité diminue. Ce n\'est pas le jour de "forcer" pour finir la semaine en beauté. Si tu es en profit cette semaine : protège-le. Si tu es en perte : accept et recommence lundi avec une ardoise propre.', checklist: ['Je ne cherche pas à "terminer la semaine en beauté" à tout prix', 'Si je suis en profit cette semaine, je peux choisir de ne pas trader', 'Je ne prends pas de trade après 16h30 vendredi (liquidité basse)'] },
+];
+
+const MINDSET_ADVICE = {
+  '🟢 Serein et focalisé': { color: '#4caf50', bg: 'rgba(76,175,80,0.08)', border: 'rgba(76,175,80,0.3)', text: '✅ Parfait. Tu es dans l\'état idéal pour trader. Respecte ton plan et ne laisse pas un premier gain te rendre euphorique.' },
+  '🟡 Un peu stressé':    { color: '#f0b90b', bg: 'rgba(240,185,11,0.08)', border: 'rgba(240,185,11,0.3)', text: '⚠️ Un peu de stress est normal. Mais identifie la source : est-ce lié au trading ou à autre chose ? Si c\'est externe, considère de réduire ta taille de position de 50% aujourd\'hui.' },
+  '🔴 Émotionnel / FOMO': { color: '#ef5350', bg: 'rgba(239,83,80,0.08)', border: 'rgba(239,83,80,0.3)', text: '🚨 Dans cet état, les statistiques montrent que les traders perdent 2x plus. Recommandation : <b>ne trade pas aujourd\'hui.</b> Ou alors, paper trading uniquement. Reviens demain.' },
+  '😴 Fatigué':           { color: '#7d8597', bg: 'rgba(125,133,151,0.08)', border: 'rgba(125,133,151,0.3)', text: '😴 La fatigue réduit la qualité des décisions autant que l\'alcool. Réduis ta taille de position à 50% et fixe une limite stricte : 1 seul trade aujourd\'hui, exit à 15h30 max.' },
+};
+
+function setMindset(btn, state){
+  document.querySelectorAll('.mindset-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  const advice = MINDSET_ADVICE[state];
+  const box = document.getElementById('mindsetAdvice');
+  if(advice && box){
+    box.style.display='block';
+    box.style.background=advice.bg;
+    box.style.border='1px solid '+advice.border;
+    box.style.color=advice.color;
+    box.innerHTML=advice.text;
+    localStorage.setItem('mindset_'+new Date().toISOString().slice(0,10), state);
+  }
+}
+
+function showPresessionModal(){
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0=dim, 1=lun... 5=ven, 6=sam
+  if(dayOfWeek === 0 || dayOfWeek === 6) return; // week-end
+  // Ne pas afficher si déjà fermé aujourd'hui
+  const todayStr = today.toISOString().slice(0,10);
+  if(localStorage.getItem('presession_dismissed_'+todayStr)) return;
+
+  const tipData = PSY_TIPS.find(t=>t.day===dayOfWeek) || PSY_TIPS[0];
+  const modal = document.getElementById('presessionModal');
+  const dateEl = document.getElementById('presessionDate');
+  const tipEl = document.getElementById('presessionTip');
+  const checkEl = document.getElementById('presessionChecklist');
+
+  if(!modal) return;
+
+  const days = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  if(dateEl) dateEl.textContent = days[dayOfWeek]+' '+todayStr+' — Session New York 14h30–17h';
+  if(tipEl) tipEl.innerHTML = tipData.emoji+' <b>'+tipData.title+'</b><br><br>'+tipData.tip;
+  if(checkEl) checkEl.innerHTML = tipData.checklist.map(c=>`
+    <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:13px;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+      <input type="checkbox" style="margin-top:2px;accent-color:var(--blue);flex-shrink:0;">
+      <span>${c}</span>
+    </label>`).join('');
+
+  // Reset état d'esprit
+  document.querySelectorAll('.mindset-btn').forEach(b=>b.classList.remove('selected'));
+  const box = document.getElementById('mindsetAdvice');
+  if(box) box.style.display='none';
+
+  modal.style.display='block';
+  // Notification navigateur aussi
+  _sendBrowserNotif(tipData);
+}
+
+function closePresessionModal(){
+  const modal = document.getElementById('presessionModal');
+  if(modal) modal.style.display='none';
+}
+
+function disablePresessionToday(){
+  localStorage.setItem('presession_dismissed_'+new Date().toISOString().slice(0,10), '1');
+  closePresessionModal();
+}
+
+function snoozePresession(){
+  closePresessionModal();
+  setTimeout(showPresessionModal, 15*60*1000); // 15 minutes
+}
+
+function _sendBrowserNotif(tipData){
+  if(!('Notification' in window)) return;
+  if(Notification.permission === 'granted'){
+    try {
+      new Notification('📊 Killzone NY dans 30 min', {
+        body: tipData.emoji+' '+tipData.title+'\nOuvre le dashboard pour le briefing complet.',
+        icon: '/Projet_database/icons/icon-192.png',
+        badge: '/Projet_database/icons/icon-192.png',
+        tag: 'presession-14h',
+        renotify: false,
+      });
+    } catch(e) {}
+  }
+}
+
+function _requestNotifPermission(){
+  if(!('Notification' in window)) return;
+  if(Notification.permission === 'default'){
+    Notification.requestPermission();
+  }
+}
+
+function initPresessionNotification(){
+  _requestNotifPermission();
+  _schedulePresessionTimer();
+}
+
+function _schedulePresessionTimer(){
+  const now = new Date();
+  const day = now.getDay();
+  if(day === 0 || day === 6) return; // week-end
+
+  const target = new Date(now);
+  target.setHours(14, 0, 0, 0);
+  let msUntil = target - now;
+
+  // Si déjà passé 14h, on ne planifie rien pour aujourd'hui
+  // (mais on vérifie si on est dans la fenêtre 14h00–14h10)
+  if(msUntil < 0 && msUntil > -10*60*1000){
+    // On est entre 14h00 et 14h10 — afficher maintenant
+    setTimeout(showPresessionModal, 500);
+    return;
+  }
+  if(msUntil < 0) return; // trop tard
+
+  // Planifier pour aujourd'hui à 14h
+  setTimeout(()=>{
+    showPresessionModal();
+    // Re-planifier pour demain (si la page reste ouverte)
+    const nextDay = new Date();
+    nextDay.setDate(nextDay.getDate()+1);
+    nextDay.setHours(14,0,0,0);
+    const msNext = nextDay - new Date();
+    if(msNext > 0 && msNext < 26*3600*1000) setTimeout(_schedulePresessionTimer, msNext);
+  }, msUntil);
 }
 
 async function _tryUnlock(){
@@ -3910,6 +4054,46 @@ function wireChartTaps() {
 </script>
 
 <!-- Chart fullscreen modal -->
+<!-- MODAL BRIEFING PRÉ-SESSION 14H -->
+<div id="presessionModal" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);padding:20px;overflow-y:auto;">
+  <div style="max-width:480px;margin:30px auto;background:var(--panel);border:1px solid rgba(74,144,226,0.35);border-radius:20px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.7);">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#0d1a2e,#112240);padding:22px 24px 18px;border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div style="font-size:11px;color:var(--blue);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">🔔 Briefing pré-session</div>
+          <div style="font-size:20px;font-weight:800;color:#fff;">Il est 14h00 — Killzone NY</div>
+          <div style="font-size:13px;color:var(--muted);margin-top:4px;" id="presessionDate"></div>
+        </div>
+        <button onclick="closePresessionModal()" style="background:none;border:1px solid var(--border);color:var(--muted);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;">✕</button>
+      </div>
+    </div>
+    <!-- Conseil psycho du jour -->
+    <div style="padding:20px 24px;">
+      <div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">🧠 Conseil psychologique du jour</div>
+      <div id="presessionTip" style="background:rgba(74,144,226,0.08);border-left:3px solid var(--blue);border-radius:0 10px 10px 0;padding:14px 16px;margin-bottom:18px;font-size:14px;color:var(--text);line-height:1.7;"></div>
+      <!-- Check-list pré-trade -->
+      <div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">✅ Check-list avant de toucher aux graphiques</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;" id="presessionChecklist"></div>
+      <!-- État d'esprit -->
+      <div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">💭 Mon état d'esprit maintenant</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+        <button type="button" onclick="setMindset(this,'🟢 Serein et focalisé')" class="mindset-btn">🟢 Serein</button>
+        <button type="button" onclick="setMindset(this,'🟡 Un peu stressé')" class="mindset-btn">🟡 Stressé</button>
+        <button type="button" onclick="setMindset(this,'🔴 Émotionnel / FOMO')" class="mindset-btn">🔴 Émotionnel</button>
+        <button type="button" onclick="setMindset(this,'😴 Fatigué')" class="mindset-btn">😴 Fatigué</button>
+      </div>
+      <div id="mindsetAdvice" style="display:none;border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:18px;"></div>
+      <button onclick="closePresessionModal()" style="width:100%;padding:14px;background:var(--blue);border:none;color:#fff;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.3px;">🚀 Je suis prêt — Let's trade</button>
+      <div style="text-align:center;margin-top:10px;">
+        <button onclick="snoozePresession()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;">Me rappeler dans 15 min</button>
+        <span style="color:var(--border);margin:0 8px;">|</span>
+        <button onclick="disablePresessionToday()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;">Ne plus afficher aujourd'hui</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="chartModal">
   <button id="chartModalClose" onclick="closeChartModal()">✕</button>
   <div id="chartModalTitle"></div>
