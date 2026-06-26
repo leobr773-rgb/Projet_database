@@ -1743,10 +1743,12 @@ function renderHealthBar(s, trades, streakData) {
   const sLabel = streakData.current.type === 'G' ? `🔥 ${streakData.current.len} gains` : streakData.current.type === 'P' ? `⚠️ ${streakData.current.len} pertes` : `${streakData.current.len} BE`;
   badges.push(`<span style="background:${sColor}22;color:${sColor};border:1px solid ${sColor}44;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">${sLabel}</span>`);
   badges.push(`<span style="background:rgba(74,144,226,0.12);color:var(--blue);border:1px solid rgba(74,144,226,0.25);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">${s.n} trades</span>`);
-  // Risque prochain trade (0.4% trade net + ~0.1% frais = 0.5% total max)
-  const riskAmt = Math.round(s.finalBalance * 0.004 * 100) / 100;
+  // Risque prochain trade (0.4% net + 0.1% frais = 0.5% total)
+  const riskNet = Math.round(s.finalBalance * 0.004 * 100) / 100;
+  const riskFees = Math.round(s.finalBalance * 0.001 * 100) / 100;
+  const riskTotal = Math.round(s.finalBalance * 0.005 * 100) / 100;
   const riskColor = '#26a69a';
-  badges.push(`<span style="background:${riskColor}22;color:${riskColor};border:2px solid ${riskColor}55;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700;" title="Risque trade net (0.4%) + frais (~0.1%) = 0.5% max du solde">🎯 Risque : ${riskAmt.toFixed(2)}$</span>`);
+  badges.push(`<span style="background:${riskColor}22;color:${riskColor};border:2px solid ${riskColor}55;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700;line-height:1.5;" title="Risque net 0.4% + frais 0.1% = 0.5% total">🎯 Risque : ${riskNet.toFixed(2)}$<span style="font-size:10px;opacity:.7;font-weight:400;"> +${riskFees.toFixed(2)}$ frais = ${riskTotal.toFixed(2)}$ max</span></span>`);
   // Challenge 5K — badges spécifiques
   const dsCurrent = DATASETS[currentDataset];
   if(dsCurrent && dsCurrent.ddMaxTotalPct){
