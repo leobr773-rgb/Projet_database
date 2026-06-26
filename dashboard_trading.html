@@ -985,19 +985,51 @@
         style="background:var(--panel2);border:1px solid var(--border);color:#fff;padding:7px 10px;border-radius:6px;font-size:13px;width:100%;">
     </div>
 
-    <!-- LIENS TV optionnels (repliables) -->
+    <!-- LIENS TV + CAPTURES optionnels (repliables) -->
     <div style="width:100%;border-top:1px solid var(--border);padding-top:10px;margin-top:2px;">
       <button type="button" onclick="toggleTVLinks()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;padding:0;" id="tvLinksToggle">
-        + Ajouter les liens TradingView (optionnel)
+        + Ajouter liens TradingView / captures d'écran (optionnel)
       </button>
-      <div id="tvLinksBlock" style="display:none;display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;">
-        <div class="group" style="flex:1 1 240px;">
-          <label>Setup AVANT (lien TV)</label>
+      <div id="tvLinksBlock" style="display:none;flex-wrap:wrap;gap:12px;margin-top:10px;">
+        <!-- Lien TV -->
+        <div class="group" style="flex:1 1 220px;">
+          <label>Lien TradingView AVANT <span style="color:var(--muted);font-weight:400;font-size:10px;">TV → Partager → Publier</span></label>
           <input type="url" id="atSetupAvant" placeholder="https://www.tradingview.com/x/...">
         </div>
-        <div class="group" style="flex:1 1 240px;">
-          <label>Setup APRÈS (lien TV)</label>
+        <div class="group" style="flex:1 1 220px;">
+          <label>Lien TradingView APRÈS</label>
           <input type="url" id="atSetupApres" placeholder="https://www.tradingview.com/x/...">
+        </div>
+        <!-- Séparateur -->
+        <div style="width:100%;display:flex;align-items:center;gap:8px;margin:2px 0;">
+          <div style="flex:1;height:1px;background:var(--border);"></div>
+          <span style="font-size:11px;color:var(--muted);">OU capture d'écran</span>
+          <div style="flex:1;height:1px;background:var(--border);"></div>
+        </div>
+        <!-- Upload captures -->
+        <div style="width:100%;display:flex;flex-wrap:wrap;gap:12px;">
+          <div class="group" style="flex:1 1 200px;">
+            <label>📸 Capture AVANT le trade</label>
+            <label id="captureAvantLabel" style="display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px dashed var(--border);border-radius:6px;padding:8px 12px;cursor:pointer;font-size:12px;color:var(--muted);">
+              <span>📁 Choisir une image</span>
+              <input type="file" id="atCaptureAvant" accept="image/*" style="display:none;" onchange="previewCapture('avant', this)">
+            </label>
+            <div id="previewCaptureAvant" style="display:none;margin-top:8px;position:relative;">
+              <img id="imgCaptureAvant" style="width:100%;border-radius:6px;border:1px solid var(--border);max-height:180px;object-fit:cover;" alt="Avant">
+              <button type="button" onclick="clearCapture('avant')" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);border:none;color:#fff;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:12px;">✕</button>
+            </div>
+          </div>
+          <div class="group" style="flex:1 1 200px;">
+            <label>📈 Capture APRÈS le trade</label>
+            <label id="captureApresLabel" style="display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px dashed var(--border);border-radius:6px;padding:8px 12px;cursor:pointer;font-size:12px;color:var(--muted);">
+              <span>📁 Choisir une image</span>
+              <input type="file" id="atCaptureApres" accept="image/*" style="display:none;" onchange="previewCapture('apres', this)">
+            </label>
+            <div id="previewCaptureApres" style="display:none;margin-top:8px;position:relative;">
+              <img id="imgCaptureApres" style="width:100%;border-radius:6px;border:1px solid var(--border);max-height:180px;object-fit:cover;" alt="Après">
+              <button type="button" onclick="clearCapture('apres')" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);border:none;color:#fff;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:12px;">✕</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -2293,7 +2325,147 @@ function toggleTVLinks(){
   const t = document.getElementById('tvLinksToggle');
   const open = b.style.display === 'flex';
   b.style.display = open ? 'none' : 'flex';
-  t.textContent = open ? '+ Ajouter les liens TradingView (optionnel)' : '− Masquer les liens TradingView';
+  t.textContent = open ? '+ Ajouter liens TradingView / captures d\'écran (optionnel)' : '− Masquer liens / captures';
+}
+
+/* ── CAPTURES D'ÉCRAN ── */
+// Stockage dans IndexedDB pour éviter la limite localStorage
+let _captureDB = null;
+function _openCaptureDB(){
+  if(_captureDB) return Promise.resolve(_captureDB);
+  return new Promise((res,rej)=>{
+    const req = indexedDB.open('trading_captures', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('captures');
+    req.onsuccess = e => { _captureDB = e.target.result; res(_captureDB); };
+    req.onerror = () => rej(req.error);
+  });
+}
+function _saveCapture(key, dataUrl){ return _openCaptureDB().then(db=>new Promise((res,rej)=>{ const tx=db.transaction('captures','readwrite'); tx.objectStore('captures').put(dataUrl,key); tx.oncomplete=res; tx.onerror=rej; })); }
+function _loadCapture(key){ return _openCaptureDB().then(db=>new Promise((res)=>{ const req=db.transaction('captures','readonly').objectStore('captures').get(key); req.onsuccess=()=>res(req.result||null); req.onerror=()=>res(null); })); }
+function _deleteCapture(key){ return _openCaptureDB().then(db=>new Promise((res)=>{ const tx=db.transaction('captures','readwrite'); tx.objectStore('captures').delete(key); tx.oncomplete=res; tx.onerror=res; })); }
+
+// Clés temporaires pendant l'édition
+let _captureKeyAvant = null;
+let _captureKeyApres = null;
+
+function previewCapture(side, input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    // Compresser via canvas
+    const img = new Image();
+    img.onload = function(){
+      const canvas = document.createElement('canvas');
+      const MAX = 1200;
+      const ratio = Math.min(MAX/img.width, MAX/img.height, 1);
+      canvas.width = Math.round(img.width*ratio);
+      canvas.height = Math.round(img.height*ratio);
+      canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+      const compressed = canvas.toDataURL('image/jpeg', 0.75);
+      const previewDiv = document.getElementById('previewCapture'+cap(side));
+      const previewImg = document.getElementById('imgCapture'+cap(side));
+      previewImg.src = compressed;
+      previewDiv.style.display = 'block';
+      document.getElementById('captureAvantLabel'.replace('avant', side === 'apres' ? 'apres' : 'avant')).querySelector('span').textContent = '✅ '+file.name.slice(0,20);
+      // Stocker temporairement
+      if(side==='avant') _captureKeyAvant = '__tmp_avant__';
+      else _captureKeyApres = '__tmp_apres__';
+      _saveCapture(side==='avant'?'__tmp_avant__':'__tmp_apres__', compressed);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+async function toggleCapturePreview(btn, encodedKey){
+  const blockId = 'captureBlock_' + encodedKey;
+  const block = document.getElementById(blockId);
+  if(!block) return;
+  if(block.style.display === 'block'){ block.style.display='none'; btn.textContent='📷 Captures'; return; }
+  const key = decodeURIComponent(encodedKey);
+  const avant = await _loadCapture('capture_avant_'+key);
+  const apres = await _loadCapture('capture_apres_'+key);
+  if(!avant && !apres){ block.innerHTML='<div style="font-size:12px;color:var(--muted);padding:6px 0;">Aucune capture enregistrée pour ce trade.</div>'; }
+  else {
+    let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+    if(avant) html += '<div><div style="font-size:10px;color:var(--muted);margin-bottom:4px;">AVANT</div><img src="'+avant+'" style="width:100%;border-radius:8px;border:1px solid var(--border);" onclick="openImgFullscreen(this)"></div>';
+    if(apres) html += '<div><div style="font-size:10px;color:var(--muted);margin-bottom:4px;">APRÈS</div><img src="'+apres+'" style="width:100%;border-radius:8px;border:1px solid var(--border);" onclick="openImgFullscreen(this)"></div>';
+    html += '</div>';
+    block.innerHTML = html;
+  }
+  block.style.display = 'block';
+  btn.textContent = '▲ Fermer';
+}
+
+function openImgFullscreen(img){
+  const overlay = document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;padding:16px;';
+  overlay.onclick = () => document.body.removeChild(overlay);
+  const i = document.createElement('img');
+  i.src = img.src;
+  i.style.cssText='max-width:100%;max-height:100vh;border-radius:8px;object-fit:contain;';
+  overlay.appendChild(i);
+  document.body.appendChild(overlay);
+}
+
+function clearCapture(side){
+  document.getElementById('previewCapture'+cap(side)).style.display='none';
+  document.getElementById('imgCapture'+cap(side)).src='';
+  const labelSpan = document.getElementById('capture'+cap(side)+'Label').querySelector('span');
+  if(labelSpan) labelSpan.textContent='📁 Choisir une image';
+  const fi = document.getElementById('atCapture'+cap(side));
+  if(fi) fi.value='';
+  if(side==='avant') _captureKeyAvant=null;
+  else _captureKeyApres=null;
+}
+
+function resetCaptureFields(){
+  clearCapture('avant');
+  clearCapture('apres');
+}
+
+async function saveCapturesForTrade(tradeKey){
+  if(_captureKeyAvant){
+    const data = await _loadCapture('__tmp_avant__');
+    if(data) await _saveCapture('capture_avant_'+tradeKey, data);
+    await _deleteCapture('__tmp_avant__');
+    _captureKeyAvant = null;
+  }
+  if(_captureKeyApres){
+    const data = await _loadCapture('__tmp_apres__');
+    if(data) await _saveCapture('capture_apres_'+tradeKey, data);
+    await _deleteCapture('__tmp_apres__');
+    _captureKeyApres = null;
+  }
+}
+
+async function loadCapturesForTrade(key){
+  const avant = await _loadCapture('capture_avant_'+key);
+  const apres = await _loadCapture('capture_apres_'+key);
+  if(avant){
+    const previewDiv = document.getElementById('previewCaptureAvant');
+    const previewImg = document.getElementById('imgCaptureAvant');
+    previewImg.src = avant;
+    previewDiv.style.display = 'block';
+    const lbl = document.getElementById('captureAvantLabel');
+    if(lbl){ const sp=lbl.querySelector('span'); if(sp) sp.textContent='✅ Capture existante'; }
+    _captureKeyAvant = '(existing)';
+  }
+  if(apres){
+    const previewDiv = document.getElementById('previewCaptureApres');
+    const previewImg = document.getElementById('imgCaptureApres');
+    previewImg.src = apres;
+    previewDiv.style.display = 'block';
+    const lbl = document.getElementById('captureApresLabel');
+    if(lbl){ const sp=lbl.querySelector('span'); if(sp) sp.textContent='✅ Capture existante'; }
+    _captureKeyApres = '(existing)';
+  }
+  if(avant||apres){
+    document.getElementById('tvLinksBlock').style.display='flex';
+    document.getElementById('tvLinksToggle').textContent='− Masquer liens / captures';
+  }
 }
 
 function getPrevSolde(){
@@ -2411,8 +2583,12 @@ function fillForm(t){
   document.getElementById('atNote').value = t.note || '';
   if(t.setupAvant || t.setupApres){
     document.getElementById('tvLinksBlock').style.display='flex';
-    document.getElementById('tvLinksToggle').textContent='− Masquer les liens TradingView';
+    document.getElementById('tvLinksToggle').textContent='− Masquer liens / captures';
   }
+  // Charger les captures existantes
+  resetCaptureFields();
+  const tKey = tradeKey(t);
+  loadCapturesForTrade(tKey);
   previewAutoCalc();
 }
 
@@ -2521,8 +2697,11 @@ function submitAddTrade(e){
   }
 
   const _tradeForEmotion = {pnl, resultat, qualite, setupICT, session};
+  const _savedKey = editingTradeKey || tradeKey({jour: 'JOUR?', date, sens});
   document.getElementById('addTradeForm').reset();
+  resetCaptureFields();
   document.getElementById('addTradePanel').style.display = 'none';
+  saveCapturesForTrade(_savedKey);
   populateFilterOptions();
   resetFilters();
   setTimeout(() => showEmotionModal(_tradeForEmotion), 400);
@@ -2920,8 +3099,10 @@ function renderTradeCards(trades) {
     var dayLabel = isNaN(d) ? '' : days[d.getDay()];
     var note = t.note || '';
     var tvLinks = '';
-    if (t.setupAvant) tvLinks += '<a href="' + t.setupAvant + '" target="_blank" class="trade-card-actions btn-tv" style="flex:0 0 auto;padding:8px 12px;" title="Setup avant">📸 Avant</a>';
-    if (t.setupApres) tvLinks += '<a href="' + t.setupApres + '" target="_blank" class="trade-card-actions btn-tv" style="flex:0 0 auto;padding:8px 12px;" title="Setup après">📈 Après</a>';
+    if (t.setupAvant) tvLinks += '<a href="' + t.setupAvant + '" target="_blank" class="trade-card-actions btn-tv" style="flex:0 0 auto;padding:8px 12px;" title="Setup avant">📸 TV Avant</a>';
+    if (t.setupApres) tvLinks += '<a href="' + t.setupApres + '" target="_blank" class="trade-card-actions btn-tv" style="flex:0 0 auto;padding:8px 12px;" title="Setup après">📈 TV Après</a>';
+    var rawKey = (t.jour||'') + '|' + (t.date||'') + '|' + (t.sens||'');
+    tvLinks += '<button type="button" class="trade-card-actions btn-tv" style="flex:0 0 auto;padding:8px 12px;" onclick="toggleCapturePreview(this,\'' + encodeURIComponent(rawKey) + '\')">📷 Captures</button>';
     var sessionChip = t.session ? ('<span class="trade-card-chip" style="background:rgba(38,166,154,0.12);color:var(--green);border-color:rgba(38,166,154,0.3);">🌍 ' + t.session + '</span>') : '';
     var heureChip = t.heure ? ('<span class="trade-card-chip">🕐 ' + t.heure + '</span>') : '';
     var idxAttr = t._idx !== undefined ? t._idx : '';
@@ -2946,6 +3127,7 @@ function renderTradeCards(trades) {
         (t.duree ? '<span class="trade-card-chip">⏱ ' + t.duree + '</span>' : '') +
       '</div>' +
       (note ? '<div class="trade-card-note">💬 ' + note + '</div>' : '') +
+      '<div id="captureBlock_' + encodeURIComponent(rawKey) + '" style="display:none;margin-bottom:10px;"></div>' +
       '<div class="trade-card-actions">' +
         '<button class="btn-edit-card" onclick="' + editCall + '" style="flex:1;min-height:44px;">✏️ Modifier</button>' +
         '<button class="btn-delete-card btn-tv" onclick="deleteTrade(\'' + editKey + '\')" style="flex:0 0 auto;min-height:44px;color:var(--red);border-color:rgba(239,83,80,0.3);">🗑</button>' +
