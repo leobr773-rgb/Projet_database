@@ -1053,7 +1053,7 @@
 
     <!-- SIZING PROCHAIN TRADE -->
     <div id="riskSizingBox" style="width:100%;background:rgba(38,166,154,0.07);border:1.5px solid rgba(38,166,154,0.35);border-radius:10px;padding:12px 16px;">
-      <div style="font-size:11px;color:#26a69a;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🎯 Sizing — 0.5% de risque</div>
+      <div style="font-size:11px;color:#26a69a;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🎯 Sizing — 0.4% de risque (+0.1% frais = 0.5% max)</div>
       <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:13px;align-items:center;">
         <div><span style="color:var(--muted);">Solde actuel : </span><b id="sizingBalance" style="color:#fff;">—</b></div>
         <div style="font-size:18px;color:var(--border);">→</div>
@@ -1743,10 +1743,10 @@ function renderHealthBar(s, trades, streakData) {
   const sLabel = streakData.current.type === 'G' ? `🔥 ${streakData.current.len} gains` : streakData.current.type === 'P' ? `⚠️ ${streakData.current.len} pertes` : `${streakData.current.len} BE`;
   badges.push(`<span style="background:${sColor}22;color:${sColor};border:1px solid ${sColor}44;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">${sLabel}</span>`);
   badges.push(`<span style="background:rgba(74,144,226,0.12);color:var(--blue);border:1px solid rgba(74,144,226,0.25);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">${s.n} trades</span>`);
-  // Risque prochain trade (0.5%)
-  const riskAmt = Math.round(s.finalBalance * 0.005 * 100) / 100;
+  // Risque prochain trade (0.4% trade net + ~0.1% frais = 0.5% total max)
+  const riskAmt = Math.round(s.finalBalance * 0.004 * 100) / 100;
   const riskColor = '#26a69a';
-  badges.push(`<span style="background:${riskColor}22;color:${riskColor};border:2px solid ${riskColor}55;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700;" title="Risque max sur le prochain trade (0.5% du solde actuel)">🎯 Risque : ${riskAmt.toFixed(2)}$</span>`);
+  badges.push(`<span style="background:${riskColor}22;color:${riskColor};border:2px solid ${riskColor}55;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700;" title="Risque trade net (0.4%) + frais (~0.1%) = 0.5% max du solde">🎯 Risque : ${riskAmt.toFixed(2)}$</span>`);
   // Challenge 5K — badges spécifiques
   const dsCurrent = DATASETS[currentDataset];
   if(dsCurrent && dsCurrent.ddMaxTotalPct){
@@ -2707,7 +2707,7 @@ function updateSizing(){
   if(!ds) return;
   const trades = ds.trades || [];
   const balance = trades.length ? trades[trades.length-1].solde : ds.soldeInitial;
-  const risk = Math.round(balance * 0.005 * 100) / 100;
+  const risk = Math.round(balance * 0.004 * 100) / 100;
   const slPts = parseFloat(document.getElementById('sizingSLInput').value);
   const pipVal = parseFloat(document.getElementById('sizingPipValue').value);
   document.getElementById('sizingBalance').textContent = balance.toFixed(2) + ' $';
@@ -4045,7 +4045,7 @@ function exportCSV(){
   const rows = ds.trades.map(t => [
     t.jour||'', t.date||'', t.heure||'', t.session||'', t.actif||'', t.sens||'',
     t.lots??'', t.setupICT||'', t.qualite??'', t.rrPrevu??'', t.rrReel??'',
-    t.resultat||'', t.pnl??'', t.pct??'', t.solde??'', (t.note||'').replace(/,/g,' ')
+    t.resultat||'', t.pnl??'', tradePct(t).toFixed(2), t.solde??'', (t.note||'').replace(/,/g,' ')
   ]);
   const csv = [headers, ...rows].map(r=>r.join(',')).join('\n');
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
