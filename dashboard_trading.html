@@ -1374,6 +1374,8 @@ async function _unlock(password){
 const fmtMoney = v => (v>=0?'+':'') + v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' $';
 const fmtMoneyAbs = v => v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' $';
 const fmtPct = v => (v>=0?'+':'') + v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' %';
+// Calcule le % réel d'un trade depuis pnl et solde (évite les valeurs erronées stockées dans t.pct)
+const tradePct = t => { const prev = (t.solde||0) - (t.pnl||0); return prev !== 0 ? (t.pnl / prev * 100) : (t.pct || 0); };
 const fmtDate = d => new Date(d+'T00:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
 const WEEKDAYS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 const MONTHS = ['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'];
@@ -2150,7 +2152,7 @@ function renderTopFlop(trades){
   const rowHtml = t => `<tr>
     <td>${fmtDate(t.date)}</td><td>${t.actif}</td><td>${t.sens}</td>
     <td class="${t.pnl>=0?'pos':'neg'}">${fmtMoney(t.pnl)}</td>
-    <td>${t.rrReel ?? '—'}</td><td class="${t.pct>=0?'pos':'neg'}">${fmtPct(t.pct)}</td>
+    <td>${t.rrReel ?? '—'}</td><td class="${tradePct(t)>=0?'pos':'neg'}">${fmtPct(tradePct(t))}</td>
     <td style="white-space:nowrap;">${t.setupAvant?`<a href="${t.setupAvant}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:12px;margin-right:6px;">▶ Avant</a>`:''}${t.setupApres?`<a href="${t.setupApres}" target="_blank" style="color:var(--gold);text-decoration:none;font-size:12px;">▶ Après</a>`:''}</td>
     <td class="notes" title="${(t.note||'').replace(/"/g,'&quot;')}">${t.note||'—'}</td>
     <td>${t.setupICT || '—'}</td>
@@ -2311,10 +2313,10 @@ function renderFullTable(trades){
       <td>${t.lots ?? '—'}</td>
       <td>${t.rrPrevu ?? '—'}</td>
       <td class="${t.rrReel==null?'':t.rrReel>=0?'pos':'neg'}">${t.rrReel ?? '—'}</td>
-      <td class="${t.resultat==='Gain'?'pos':t.resultat==='Perte'?'neg':'neutral'}">${t.resultat}<br><span style="font-size:11px;opacity:.75;">${t.pct!=null?fmtPct(t.pct):'—'}</span></td>
+      <td class="${t.resultat==='Gain'?'pos':t.resultat==='Perte'?'neg':'neutral'}">${t.resultat}<br><span style="font-size:11px;opacity:.75;">${fmtPct(tradePct(t))}</span></td>
       <td class="${t.pnl>=0?'pos':'neg'}">${fmtMoney(t.pnl)}</td>
       <td>${t.risqueMax!=null ? fmtMoneyAbs(t.risqueMax) : '—'}</td>
-      <td class="${t.pct>=0?'pos':'neg'}" style="display:none;">${fmtPct(t.pct)}</td>
+      <td class="${tradePct(t)>=0?'pos':'neg'}" style="display:none;">${fmtPct(tradePct(t))}</td>
       <td>${fmtMoneyAbs(t.solde)}</td>
       <td style="white-space:nowrap;">${t.setupAvant?`<a href="${t.setupAvant}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:12px;margin-right:6px;">▶ Avant</a>`:''}${t.setupApres?`<a href="${t.setupApres}" target="_blank" style="color:var(--gold);text-decoration:none;font-size:12px;">▶ Après</a>`:''}</td>
       <td class="notes" title="${(t.note||'').replace(/"/g,'&quot;')}">${t.note||'—'}</td>
@@ -3332,7 +3334,7 @@ function renderTradeCards(trades) {
   sorted.forEach(function(t) {
     var pnl = parseFloat(t.pnl) || 0;
     var pnlClass = pnl > 0 ? 'gain' : pnl < 0 ? 'perte' : 'be';
-    var pct = parseFloat(t.pct) || 0;
+    var pct = tradePct(t);
     var pctStr = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
     var pnlStr = (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + '$';
     var solde = parseFloat(t.solde) || 0;
