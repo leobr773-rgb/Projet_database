@@ -755,33 +755,37 @@
     <h3>📸 Exemples de Setups — Stratégie ICT</h3>
     <div class="screenshots-grid">
       <div>
-        <div class="screenshot-box" id="screen1box">
+        <div class="screenshot-box" id="screen1box" style="cursor:pointer;" onclick="setupScreenClick(1)">
           <div id="screen1placeholder">
             <div style="font-size:28px;">📷</div>
             <div id="screen1placeholderName">Setup #1</div>
-            <label for="screen1upload" style="cursor:pointer;color:var(--blue);font-size:11px;margin-top:6px;text-decoration:underline;">Cliquer pour ajouter l'image</label>
+            <div style="color:var(--blue);font-size:11px;margin-top:6px;text-decoration:underline;">Cliquer pour ajouter l'image</div>
             <input type="file" id="screen1upload" accept="image/*" style="display:none" onchange="loadScreenshot(this,'screen1box','screen1placeholder','sc1')">
           </div>
           <img id="screen1img" src="" style="display:none;width:100%;height:100%;object-fit:cover;">
         </div>
-        <div class="screenshot-label" style="display:flex;align-items:center;justify-content:center;gap:6px;">
+        <div class="screenshot-label" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
           <span id="screenLabel1" ondblclick="editScreenLabel(1)" title="Double-cliquer pour renommer">Setup 1 — Entrée sur Breaker Block</span>
           <button onclick="editScreenLabel(1)" title="Renommer" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0;">✏️</button>
+          <button onclick="document.getElementById('screen1upload').click()" title="Changer l'image" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:2px 7px;border-radius:5px;">🔄</button>
+          <button onclick="deleteSetupScreen(1)" title="Supprimer l'image" style="background:none;border:1px solid rgba(239,83,80,0.3);color:var(--red);cursor:pointer;font-size:11px;padding:2px 7px;border-radius:5px;">🗑</button>
         </div>
       </div>
       <div>
-        <div class="screenshot-box" id="screen2box">
+        <div class="screenshot-box" id="screen2box" style="cursor:pointer;" onclick="setupScreenClick(2)">
           <div id="screen2placeholder">
             <div style="font-size:28px;">📷</div>
             <div id="screen2placeholderName">Setup #2</div>
-            <label for="screen2upload" style="cursor:pointer;color:var(--blue);font-size:11px;margin-top:6px;text-decoration:underline;">Cliquer pour ajouter l'image</label>
+            <div style="color:var(--blue);font-size:11px;margin-top:6px;text-decoration:underline;">Cliquer pour ajouter l'image</div>
             <input type="file" id="screen2upload" accept="image/*" style="display:none" onchange="loadScreenshot(this,'screen2box','screen2placeholder','sc2')">
           </div>
           <img id="screen2img" src="" style="display:none;width:100%;height:100%;object-fit:cover;">
         </div>
-        <div class="screenshot-label" style="display:flex;align-items:center;justify-content:center;gap:6px;">
+        <div class="screenshot-label" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
           <span id="screenLabel2" ondblclick="editScreenLabel(2)" title="Double-cliquer pour renommer">Setup 2 — FVG Retest</span>
           <button onclick="editScreenLabel(2)" title="Renommer" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0;">✏️</button>
+          <button onclick="document.getElementById('screen2upload').click()" title="Changer l'image" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;padding:2px 7px;border-radius:5px;">🔄</button>
+          <button onclick="deleteSetupScreen(2)" title="Supprimer l'image" style="background:none;border:1px solid rgba(239,83,80,0.3);color:var(--red);cursor:pointer;font-size:11px;padding:2px 7px;border-radius:5px;">🗑</button>
         </div>
       </div>
     </div>
@@ -2955,6 +2959,25 @@ function togglePlan(){
   const open = s.style.display === 'block';
   s.style.display = open ? 'none' : 'block';
   a.textContent = open ? '▼ Afficher' : '▲ Masquer';
+}
+
+function setupScreenClick(num){
+  const img = document.getElementById('screen'+num+'img');
+  if(img && img.style.display !== 'none' && img.src){
+    openImgFullscreen(img);
+  } else {
+    document.getElementById('screen'+num+'upload').click();
+  }
+}
+
+function deleteSetupScreen(num){
+  if(!confirm('Supprimer cette image ?')) return;
+  const k = 'sc'+num;
+  localStorage.removeItem('planScreenshot_'+k);
+  const img = document.getElementById('screen'+num+'img');
+  img.src = '';
+  img.style.display = 'none';
+  document.getElementById('screen'+num+'placeholder').style.display = 'flex';
 }
 
 function loadScreenshot(input, boxId, placeholderId, storageKey){
