@@ -3,7 +3,7 @@
                Network-First pour les données Kraken en temps réel
 */
 
-const CACHE_NAME = 'trading-dashboard-v14';
+const CACHE_NAME = 'trading-dashboard-v15';
 const STATIC_ASSETS = [
   './dashboard_trading.html',
   './manifest.json',
