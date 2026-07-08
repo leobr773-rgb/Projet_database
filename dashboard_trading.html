@@ -598,9 +598,23 @@
     <!-- COLONNE GAUCHE -->
     <div>
       <div class="plan-block" style="margin-bottom:16px;">
-        <h3>🔑 Règles générales</h3>
-        <div class="plan-rule"><span class="num">•</span><span class="txt">Pas de position le <b>weekend</b> — sauf si volatilité suffisante pour du Day Trading</span></div>
-        <div class="plan-rule"><span class="num">•</span><span class="txt"><b>Backtesting</b> des trades de la semaine le weekend</span></div>
+        <h3>🔑 Règles générales
+          <button onclick="toggleReglesEdit()" id="reglesEditBtn" style="margin-left:auto;background:var(--blue);border:none;color:#fff;padding:3px 10px;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600;">✏️ Modifier</button>
+        </h3>
+        <div id="reglesViewMode">
+          <div id="reglesLines"></div>
+        </div>
+        <div id="reglesEditMode" style="display:none;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Une règle par ligne — le gras n'est pas conservé</div>
+          <textarea id="reglesTextarea"
+            style="width:100%;min-height:100px;background:var(--panel);border:1px solid var(--blue);color:#fff;
+                   padding:10px;border-radius:8px;font-size:13px;line-height:1.7;resize:vertical;font-family:inherit;"
+            placeholder="Ex:&#10;Pas de position le weekend&#10;Backtesting des trades chaque dimanche"></textarea>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button onclick="saveRegles()" style="background:var(--green2);border:none;color:#fff;padding:8px 16px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:700;">✅ Sauvegarder</button>
+            <button onclick="toggleReglesEdit()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;">Annuler</button>
+          </div>
+        </div>
       </div>
 
       <div class="plan-block" style="margin-bottom:16px;">
@@ -1108,9 +1122,23 @@
 </div>
 
 <!-- KPIs -->
-<div id="healthBar" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:16px;">
+<div id="healthBar" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:8px;">
   <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;flex:0 0 auto;">Santé du compte :</div>
   <div id="healthMetrics" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+</div>
+<!-- Challenge progress bar (visible uniquement pour challenge5k) -->
+<div id="challengeProgressWrap" style="display:none;background:var(--panel);border:1px solid rgba(240,185,11,0.3);border-radius:10px;padding:12px 18px;margin-bottom:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+    <span style="font-size:12px;font-weight:700;color:#f0b90b;">🏆 Progression vers l'objectif Challenge</span>
+    <span id="challengeProgressPct" style="font-size:14px;font-weight:700;color:#fff;">0%</span>
+  </div>
+  <div style="background:var(--panel2);border-radius:8px;height:12px;overflow:hidden;position:relative;">
+    <div id="challengeProgressBar" style="height:100%;border-radius:8px;background:#f0b90b;width:0%;transition:width .5s ease;"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-top:6px;">
+    <span id="challengeProgressLabel" style="font-size:12px;color:var(--muted);">—</span>
+    <span id="challengeProgressTarget" style="font-size:12px;color:var(--muted);">Objectif : —</span>
+  </div>
 </div>
 <div class="kpi-grid" id="kpiGrid"></div>
 
@@ -1293,7 +1321,7 @@
 <!-- /psychoSection -->
 
 <!-- ══ SECTION NEWS ══ -->
-<div id="section-news">
+<div id="section-news" style="display:none;">
   <div class="news-header">📰 Actualités marchés</div>
 
   <!-- Boutons liens rapides -->
@@ -1645,6 +1673,7 @@ function renderAll(trades, ds){
   renderKPIs(stats, ds, trades);
   const streakData = computeStreaks(trades);
   renderHealthBar(stats, trades, streakData);
+  updateChallengeProgressBar();
   renderEquityChart(stats);
   renderWinRateGlissant(trades);
   renderMonthlyChart(computeMonthly(trades));
@@ -2877,6 +2906,7 @@ function loadPlanSettings(){
   document.getElementById('dispMaxTrades').textContent = s.maxTrades;
   document.getElementById('dispMaxTrades2').textContent = s.maxTrades;
   loadRoutine();
+  renderReglesGenerales();
   loadJournal();
   updateObjectifProgress();
   analysePlan();
@@ -2924,6 +2954,77 @@ function loadRoutine(){
   container.innerHTML = steps.map((s, i) =>
     `<div class="plan-rule"><span class="num">${i+1}</span><span class="txt">${s}</span></div>`
   ).join('');
+}
+
+// ── Règles générales éditables ──
+const REGLES_DEFAULT = [
+  "Pas de position le <b>weekend</b> — sauf si volatilité suffisante pour du Day Trading",
+  "<b>Backtesting</b> des trades de la semaine le weekend"
+];
+
+function renderReglesGenerales(){
+  const stored = localStorage.getItem('planReglesGenerales');
+  const rules = stored ? JSON.parse(stored) : REGLES_DEFAULT;
+  const el = document.getElementById('reglesLines');
+  if(!el) return;
+  el.innerHTML = rules.map(r => `<div class="plan-rule"><span class="num">•</span><span class="txt">${r}</span></div>`).join('');
+}
+
+function toggleReglesEdit(){
+  const view = document.getElementById('reglesViewMode');
+  const edit = document.getElementById('reglesEditMode');
+  const btn  = document.getElementById('reglesEditBtn');
+  if(!view || !edit) return;
+  const isEditing = edit.style.display !== 'none';
+  if(!isEditing){
+    const stored = localStorage.getItem('planReglesGenerales');
+    const rules = stored ? JSON.parse(stored) : REGLES_DEFAULT;
+    const div = document.createElement('div');
+    const plain = rules.map(r => { div.innerHTML = r; return div.textContent; });
+    document.getElementById('reglesTextarea').value = plain.join('\n');
+    view.style.display = 'none';
+    edit.style.display = 'block';
+    btn.textContent = '✕ Fermer';
+  } else {
+    view.style.display = '';
+    edit.style.display = 'none';
+    btn.textContent = '✏️ Modifier';
+  }
+}
+
+function saveRegles(){
+  const raw = document.getElementById('reglesTextarea').value;
+  const rules = raw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+  localStorage.setItem('planReglesGenerales', JSON.stringify(rules));
+  renderReglesGenerales();
+  toggleReglesEdit();
+}
+
+// ── Challenge progress bar (section Stats) ──
+function updateChallengeProgressBar(){
+  const wrap = document.getElementById('challengeProgressWrap');
+  if(!wrap) return;
+  const ds = DATASETS[currentDataset];
+  if(!ds || !ds.objectifPct){
+    wrap.style.display = 'none';
+    return;
+  }
+  const trades = ds.trades || [];
+  const balance = trades.length ? trades[trades.length-1].solde : ds.soldeInitial;
+  const pnlTotal = balance - ds.soldeInitial;
+  const target = ds.soldeInitial * ds.objectifPct / 100;
+  const pct = target > 0 ? (pnlTotal / target * 100) : 0;
+  const pctClamped = Math.min(100, Math.max(0, pct));
+  const barColor = pnlTotal >= target ? '#4caf50' : pnlTotal >= 0 ? '#f0b90b' : '#ef5350';
+  const bar = document.getElementById('challengeProgressBar');
+  const lbl = document.getElementById('challengeProgressLabel');
+  const pctEl = document.getElementById('challengeProgressPct');
+  const tgtEl = document.getElementById('challengeProgressTarget');
+  if(bar) { bar.style.width = pctClamped + '%'; bar.style.background = barColor; }
+  if(pctEl) pctEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+  if(lbl) lbl.textContent = (pnlTotal >= 0 ? '+' : '') + pnlTotal.toFixed(2) + '$ réalisé';
+  if(tgtEl) tgtEl.textContent = 'Objectif : +' + target.toFixed(2) + '$ (+' + ds.objectifPct + '%)';
+  wrap.style.display = 'block';
 }
 
 function toggleRoutineEdit(){
@@ -3258,6 +3359,9 @@ function switchTab(name) {
   var dataNote   = document.getElementById('dataNote');
   var headerEl   = document.querySelector('header');
   var filtersEl  = document.querySelector('.filters:not(#addTradePanel)');
+  var newsEl     = document.getElementById('section-news');
+  var psychoSec  = document.getElementById('psychoSection');
+  var psychoBtn  = document.getElementById('psychoToggleBtn');
 
   function hideAll() {
     if (secDash)   secDash.style.display   = 'none';
@@ -3266,6 +3370,9 @@ function switchTab(name) {
     if (dataNote)  dataNote.style.display  = 'none';
     if (headerEl)  headerEl.style.display  = 'none';
     if (filtersEl) filtersEl.style.display = 'none';
+    if (newsEl)    newsEl.style.display    = 'none';
+    if (psychoSec) psychoSec.style.display = 'none';
+    if (psychoBtn) psychoBtn.style.display = 'none';
   }
 
   if (name === 'dashboard') {
@@ -3273,6 +3380,7 @@ function switchTab(name) {
     if (secDash)  secDash.style.display  = '';
     if (dataNote) dataNote.style.display = '';
     if (headerEl) headerEl.style.display = '';
+    if (psychoBtn) psychoBtn.style.display = '';
     // Hide journal panel and note-box, show charts/KPIs
     var journalPanel = document.getElementById('tradeCards') ? document.getElementById('tradeCards').closest('.panel') : null;
     if (journalPanel) journalPanel.style.display = 'none';
@@ -3309,14 +3417,11 @@ function switchTab(name) {
 
   } else if (name === 'news') {
     hideAll();
-    var newsSection = document.getElementById('section-news');
-    if (newsSection) newsSection.style.display = 'block';
+    if (newsEl) newsEl.style.display = 'block';
+  } else if (name === 'psycho') {
+    hideAll();
+    if (psychoSec) { psychoSec.style.display = 'block'; renderPsychoSection(); }
   }
-    else if (name === 'psycho') {
-      hideAll();
-      var psychoSection = document.getElementById('psychoSection');
-      if(psychoSection){ psychoSection.style.display = 'block'; renderPsychoSection(); }
-    }
 }
 
 // Track plan section open state
