@@ -490,6 +490,27 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="empty-icon">📋</div>
       <div>Aucun trade enregistré.<br>Ajoutez votre premier trade pour commencer !</div>
     </div>
+
+    <!-- ── Récupération de données ── -->
+    <div id="recoveryPanel" style="margin-top:24px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;cursor:pointer;" onclick="toggleRecovery()">
+        <span style="font-size:13px;font-weight:600;color:var(--muted);">🔧 Récupération de données</span>
+        <span id="recoveryArrow" style="color:var(--muted);font-size:12px;">▼ Afficher</span>
+      </div>
+      <div id="recoveryBody" style="display:none;">
+        <div id="recoveryStatus" style="font-size:13px;color:var(--muted);margin-bottom:12px;">Cliquez sur "Scanner" pour chercher vos anciens trades.</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+          <button onclick="scanOldData()" style="background:var(--blue);border:none;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;">🔍 Scanner le stockage local</button>
+          <button onclick="document.getElementById('importJsonArea').style.display=document.getElementById('importJsonArea').style.display==='none'?'block':'none'" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:9px 16px;border-radius:8px;font-size:13px;cursor:pointer;">📋 Coller du JSON</button>
+        </div>
+        <div id="importJsonArea" style="display:none;">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Collez ici un tableau JSON de trades (format [{date, actif, pnl, solde, ...}])</div>
+          <textarea id="importJsonText" style="width:100%;min-height:100px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-size:12px;font-family:ui-monospace,monospace;resize:vertical;" placeholder='[{"date":"2026-06-01","actif":"BTC/USD","sens":"Achat","pnl":104.5,"solde":5104.5,"rrReel":2.1,...}]'></textarea>
+          <button onclick="importFromJson()" style="margin-top:10px;background:var(--green);border:none;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;">✅ Importer ces trades</button>
+        </div>
+        <div id="recoveryResults"></div>
+      </div>
+    </div>
   </div>
 
   <!-- ══ MODULE 4 — ANALYSE ══ -->
@@ -1162,6 +1183,114 @@ function deleteTrade(id) {
   persist();
   renderTrades();
   renderCockpit();
+}
+
+// ─────────────────────────────────────────────
+//  RÉCUPÉRATION DE DONNÉES
+// ─────────────────────────────────────────────
+function toggleRecovery() {
+  const body = document.getElementById('recoveryBody');
+  const arrow = document.getElementById('recoveryArrow');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▼ Afficher' : '▲ Masquer';
+}
+
+function scanOldData() {
+  const statusEl = document.getElementById('recoveryStatus');
+  const resultsEl = document.getElementById('recoveryResults');
+  const oldKeys = ['manualTrades_challenge5k', 'trades_challenge5k', 'jtTrades_v1', 'challenge5k_trades'];
+  let found = [];
+
+  // Scanner toutes les clés localStorage
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k) continue;
+    if (oldKeys.includes(k) || k.startsWith('manualTrades') || k.startsWith('trades_')) {
+      try {
+        const val = localStorage.getItem(k);
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          found.push({ key: k, trades: parsed });
+        }
+      } catch(e) {}
+    }
+  }
+
+  if (!found.length) {
+    statusEl.innerHTML = '<span style="color:var(--red);">⚠ Aucun ancien trade trouvé dans le stockage local de ce navigateur.</span><br><span style="font-size:12px;color:var(--muted);margin-top:6px;display:block;">Les données localStorage sont liées au navigateur et à l\'appareil. Si vous avez utilisé un autre navigateur ou effacé le cache, les données ne sont plus disponibles ici. Utilisez "Coller du JSON" si vous avez une sauvegarde.</span>';
+    resultsEl.innerHTML = '';
+    return;
+  }
+
+  statusEl.innerHTML = `<span style="color:var(--green);">✅ ${found.reduce((a,f)=>a+f.trades.length,0)} trade(s) trouvé(s) dans ${found.length} clé(s).</span>`;
+  resultsEl.innerHTML = found.map(f => `
+    <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-size:13px;font-weight:600;color:var(--text);">📦 Clé : <code style="font-family:monospace;font-size:11px;color:var(--blue);">${f.key}</code> — ${f.trades.length} trades</span>
+        <button onclick="importOldKey('${f.key}')" style="background:var(--green);border:none;color:#fff;padding:7px 14px;border-radius:7px;font-size:12px;cursor:pointer;font-weight:700;">⬆ Importer</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);">Premier : ${f.trades[0]?.date||'?'} | Dernier : ${f.trades[f.trades.length-1]?.date||'?'} | PnL total estimé : ${f.trades.reduce((a,t)=>a+(parseFloat(t.pnl)||0),0).toFixed(2)}$</div>
+    </div>
+  `).join('');
+}
+
+function importOldKey(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) { alert('Clé introuvable'); return; }
+    const oldTrades = JSON.parse(raw);
+    migrateAndAdd(oldTrades);
+  } catch(e) { alert('Erreur : ' + e.message); }
+}
+
+function importFromJson() {
+  try {
+    const text = document.getElementById('importJsonText').value.trim();
+    if (!text) { alert('Collez d\'abord du JSON.'); return; }
+    const parsed = JSON.parse(text);
+    const arr = Array.isArray(parsed) ? parsed : [parsed];
+    migrateAndAdd(arr);
+  } catch(e) { alert('JSON invalide : ' + e.message); }
+}
+
+function migrateAndAdd(oldTrades) {
+  if (!Array.isArray(oldTrades) || !oldTrades.length) { alert('Aucun trade à importer.'); return; }
+  const sensMap = { 'Buy': 'Achat', 'Sell': 'Vente', 'Long': 'Achat', 'Short': 'Vente', 'Achat': 'Achat', 'Vente': 'Vente' };
+  const existing = new Set((appData.trades||[]).map(t => t.date+'|'+t.actif+'|'+(t.pnl||0)));
+  let added = 0;
+  oldTrades.forEach((t, i) => {
+    const pnl = parseFloat(t.pnl) || 0;
+    const key = (t.date||'')+'|'+(t.actif||'BTC/USD')+'|'+pnl;
+    if (existing.has(key)) return;
+    existing.add(key);
+    added++;
+    appData.trades.push({
+      id: 'imp_' + Date.now() + '_' + i,
+      date: t.date || new Date().toISOString().slice(0,10),
+      actif: t.actif || 'BTC/USD',
+      sens: sensMap[t.sens] || 'Achat',
+      lots: parseFloat(t.lots) || 0,
+      setup: t.setup || '—',
+      session: t.session || '—',
+      qualite: parseInt(t.qualite) || 3,
+      rrPrevu: parseFloat(t.rrPrevu) || 0,
+      rrReel: parseFloat(t.rrReel) || (parseFloat(t.pnl)>0 ? 1 : parseFloat(t.pnl)<0 ? -1 : 0),
+      risque: parseFloat(t.risque) || 0.5,
+      pnl,
+      solde: parseFloat(t.solde) || 5000,
+      emotion: t.emotion || '—',
+      note: t.note || ''
+    });
+  });
+  appData.trades.sort((a,b) => a.date < b.date ? -1 : 1);
+  persist();
+  renderTrades();
+  renderCockpit();
+  if (document.getElementById('mod-analyse').classList.contains('active')) renderAnalyse();
+  document.getElementById('recoveryStatus').innerHTML = `<span style="color:var(--green);">✅ ${added} trade(s) importé(s) avec succès (${oldTrades.length - added} ignoré(s) — déjà présents).</span>`;
+  document.getElementById('recoveryResults').innerHTML = '';
+  alert(`✅ ${added} trade(s) importé(s) !`);
 }
 
 // ─────────────────────────────────────────────
