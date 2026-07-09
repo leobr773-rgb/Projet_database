@@ -675,6 +675,42 @@ async function handleUnlock() {
     if (!appData.journals) appData.journals = {};
     if (!appData.checklist) appData.checklist = [false,false,false,false,false];
 
+    // ── Migration depuis l'ancien dashboard (manualTrades_challenge5k) ──
+    if (!appData.migrated_v1) {
+      try {
+        const oldRaw = localStorage.getItem('manualTrades_challenge5k');
+        if (oldRaw) {
+          const oldTrades = JSON.parse(oldRaw);
+          if (Array.isArray(oldTrades) && oldTrades.length > 0) {
+            const sensMap = { 'Buy': 'Achat', 'Sell': 'Vente', 'Achat': 'Achat', 'Vente': 'Vente' };
+            const converted = oldTrades.map((t, i) => ({
+              id: 'migr_' + i + '_' + (t.date || '').replace(/-/g,''),
+              date: t.date || '',
+              actif: t.actif || 'BTC/USD',
+              sens: sensMap[t.sens] || 'Achat',
+              lots: t.lots || 0,
+              setup: t.setup || '—',
+              session: t.session || '—',
+              qualite: t.qualite || 3,
+              rrPrevu: parseFloat(t.rrPrevu) || 0,
+              rrReel: parseFloat(t.rrReel) || 0,
+              risque: parseFloat(t.risque) || 0.5,
+              pnl: parseFloat(t.pnl) || 0,
+              solde: parseFloat(t.solde) || 5000,
+              emotion: t.emotion || '—',
+              note: t.note || ''
+            }));
+            // Fusionner sans doublons (par date+actif+pnl)
+            const existingKeys = new Set((appData.trades || []).map(t => t.date + t.actif + t.pnl));
+            const fresh = converted.filter(t => !existingKeys.has(t.date + t.actif + t.pnl));
+            appData.trades = [...(appData.trades || []), ...fresh]
+              .sort((a, b) => a.date < b.date ? -1 : 1);
+          }
+        }
+      } catch(e) { console.warn('Migration failed', e); }
+      appData.migrated_v1 = true;
+    }
+
     aesKey = key;
     document.getElementById('lockScreen').style.display = 'none';
     document.getElementById('tabBar').style.display = 'flex';
