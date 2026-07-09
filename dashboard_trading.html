@@ -228,6 +228,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
 </div>
 
+<!-- ═══ UPDATE BANNER ═══ -->
+<div id="updateBanner" style="display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9990;background:var(--blue);color:#fff;border-radius:24px;padding:12px 20px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:pointer;white-space:nowrap;" onclick="applyUpdate()">
+  🔄 Mise à jour disponible — Appuyer pour recharger
+</div>
+
 <!-- ═══ TAB BAR ═══ -->
 <div id="tabBar" style="display:none">
   <button class="tab-btn active" data-tab="cockpit">🎯 Cockpit</button>
@@ -808,7 +813,20 @@ function initApp() {
   updateKillzones();
   setInterval(updateKillzones, 60000);
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            document.getElementById('updateBanner').style.display = 'block';
+            window._pendingSW = newWorker;
+          }
+        });
+      });
+      // Vérifier une mise à jour toutes les 60s
+      setInterval(() => reg.update(), 60000);
+    }).catch(() => {});
+    navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
   }
 }
 
@@ -1231,6 +1249,14 @@ function deleteTrade(id) {
   persist();
   renderTrades();
   renderCockpit();
+}
+
+function applyUpdate() {
+  if (window._pendingSW) {
+    window._pendingSW.postMessage('SKIP_WAITING');
+  } else {
+    location.reload();
+  }
 }
 
 // ─────────────────────────────────────────────

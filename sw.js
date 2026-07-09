@@ -1,22 +1,20 @@
 /* Service Worker — Dashboard Trading PWA
-   Stratégie : Cache-First pour les assets locaux,
-               Network-First pour les données Kraken en temps réel
+   Stratégie : Network-First pour le HTML principal (toujours à jour),
+               Cache-First pour les autres assets locaux,
+               Network-First pour les données temps réel
 */
 
-const CACHE_NAME = 'trading-dashboard-v21';
+const CACHE_NAME = 'trading-dashboard-v22';
 const STATIC_ASSETS = [
-  './dashboard_trading.html',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
 ];
 
-// ── INSTALLATION : mise en cache des assets statiques ──
+// ── INSTALLATION ──
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(STATIC_ASSETS);
-    })
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   );
   self.skipWaiting();
 });
@@ -25,19 +23,34 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-      )
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     )
   );
   self.clients.claim();
 });
 
-// ── FETCH : stratégie selon le type de ressource ──
+// ── FETCH ──
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Données Kraken en temps réel → Network-First
+  // sw.js lui-même → toujours réseau, jamais caché
+  if (url.pathname.endsWith('sw.js')) return;
+
+  // dashboard HTML → Network-First (mise à jour garantie)
+  if (url.pathname.endsWith('dashboard_trading.html') || url.pathname === '/' || url.pathname.endsWith('/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(resp => {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+          return resp;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Données temps réel → Network-First
   if (url.pathname.includes('kraken_trades.json')) {
     event.respondWith(
       fetch(event.request)
@@ -51,8 +64,8 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // CDN externe (Chart.js) → Network-First avec fallback cache
-  if (!url.origin.includes(self.location.origin)) {
+  // CDN externe → Network-First avec fallback
+  if (url.origin !== self.location.origin) {
     event.respondWith(
       fetch(event.request)
         .then(resp => {
@@ -65,7 +78,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Assets locaux → Cache-First
+  // Autres assets locaux → Cache-First
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
@@ -76,4 +89,9 @@ self.addEventListener('fetch', event => {
       });
     })
   );
+});
+
+// ── MESSAGE : forcer la mise à jour depuis le dashboard ──
+self.addEventListener('message', event => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
