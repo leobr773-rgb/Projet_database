@@ -274,6 +274,28 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="kpi-card" style="border-left-color:var(--gold)"><div class="kpi-label">Série actuelle</div><div class="kpi-value" id="kpi-serie" style="font-size:16px">—</div><div class="kpi-sub">Consécutifs</div></div>
     </div>
 
+    <!-- Calculateur risque -->
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">⚖️ Taille de position — Capital actuel</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+        <div style="background:var(--panel2);border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">💰 Risque trade</div>
+          <div style="font-size:18px;font-weight:800;color:var(--red);font-family:ui-monospace,monospace" id="risk-pos-val">—</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">0.4% du solde</div>
+        </div>
+        <div style="background:var(--panel2);border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">💸 Frais</div>
+          <div style="font-size:18px;font-weight:800;color:var(--gold);font-family:ui-monospace,monospace" id="risk-fee-val">—</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">0.1% du solde</div>
+        </div>
+        <div style="background:var(--panel2);border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">🎯 Total engagé</div>
+          <div style="font-size:18px;font-weight:800;color:var(--blue);font-family:ui-monospace,monospace" id="risk-total-val">—</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">0.5% du solde</div>
+        </div>
+      </div>
+    </div>
+
     <div class="cockpit-row2">
       <div class="equity-wrap">
         <div class="card-title">Courbe Equity — R cumulés</div>
@@ -463,6 +485,13 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="form-group half">
           <label class="form-label">Solde après trade $</label>
           <input type="number" class="form-input" id="f-solde" placeholder="calculé auto" step="0.01">
+        </div>
+        <div class="form-group full">
+          <label class="form-label">📸 Capture (optionnel)</label>
+          <input type="file" accept="image/*" capture="environment" id="f-capture" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;cursor:pointer;">
+          <div id="f-capture-preview" style="margin-top:8px;display:none;">
+            <img id="f-capture-img" style="max-width:100%;max-height:140px;border-radius:8px;border:1px solid var(--border);">
+          </div>
         </div>
       </div>
       <div class="form-actions">
@@ -934,6 +963,15 @@ function renderCockpit() {
   document.getElementById('ch-solde').textContent =
     lastSolde.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '$';
 
+  // Calculateur risque
+  const rPos = lastSolde * 0.004;
+  const rFee = lastSolde * 0.001;
+  const rTot = lastSolde * 0.005;
+  const fmt = v => v.toFixed(2) + '$';
+  document.getElementById('risk-pos-val').textContent = fmt(rPos);
+  document.getElementById('risk-fee-val').textContent = fmt(rFee);
+  document.getElementById('risk-total-val').textContent = fmt(rTot);
+
   if (stats && stats.todayTradesCount > 0) {
     const tp = stats.todayPnl;
     const el = document.getElementById('ch-today');
@@ -1157,6 +1195,7 @@ function saveTrade() {
     solde,
     emotion: document.getElementById('f-emotion').value,
     note: document.getElementById('f-note').value,
+    capture: document.getElementById('f-capture').dataset.b64 || null,
   };
 
   appData.trades.push(trade);
@@ -1180,6 +1219,10 @@ function resetForm() {
   document.getElementById('btn-buy').className = 'sens-btn';
   document.getElementById('btn-sell').className = 'sens-btn';
   setDefaultDate();
+  const cap = document.getElementById('f-capture');
+  cap.value = '';
+  delete cap.dataset.b64;
+  document.getElementById('f-capture-preview').style.display = 'none';
 }
 
 function deleteTrade(id) {
@@ -1365,7 +1408,10 @@ function renderTrades() {
       <td><span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:700;background:${resultBg(t.rrReel)};color:${resultColor(t.rrReel)}">${resultLabel(t.rrReel)}</span></td>
       <td class="text-mono ${t.pnl > 0 ? 'text-gain' : t.pnl < 0 ? 'text-perte' : ''}">${t.pnl ? (t.pnl > 0 ? '+' : '') + t.pnl.toFixed(2) + '$' : '—'}</td>
       <td class="text-mono">${t.solde ? t.solde.toFixed(2) + '$' : '—'}</td>
-      <td><button class="del-btn" onclick="deleteTrade('${t.id}')">🗑</button></td>
+      <td style="white-space:nowrap">
+        ${t.capture ? `<button onclick="openCapture('${t.id}')" style="background:var(--blue);border:none;color:#fff;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;margin-right:4px;">📸</button>` : `<button onclick="triggerCaptureInput('${t.id}')" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;margin-right:4px;">+📸</button>`}
+        <button class="del-btn" onclick="deleteTrade('${t.id}')">🗑</button>
+      </td>
     </tr>`).join('');
 
   cards.innerHTML = trades.map(t => `
@@ -1376,6 +1422,7 @@ function renderTrades() {
         <span class="${resultClass(t.rrReel)}">${t.rrReel > 0 ? '+' : ''}${t.rrReel}R</span>
         <button class="del-btn" onclick="deleteTrade('${t.id}')">🗑</button>
       </div>
+      ${t.capture ? `<img src="${t.capture}" onclick="openCapture('${t.id}')" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px;cursor:zoom-in;border:1px solid var(--border);">` : `<button onclick="triggerCaptureInput('${t.id}')" style="width:100%;background:var(--panel2);border:1px dashed var(--border);color:var(--muted);border-radius:8px;padding:8px;font-size:12px;cursor:pointer;margin-bottom:8px;">📸 Ajouter une capture</button>`}
       <div class="tc-grid">
         <div><div class="tc-lbl">Date</div>${t.date}</div>
         <div><div class="tc-lbl">Setup</div>${t.setup || '—'}</div>
@@ -1384,6 +1431,7 @@ function renderTrades() {
         <div><div class="tc-lbl">PnL $</div><span class="${t.pnl > 0 ? 'text-gain' : t.pnl < 0 ? 'text-perte' : ''}">${t.pnl ? (t.pnl > 0 ? '+' : '') + t.pnl.toFixed(2) + '$' : '—'}</span></div>
         <div><div class="tc-lbl">Solde</div>${t.solde ? t.solde.toFixed(2) + '$' : '—'}</div>
         ${t.note ? `<div style="grid-column:1/-1"><div class="tc-lbl">Note</div>${t.note}</div>` : ''}
+        ${t.capture ? `<div style="grid-column:1/-1"><button onclick="triggerCaptureInput('${t.id}')" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;">🔄 Remplacer la capture</button></div>` : ''}
       </div>
     </div>`).join('');
 }
@@ -1546,6 +1594,68 @@ function renderMental() {
         </div>`).join('')
     : '<p style="color:var(--muted);font-size:13px">Aucune émotion avec R moyen négatif — excellente maîtrise psychologique !</p>';
 }
+
+// ─────────────────────────────────────────────
+//  CAPTURE / LIGHTBOX
+// ─────────────────────────────────────────────
+document.getElementById('f-capture').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const preview = document.getElementById('f-capture-preview');
+    const img = document.getElementById('f-capture-img');
+    img.src = e.target.result;
+    preview.style.display = 'block';
+    this.dataset.b64 = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+function openCapture(idOrSrc) {
+  let src = idOrSrc;
+  if (appData) {
+    const t = appData.trades.find(t => t.id === idOrSrc);
+    if (t && t.capture) src = t.capture;
+  }
+  const lb = document.getElementById('lightbox');
+  document.getElementById('lb-img').src = src;
+  lb.style.display = 'flex';
+}
+
+function closeCapture() {
+  document.getElementById('lightbox').style.display = 'none';
+}
+
+function triggerCaptureInput(id) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.capture = 'environment';
+  input.onchange = function() {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const trade = appData.trades.find(t => t.id === id);
+      if (trade) {
+        trade.capture = e.target.result;
+        persist();
+        renderTrades();
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
 </script>
+
+<!-- ═══ LIGHTBOX ═══ -->
+<div id="lightbox" onclick="closeCapture()" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.88);align-items:center;justify-content:center;padding:16px;">
+  <img id="lb-img" style="max-width:100%;max-height:90vh;border-radius:10px;object-fit:contain;" onclick="event.stopPropagation()">
+  <button onclick="closeCapture()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;line-height:1;">✕</button>
+</div>
+
 </body>
 </html>
