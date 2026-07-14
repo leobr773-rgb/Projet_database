@@ -25,6 +25,11 @@
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5}
 body{display:flex;flex-direction:column;overflow-x:hidden}
 
+/* ── Account Switcher ── */
+.acct-btn{background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.acct-btn.acct-active{background:var(--gold);border-color:var(--gold);color:#000}
+.acct-btn:hover:not(.acct-active){color:var(--text)}
+
 /* ── Lock Screen ── */
 #lockScreen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center}
 .lock-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:40px 32px;width:min(380px,90vw);text-align:center}
@@ -228,6 +233,13 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
 </div>
 
+<!-- ═══ ACCOUNT SWITCHER ═══ -->
+<div id="acctBar" style="display:none;background:var(--panel);border-bottom:1px solid var(--border);padding:8px 16px;display:none;align-items:center;gap:10px;flex-shrink:0;">
+  <span style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Compte :</span>
+  <button class="acct-btn acct-active" data-acct="5k"  onclick="switchAccount('5k')" >🥈 Challenge 5K</button>
+  <button class="acct-btn"             data-acct="10k" onclick="switchAccount('10k')">🥇 Challenge 10K</button>
+</div>
+
 <!-- ═══ UPDATE BANNER ═══ -->
 <div id="updateBanner" style="display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9990;background:var(--blue);color:#fff;border-radius:24px;padding:12px 20px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:pointer;white-space:nowrap;" onclick="applyUpdate()">
   🔄 Mise à jour disponible — Appuyer pour recharger
@@ -250,7 +262,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <div class="challenge-header">
       <div class="ch-row">
-        <span class="ch-label">🏆 Objectif 10% — Progression</span>
+        <span class="ch-label" id="ch-acct-label">🏆 Objectif 10% — Progression</span>
         <span class="ch-value" id="ch-obj-val">+0$ / +500$  (0%)</span>
       </div>
       <div class="progress-track" style="height:12px;margin-bottom:12px">
@@ -630,14 +642,23 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <script>
 'use strict';
 
-// ── Constants ──
-const SOLDE_INIT = 5000;
-const OBJECTIF_ABS = 500;   // 10% of 5000
-const DD_MAX_ABS = 300;     // 6% of 5000
+// ── Comptes ──
+const ACCOUNTS = {
+  '5k':  { id:'5k',  label:'5K',   emoji:'🥈', soldeInit:5000,  objectifAbs:500,  ddMaxAbs:300,  storageKey:'challenge5k_v1',  saltKey:'challenge5k_salt'  },
+  '10k': { id:'10k', label:'10K',  emoji:'🥇', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600,  storageKey:'challenge10k_v1', saltKey:'challenge10k_salt' },
+};
+let currentAccount = '5k';
+const aesKeys  = {};   // { '5k': CryptoKey, '10k': CryptoKey }
+const allDatas = {};   // { '5k': {trades,...}, '10k': {trades,...} }
+
+const cfg         = () => ACCOUNTS[currentAccount];
+const SOLDE_INIT  = () => cfg().soldeInit;
+const OBJECTIF_ABS = () => cfg().objectifAbs;
+const DD_MAX_ABS   = () => cfg().ddMaxAbs;
 
 // ── State ──
-let aesKey = null;
-let appData = null;
+let aesKey  = null;   // alias → aesKeys[currentAccount]
+let appData = null;   // alias → allDatas[currentAccount]
 let rdistChartInst = null;
 let selectedSens = '';
 
@@ -688,7 +709,7 @@ async function persist() {
   if (!aesKey || !appData) return;
   try {
     const enc = await encryptData(aesKey, appData);
-    localStorage.setItem('challenge5k_v1', JSON.stringify(enc));
+    localStorage.setItem(cfg().storageKey, JSON.stringify(enc));
   } catch (e) { console.error('Persist error', e); }
 }
 
@@ -700,6 +721,58 @@ document.getElementById('pwdInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') handleUnlock();
 });
 
+async function unlockAccount(accountId, pwd) {
+  const acct = ACCOUNTS[accountId];
+  const storedSalt = localStorage.getItem(acct.saltKey);
+  const storedData = localStorage.getItem(acct.storageKey);
+  let salt;
+  if (storedSalt) {
+    salt = Uint8Array.from(atob(storedSalt), c => c.charCodeAt(0));
+  } else {
+    salt = crypto.getRandomValues(new Uint8Array(16));
+    localStorage.setItem(acct.saltKey, btoa(String.fromCharCode(...salt)));
+  }
+  const key = await deriveKey(pwd, salt);
+  let data;
+  if (storedData && storedSalt) {
+    data = await decryptData(key, JSON.parse(storedData));
+  } else {
+    data = EMPTY_DATA();
+    const enc = await encryptData(key, data);
+    localStorage.setItem(acct.storageKey, JSON.stringify(enc));
+  }
+  if (!data.journals) data.journals = {};
+  if (!data.checklist) data.checklist = [false,false,false,false,false];
+  // Migration anciens trades uniquement pour le 5k
+  if (accountId === '5k' && !data.migrated_v1) {
+    try {
+      const oldRaw = localStorage.getItem('manualTrades_challenge5k');
+      if (oldRaw) {
+        const oldTrades = JSON.parse(oldRaw);
+        if (Array.isArray(oldTrades) && oldTrades.length > 0) {
+          const sensMap = { 'Buy': 'Achat', 'Sell': 'Vente', 'Achat': 'Achat', 'Vente': 'Vente' };
+          const converted = oldTrades.map((t, i) => ({
+            id: 'migr_' + i + '_' + (t.date || '').replace(/-/g,''),
+            date: t.date || '', actif: t.actif || 'BTC/USD',
+            sens: sensMap[t.sens] || 'Achat', lots: t.lots || 0,
+            setup: t.setup || '—', session: t.session || '—', qualite: t.qualite || 3,
+            rrPrevu: parseFloat(t.rrPrevu) || 0, rrReel: parseFloat(t.rrReel) || 0,
+            risque: parseFloat(t.risque) || 0.5, pnl: parseFloat(t.pnl) || 0,
+            solde: parseFloat(t.solde) || 5000, emotion: t.emotion || '—', note: t.note || ''
+          }));
+          const existingKeys = new Set((data.trades || []).map(t => t.date + t.actif + t.pnl));
+          const fresh = converted.filter(t => !existingKeys.has(t.date + t.actif + t.pnl));
+          data.trades = [...(data.trades || []), ...fresh].sort((a, b) => a.date < b.date ? -1 : 1);
+        }
+      }
+    } catch(e) { console.warn('Migration failed', e); }
+    data.migrated_v1 = true;
+  }
+  aesKeys[accountId]  = key;
+  allDatas[accountId] = data;
+  return { key, data };
+}
+
 async function handleUnlock() {
   const pwd = document.getElementById('pwdInput').value;
   const errEl = document.getElementById('lockErr');
@@ -708,78 +781,41 @@ async function handleUnlock() {
   if (!pwd) { errEl.textContent = 'Veuillez saisir un mot de passe.'; return; }
   btn.textContent = 'Chargement…';
   try {
-    const storedSalt = localStorage.getItem('challenge5k_salt');
-    const storedData = localStorage.getItem('challenge5k_v1');
-    let salt;
-    if (storedSalt) {
-      salt = Uint8Array.from(atob(storedSalt), c => c.charCodeAt(0));
-    } else {
-      salt = crypto.getRandomValues(new Uint8Array(16));
-      localStorage.setItem('challenge5k_salt', btoa(String.fromCharCode(...salt)));
-    }
-    const key = await deriveKey(pwd, salt);
-    if (storedData && storedSalt) {
-      try {
-        appData = await decryptData(key, JSON.parse(storedData));
-      } catch (e) {
-        errEl.textContent = 'Mot de passe incorrect.';
-        btn.textContent = 'Déverrouiller';
-        return;
-      }
-    } else {
-      appData = EMPTY_DATA();
-      const enc = await encryptData(key, appData);
-      localStorage.setItem('challenge5k_v1', JSON.stringify(enc));
-    }
-    // Ensure fields exist for older data
-    if (!appData.journals) appData.journals = {};
-    if (!appData.checklist) appData.checklist = [false,false,false,false,false];
-
-    // ── Migration depuis l'ancien dashboard (manualTrades_challenge5k) ──
-    if (!appData.migrated_v1) {
-      try {
-        const oldRaw = localStorage.getItem('manualTrades_challenge5k');
-        if (oldRaw) {
-          const oldTrades = JSON.parse(oldRaw);
-          if (Array.isArray(oldTrades) && oldTrades.length > 0) {
-            const sensMap = { 'Buy': 'Achat', 'Sell': 'Vente', 'Achat': 'Achat', 'Vente': 'Vente' };
-            const converted = oldTrades.map((t, i) => ({
-              id: 'migr_' + i + '_' + (t.date || '').replace(/-/g,''),
-              date: t.date || '',
-              actif: t.actif || 'BTC/USD',
-              sens: sensMap[t.sens] || 'Achat',
-              lots: t.lots || 0,
-              setup: t.setup || '—',
-              session: t.session || '—',
-              qualite: t.qualite || 3,
-              rrPrevu: parseFloat(t.rrPrevu) || 0,
-              rrReel: parseFloat(t.rrReel) || 0,
-              risque: parseFloat(t.risque) || 0.5,
-              pnl: parseFloat(t.pnl) || 0,
-              solde: parseFloat(t.solde) || 5000,
-              emotion: t.emotion || '—',
-              note: t.note || ''
-            }));
-            // Fusionner sans doublons (par date+actif+pnl)
-            const existingKeys = new Set((appData.trades || []).map(t => t.date + t.actif + t.pnl));
-            const fresh = converted.filter(t => !existingKeys.has(t.date + t.actif + t.pnl));
-            appData.trades = [...(appData.trades || []), ...fresh]
-              .sort((a, b) => a.date < b.date ? -1 : 1);
-          }
-        }
-      } catch(e) { console.warn('Migration failed', e); }
-      appData.migrated_v1 = true;
-    }
-
-    aesKey = key;
+    // Dériver les deux comptes en parallèle — on valide le mdp sur le 5k d'abord
+    const r5k = await unlockAccount('5k', pwd).catch(e => { throw new Error('Mot de passe incorrect.'); });
+    // Si le 5k passe, on dérive le 10k (peut être nouveau, pas d'erreur attendue)
+    await unlockAccount('10k', pwd).catch(() => {
+      allDatas['10k'] = EMPTY_DATA();
+      aesKeys['10k']  = r5k.key; // même clé si sel absent
+    });
+    currentAccount = '5k';
+    aesKey  = aesKeys['5k'];
+    appData = allDatas['5k'];
     document.getElementById('lockScreen').style.display = 'none';
+    document.getElementById('acctBar').style.display = 'flex';
     document.getElementById('tabBar').style.display = 'flex';
     document.getElementById('appContent').style.display = 'block';
     initApp();
   } catch (e) {
-    errEl.textContent = 'Erreur : ' + e.message;
+    errEl.textContent = e.message || 'Erreur inconnue.';
     btn.textContent = 'Déverrouiller';
   }
+}
+
+async function switchAccount(id) {
+  if (id === currentAccount) return;
+  currentAccount = id;
+  aesKey  = aesKeys[id];
+  appData = allDatas[id];
+  document.querySelectorAll('.acct-btn').forEach(b => {
+    b.classList.toggle('acct-active', b.dataset.acct === id);
+  });
+  // Reset vers cockpit
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+  document.querySelector('[data-tab="cockpit"]').classList.add('active');
+  document.getElementById('mod-cockpit').classList.add('active');
+  loadBias(); loadChecklist(); renderTrades(); renderCockpit();
 }
 
 // ─────────────────────────────────────────────
@@ -884,11 +920,11 @@ function calcStats(trades) {
   const discScore = Math.round(disciplined / n * 100);
 
   // Solde & dd abs
-  const lastSolde = trades[trades.length - 1].solde || SOLDE_INIT;
-  const totalPnl = lastSolde - SOLDE_INIT;
-  let peakS = SOLDE_INIT, ddAbs = 0;
+  const lastSolde = trades[trades.length - 1].solde || SOLDE_INIT();
+  const totalPnl = lastSolde - SOLDE_INIT();
+  let peakS = SOLDE_INIT(), ddAbs = 0;
   trades.forEach(t => {
-    const s = t.solde || SOLDE_INIT;
+    const s = t.solde || SOLDE_INIT();
     if (s > peakS) peakS = s;
     ddAbs = Math.min(ddAbs, s - peakS);
   });
@@ -965,19 +1001,21 @@ function renderCockpit() {
   const stats = calcStats(appData.trades);
   const totalPnl = stats ? stats.totalPnl : 0;
   const ddAbs = stats ? stats.ddAbs : 0;
-  const objPct = Math.min(100, Math.max(0, totalPnl / OBJECTIF_ABS * 100));
-  const ddPct = Math.min(100, Math.abs(ddAbs) / DD_MAX_ABS * 100);
+  const objPct = Math.min(100, Math.max(0, totalPnl  / OBJECTIF_ABS() * 100));
+  const ddPct = Math.min(100, Math.abs(ddAbs)  / DD_MAX_ABS() * 100);
 
+  const acct = cfg();
+  document.getElementById('ch-acct-label').textContent = `${acct.emoji} ${acct.label} — Objectif 10% — Progression`;
   document.getElementById('ch-obj-val').textContent =
-    `${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)}$ / +500$  (${objPct.toFixed(1)}%)`;
+    `${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)}$ / +${acct.objectifAbs}$  (${objPct.toFixed(1)}%)`;
   document.getElementById('ch-obj-bar').style.width = objPct + '%';
   document.getElementById('ch-dd-val').textContent =
-    `${ddAbs.toFixed(2)}$ / -300$ max  (${ddPct.toFixed(1)}%)`;
+    `${ddAbs.toFixed(2)}$ / -${acct.ddMaxAbs}$ max  (${ddPct.toFixed(1)}%)`;
   const ddBar = document.getElementById('ch-dd-bar');
   ddBar.style.width = ddPct + '%';
   ddBar.className = 'progress-fill ' + (ddPct < 50 ? 'fill-green' : ddPct < 80 ? 'fill-yellow' : 'fill-red');
 
-  const lastSolde = stats ? stats.lastSolde : SOLDE_INIT;
+  const lastSolde = stats ? stats.lastSolde : SOLDE_INIT();
   document.getElementById('ch-solde').textContent =
     lastSolde.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '$';
 
@@ -1179,8 +1217,8 @@ function selectSens(s) {
 document.getElementById('f-pnl').addEventListener('input', () => {
   const pnl = parseFloat(document.getElementById('f-pnl').value) || 0;
   const lastSolde = appData.trades.length
-    ? (appData.trades[appData.trades.length - 1].solde || SOLDE_INIT)
-    : SOLDE_INIT;
+    ? (appData.trades[appData.trades.length - 1].solde || SOLDE_INIT())
+    : SOLDE_INIT();
   if (pnl !== 0) document.getElementById('f-solde').value = (lastSolde + pnl).toFixed(2);
 });
 
@@ -1192,8 +1230,8 @@ function saveTrade() {
   const rrReel = parseFloat(rrReelRaw);
   const pnl = parseFloat(document.getElementById('f-pnl').value) || 0;
   const lastSolde = appData.trades.length
-    ? (appData.trades[appData.trades.length - 1].solde || SOLDE_INIT)
-    : SOLDE_INIT;
+    ? (appData.trades[appData.trades.length - 1].solde || SOLDE_INIT())
+    : SOLDE_INIT();
   let solde = parseFloat(document.getElementById('f-solde').value);
   if (isNaN(solde)) solde = pnl !== 0 ? lastSolde + pnl : lastSolde;
 
