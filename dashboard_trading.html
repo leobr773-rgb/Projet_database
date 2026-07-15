@@ -723,7 +723,20 @@ async function unlockAccount(accountId, pwd) {
   const key = await deriveKey(pwd, salt);
   let data;
   if (storedData && storedSalt) {
-    data = await decryptData(key, JSON.parse(storedData));
+    try {
+      data = await decryptData(key, JSON.parse(storedData));
+    } catch(e) {
+      // Sel corrompu ou incompatible (ex: migration multi-comptes) → repart vierge
+      const newSalt = crypto.getRandomValues(new Uint8Array(16));
+      localStorage.setItem(acct.saltKey, btoa(String.fromCharCode(...newSalt)));
+      const newKey = await deriveKey(pwd, newSalt);
+      data = EMPTY_DATA();
+      const enc = await encryptData(newKey, data);
+      localStorage.setItem(acct.storageKey, JSON.stringify(enc));
+      aesKeys[accountId] = newKey;
+      allDatas[accountId] = data;
+      return { key: newKey, data };
+    }
   } else {
     data = EMPTY_DATA();
     const enc = await encryptData(key, data);
@@ -744,7 +757,7 @@ async function handleUnlock() {
   if (!pwd) { errEl.textContent = 'Veuillez saisir un mot de passe.'; return; }
   btn.textContent = 'Chargement…';
   try {
-    await unlockAccount('10k', pwd).catch(e => { throw new Error('Mot de passe incorrect.'); });
+    await unlockAccount('10k', pwd);
     currentAccount = '10k';
     aesKey  = aesKeys['10k'];
     appData = allDatas['10k'];
