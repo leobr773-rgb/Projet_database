@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Challenge 5K — Kraken PropFirm</title>
+<title>Challenge 10K — Kraken PropFirm</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0b0e14">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -24,11 +24,6 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5}
 body{display:flex;flex-direction:column;overflow-x:hidden}
-
-/* ── Account Switcher ── */
-.acct-btn{background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
-.acct-btn.acct-active{background:var(--gold);border-color:var(--gold);color:#000}
-.acct-btn:hover:not(.acct-active){color:var(--text)}
 
 /* ── Lock Screen ── */
 #lockScreen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center}
@@ -225,19 +220,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <div id="lockScreen">
   <div class="lock-card">
     <div class="lock-logo">📊</div>
-    <div class="lock-title">Challenge 5K</div>
+    <div class="lock-title">Challenge 10K</div>
     <div class="lock-sub">Journal de Trading — PropFirm Kraken</div>
     <input id="pwdInput" class="lock-input" type="password" placeholder="Mot de passe...">
     <button class="lock-btn" id="unlockBtn">Déverrouiller</button>
     <div class="lock-err" id="lockErr"></div>
   </div>
-</div>
-
-<!-- ═══ ACCOUNT SWITCHER ═══ -->
-<div id="acctBar" style="display:none;background:var(--panel);border-bottom:1px solid var(--border);padding:8px 16px;display:none;align-items:center;gap:10px;flex-shrink:0;">
-  <span style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Compte :</span>
-  <button class="acct-btn acct-active" data-acct="5k"  onclick="switchAccount('5k')" >🥈 Challenge 5K</button>
-  <button class="acct-btn"             data-acct="10k" onclick="switchAccount('10k')">🥇 Challenge 10K</button>
 </div>
 
 <!-- ═══ UPDATE BANNER ═══ -->
@@ -441,6 +429,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <label class="form-label">Setup ICT</label>
           <select class="form-input" id="f-setup">
             <option value="">— Choisir —</option>
+            <option>Unicorn</option>
             <option>FVG Retest</option>
             <option>Liquidity Sweep</option>
             <option>Breaker Block</option>
@@ -642,12 +631,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <script>
 'use strict';
 
-// ── Comptes ──
+// ── Compte ──
 const ACCOUNTS = {
-  '5k':  { id:'5k',  label:'5K',   emoji:'🥈', soldeInit:5000,  objectifAbs:500,  ddMaxAbs:300,  storageKey:'challenge5k_v1',  saltKey:'challenge5k_salt'  },
-  '10k': { id:'10k', label:'10K',  emoji:'🥇', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600,  storageKey:'challenge10k_v1', saltKey:'challenge10k_salt' },
+  '10k': { id:'10k', label:'10K', emoji:'🥇', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600, storageKey:'challenge10k_v1', saltKey:'challenge10k_salt' },
 };
-let currentAccount = '5k';
+let currentAccount = '10k';
 const aesKeys  = {};   // { '5k': CryptoKey, '10k': CryptoKey }
 const allDatas = {};   // { '5k': {trades,...}, '10k': {trades,...} }
 
@@ -743,31 +731,6 @@ async function unlockAccount(accountId, pwd) {
   }
   if (!data.journals) data.journals = {};
   if (!data.checklist) data.checklist = [false,false,false,false,false];
-  // Migration anciens trades uniquement pour le 5k
-  if (accountId === '5k' && !data.migrated_v1) {
-    try {
-      const oldRaw = localStorage.getItem('manualTrades_challenge5k');
-      if (oldRaw) {
-        const oldTrades = JSON.parse(oldRaw);
-        if (Array.isArray(oldTrades) && oldTrades.length > 0) {
-          const sensMap = { 'Buy': 'Achat', 'Sell': 'Vente', 'Achat': 'Achat', 'Vente': 'Vente' };
-          const converted = oldTrades.map((t, i) => ({
-            id: 'migr_' + i + '_' + (t.date || '').replace(/-/g,''),
-            date: t.date || '', actif: t.actif || 'BTC/USD',
-            sens: sensMap[t.sens] || 'Achat', lots: t.lots || 0,
-            setup: t.setup || '—', session: t.session || '—', qualite: t.qualite || 3,
-            rrPrevu: parseFloat(t.rrPrevu) || 0, rrReel: parseFloat(t.rrReel) || 0,
-            risque: parseFloat(t.risque) || 0.5, pnl: parseFloat(t.pnl) || 0,
-            solde: parseFloat(t.solde) || 5000, emotion: t.emotion || '—', note: t.note || ''
-          }));
-          const existingKeys = new Set((data.trades || []).map(t => t.date + t.actif + t.pnl));
-          const fresh = converted.filter(t => !existingKeys.has(t.date + t.actif + t.pnl));
-          data.trades = [...(data.trades || []), ...fresh].sort((a, b) => a.date < b.date ? -1 : 1);
-        }
-      }
-    } catch(e) { console.warn('Migration failed', e); }
-    data.migrated_v1 = true;
-  }
   aesKeys[accountId]  = key;
   allDatas[accountId] = data;
   return { key, data };
@@ -781,18 +744,11 @@ async function handleUnlock() {
   if (!pwd) { errEl.textContent = 'Veuillez saisir un mot de passe.'; return; }
   btn.textContent = 'Chargement…';
   try {
-    // Dériver les deux comptes en parallèle — on valide le mdp sur le 5k d'abord
-    const r5k = await unlockAccount('5k', pwd).catch(e => { throw new Error('Mot de passe incorrect.'); });
-    // Si le 5k passe, on dérive le 10k (peut être nouveau, pas d'erreur attendue)
-    await unlockAccount('10k', pwd).catch(() => {
-      allDatas['10k'] = EMPTY_DATA();
-      aesKeys['10k']  = r5k.key; // même clé si sel absent
-    });
-    currentAccount = '5k';
-    aesKey  = aesKeys['5k'];
-    appData = allDatas['5k'];
+    await unlockAccount('10k', pwd).catch(e => { throw new Error('Mot de passe incorrect.'); });
+    currentAccount = '10k';
+    aesKey  = aesKeys['10k'];
+    appData = allDatas['10k'];
     document.getElementById('lockScreen').style.display = 'none';
-    document.getElementById('acctBar').style.display = 'flex';
     document.getElementById('tabBar').style.display = 'flex';
     document.getElementById('appContent').style.display = 'block';
     initApp();
