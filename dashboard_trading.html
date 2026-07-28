@@ -725,42 +725,41 @@ document.getElementById('pwdInput').addEventListener('keydown', e => {
 
 async function unlockAccount(accountId, pwd) {
   const acct = ACCOUNTS[accountId];
-  const storedSalt = localStorage.getItem(acct.saltKey);
-  const storedData = localStorage.getItem(acct.storageKey);
-  let salt;
-  if (storedSalt) {
-    salt = Uint8Array.from(atob(storedSalt), c => c.charCodeAt(0));
-  } else {
-    salt = crypto.getRandomValues(new Uint8Array(16));
-    localStorage.setItem(acct.saltKey, btoa(String.fromCharCode(...salt)));
-  }
-  const key = await deriveKey(pwd, salt);
-  let data;
-  if (storedData && storedSalt) {
-    try {
-      data = await decryptData(key, JSON.parse(storedData));
-    } catch(e) {
-      // Sel corrompu ou incompatible (ex: migration multi-comptes) → repart vierge
-      const newSalt = crypto.getRandomValues(new Uint8Array(16));
-      localStorage.setItem(acct.saltKey, btoa(String.fromCharCode(...newSalt)));
-      const newKey = await deriveKey(pwd, newSalt);
-      data = EMPTY_DATA();
-      const enc = await encryptData(newKey, data);
-      localStorage.setItem(acct.storageKey, JSON.stringify(enc));
-      aesKeys[accountId] = newKey;
-      allDatas[accountId] = data;
-      return { key: newKey, data };
+  // Tentative normale
+  try {
+    const storedSalt = localStorage.getItem(acct.saltKey);
+    const storedData = localStorage.getItem(acct.storageKey);
+    let salt;
+    if (storedSalt) {
+      salt = Uint8Array.from(atob(storedSalt), c => c.charCodeAt(0));
+    } else {
+      salt = crypto.getRandomValues(new Uint8Array(16));
+      localStorage.setItem(acct.saltKey, btoa(String.fromCharCode(...salt)));
     }
-  } else {
-    data = EMPTY_DATA();
-    const enc = await encryptData(key, data);
-    localStorage.setItem(acct.storageKey, JSON.stringify(enc));
-  }
-  if (!data.journals) data.journals = {};
-  if (!data.checklist) data.checklist = [false,false,false,false,false];
-  aesKeys[accountId]  = key;
-  allDatas[accountId] = data;
-  return { key, data };
+    const key = await deriveKey(pwd, salt);
+    let data;
+    if (storedData && storedSalt) {
+      data = await decryptData(key, JSON.parse(storedData));
+    } else {
+      data = EMPTY_DATA();
+      const enc = await encryptData(key, data);
+      localStorage.setItem(acct.storageKey, JSON.stringify(enc));
+    }
+    if (!data.journals) data.journals = {};
+    if (!data.checklist) data.checklist = [false,false,false,false,false];
+    aesKeys[accountId]  = key;
+    allDatas[accountId] = data;
+    return;
+  } catch(_) {}
+  // Fallback total : sel/données corrompus → compte vierge avec le mot de passe fourni
+  const newSalt = crypto.getRandomValues(new Uint8Array(16));
+  localStorage.setItem(acct.saltKey, btoa(String.fromCharCode(...newSalt)));
+  const newKey = await deriveKey(pwd, newSalt);
+  const fresh = EMPTY_DATA();
+  const enc = await encryptData(newKey, fresh);
+  localStorage.setItem(acct.storageKey, JSON.stringify(enc));
+  aesKeys[accountId]  = newKey;
+  allDatas[accountId] = fresh;
 }
 
 async function handleUnlock() {
