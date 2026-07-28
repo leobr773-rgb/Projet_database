@@ -25,6 +25,12 @@
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5}
 body{display:flex;flex-direction:column;overflow-x:hidden}
 
+/* ── Account Switcher ── */
+#acctBar{background:var(--panel);border-bottom:1px solid var(--border);padding:8px 16px;align-items:center;gap:10px;flex-shrink:0}
+.acct-btn{background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:7px 18px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.acct-btn.acct-active{background:var(--gold);border-color:var(--gold);color:#000}
+.acct-btn:hover:not(.acct-active){color:var(--text);border-color:var(--muted)}
+
 /* ── Lock Screen ── */
 #lockScreen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center}
 .lock-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:40px 32px;width:min(380px,90vw);text-align:center}
@@ -226,6 +232,13 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <button class="lock-btn" id="unlockBtn">Déverrouiller</button>
     <div class="lock-err" id="lockErr"></div>
   </div>
+</div>
+
+<!-- ═══ ACCOUNT SWITCHER ═══ -->
+<div id="acctBar" style="display:none;">
+  <span style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Compte</span>
+  <button class="acct-btn" data-acct="10k" onclick="switchAccount('10k')">🥇 Challenge 10K</button>
+  <button class="acct-btn" data-acct="5k"  onclick="switchAccount('5k')">🥈 Challenge 5K</button>
 </div>
 
 <!-- ═══ UPDATE BANNER ═══ -->
@@ -631,8 +644,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <script>
 'use strict';
 
-// ── Compte ──
+// ── Comptes ──
 const ACCOUNTS = {
+  '5k':  { id:'5k',  label:'5K',  emoji:'🥈', soldeInit:5000,  objectifAbs:500,  ddMaxAbs:300, storageKey:'challenge5k_v1',  saltKey:'challenge5k_salt'  },
   '10k': { id:'10k', label:'10K', emoji:'🥇', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600, storageKey:'challenge10k_v1', saltKey:'challenge10k_salt' },
 };
 let currentAccount = '10k';
@@ -757,13 +771,16 @@ async function handleUnlock() {
   if (!pwd) { errEl.textContent = 'Veuillez saisir un mot de passe.'; return; }
   btn.textContent = 'Chargement…';
   try {
-    await unlockAccount('10k', pwd);
+    // Déverrouiller les deux comptes en parallèle
+    await Promise.all([unlockAccount('5k', pwd), unlockAccount('10k', pwd)]);
     currentAccount = '10k';
     aesKey  = aesKeys['10k'];
     appData = allDatas['10k'];
     document.getElementById('lockScreen').style.display = 'none';
+    document.getElementById('acctBar').style.display = 'flex';
     document.getElementById('tabBar').style.display = 'flex';
     document.getElementById('appContent').style.display = 'block';
+    updateAcctBar();
     initApp();
   } catch (e) {
     errEl.textContent = e.message || 'Erreur inconnue.';
@@ -771,14 +788,18 @@ async function handleUnlock() {
   }
 }
 
+function updateAcctBar() {
+  document.querySelectorAll('.acct-btn').forEach(b => {
+    b.classList.toggle('acct-active', b.dataset.acct === currentAccount);
+  });
+}
+
 async function switchAccount(id) {
   if (id === currentAccount) return;
   currentAccount = id;
   aesKey  = aesKeys[id];
   appData = allDatas[id];
-  document.querySelectorAll('.acct-btn').forEach(b => {
-    b.classList.toggle('acct-active', b.dataset.acct === id);
-  });
+  updateAcctBar();
   // Reset vers cockpit
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
