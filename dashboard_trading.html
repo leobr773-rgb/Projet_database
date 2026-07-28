@@ -771,11 +771,16 @@ async function handleUnlock() {
   if (!pwd) { errEl.textContent = 'Veuillez saisir un mot de passe.'; return; }
   btn.textContent = 'Chargement…';
   try {
-    // Déverrouiller les deux comptes en parallèle
-    await Promise.all([unlockAccount('5k', pwd), unlockAccount('10k', pwd)]);
-    currentAccount = '10k';
-    aesKey  = aesKeys['10k'];
-    appData = allDatas['10k'];
+    // Déverrouiller les deux comptes — allSettled ne rejette jamais
+    await Promise.allSettled([unlockAccount('5k', pwd), unlockAccount('10k', pwd)]);
+    // Il faut au moins un compte valide
+    if (!aesKeys['10k'] && !aesKeys['5k']) {
+      throw new Error('Mot de passe incorrect.');
+    }
+    // Compte actif = 10K si dispo, sinon 5K
+    currentAccount = aesKeys['10k'] ? '10k' : '5k';
+    aesKey  = aesKeys[currentAccount];
+    appData = allDatas[currentAccount];
     document.getElementById('lockScreen').style.display = 'none';
     document.getElementById('acctBar').style.display = 'flex';
     document.getElementById('tabBar').style.display = 'flex';
