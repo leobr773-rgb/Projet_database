@@ -200,6 +200,27 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .stat-card .s-val{font-family:ui-monospace,monospace;font-size:22px;font-weight:700}
 .stat-card .s-lbl{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.04em}
 
+/* ── News ── */
+.news-filter{background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:5px 13px;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
+.news-filter.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.news-filter:hover:not(.active){color:var(--text)}
+.news-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px;transition:border-color .15s}
+.news-card:hover{border-color:var(--blue)}
+.news-card a{text-decoration:none;color:inherit;display:flex;gap:0;flex-direction:column}
+.news-img{width:100%;height:150px;object-fit:cover;background:var(--panel2);display:block}
+.news-body{padding:12px 14px 14px}
+.news-source{font-size:10px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.news-title{font-size:14px;font-weight:600;color:var(--text);line-height:1.4;margin-bottom:6px}
+.news-excerpt{font-size:12px;color:var(--muted);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.news-footer{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+.news-time{font-size:11px;color:var(--muted)}
+.news-cats{display:flex;gap:5px;flex-wrap:wrap}
+.news-cat{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:2px 8px;font-size:10px;color:var(--muted);font-weight:600}
+@media(min-width:600px){
+  .news-card a{flex-direction:row}
+  .news-img{width:140px;height:auto;flex-shrink:0}
+}
+
 /* ── Mental ── */
 .emotion-insight{background:linear-gradient(135deg,var(--panel2),var(--panel));border:1px solid var(--border);border-left:4px solid var(--teal);border-radius:12px;padding:16px;margin-bottom:16px}
 .emotion-insight p{font-size:13px;color:var(--muted);line-height:1.6}
@@ -263,6 +284,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <button class="tab-btn" data-tab="trades">📓 Trades</button>
   <button class="tab-btn" data-tab="analyse">📊 Analyse</button>
   <button class="tab-btn" data-tab="mental">🧠 Mental</button>
+  <button class="tab-btn" data-tab="news">📰 News</button>
 </div>
 
 <!-- ═══ APP CONTENT ═══ -->
@@ -626,6 +648,28 @@ tr:hover td{background:rgba(255,255,255,.02)}
     </div>
   </div>
 
+  <!-- ══ MODULE 6 — NEWS ══ -->
+  <div class="module" id="mod-news">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+      <div style="font-size:18px;font-weight:700;color:var(--text);">Actualités Crypto &amp; Macro</div>
+      <button onclick="fetchNews(true)" id="newsRefreshBtn" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">🔄 Actualiser</button>
+    </div>
+    <!-- Filtres -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" id="newsFilters">
+      <button class="news-filter active" data-cat="ALL"    onclick="setNewsFilter(this,'ALL')">Tout</button>
+      <button class="news-filter"        data-cat="BTC"    onclick="setNewsFilter(this,'BTC')">Bitcoin</button>
+      <button class="news-filter"        data-cat="ETH"    onclick="setNewsFilter(this,'ETH')">Ethereum</button>
+      <button class="news-filter"        data-cat="MACRO"  onclick="setNewsFilter(this,'MACRO')">Macro</button>
+      <button class="news-filter"        data-cat="REGULATION" onclick="setNewsFilter(this,'REGULATION')">Régulation</button>
+      <button class="news-filter"        data-cat="ALTCOIN" onclick="setNewsFilter(this,'ALTCOIN')">Altcoins</button>
+    </div>
+    <!-- État chargement / erreur -->
+    <div id="newsStatus" style="text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;display:none;"></div>
+    <!-- Liste articles -->
+    <div id="newsFeed"></div>
+    <div id="newsTimestamp" style="font-size:11px;color:var(--muted);text-align:center;margin-top:16px;"></div>
+  </div>
+
   <!-- ══ MODULE 5 — MENTAL ══ -->
   <div class="module" id="mod-mental">
 
@@ -846,6 +890,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (tab === 'cockpit') renderCockpit();
     if (tab === 'analyse') renderAnalyse();
     if (tab === 'mental') renderMental();
+    if (tab === 'news') fetchNews();
     if (tab === 'prep') updateKillzones();
   });
 });
@@ -1418,6 +1463,94 @@ function deleteTrade(id) {
   renderTrades();
   renderCockpit();
 }
+
+// ─────────────────────────────────────────────
+//  NEWS
+// ─────────────────────────────────────────────
+let newsCache = [];
+let newsFilter = 'ALL';
+let newsFetching = false;
+
+function setNewsFilter(btn, cat) {
+  newsFilter = cat;
+  document.querySelectorAll('.news-filter').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderNewsFeed();
+}
+
+async function fetchNews(force = false) {
+  if (newsFetching && !force) return;
+  if (newsCache.length && !force) { renderNewsFeed(); return; }
+  newsFetching = true;
+  const statusEl = document.getElementById('newsStatus');
+  const feedEl   = document.getElementById('newsFeed');
+  const refreshBtn = document.getElementById('newsRefreshBtn');
+  statusEl.style.display = 'block';
+  statusEl.textContent = '⏳ Chargement des actualités…';
+  feedEl.innerHTML = '';
+  if (refreshBtn) refreshBtn.disabled = true;
+  try {
+    const url = 'https://min-api.cryptocompare.com/data/v2/news/?lang=EN&sortOrder=latest';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    newsCache = json.Data || [];
+    statusEl.style.display = 'none';
+    renderNewsFeed();
+    const ts = document.getElementById('newsTimestamp');
+    if (ts) ts.textContent = 'Mis à jour ' + new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+  } catch(e) {
+    statusEl.textContent = '⚠️ Impossible de charger les actualités. Vérifie ta connexion.';
+  } finally {
+    newsFetching = false;
+    if (refreshBtn) refreshBtn.disabled = false;
+  }
+}
+
+function renderNewsFeed() {
+  const feedEl = document.getElementById('newsFeed');
+  if (!feedEl) return;
+  let articles = newsCache;
+  if (newsFilter !== 'ALL') {
+    articles = newsCache.filter(a => {
+      const cats = (a.categories || '').toUpperCase();
+      const tags = (a.tags || '').toUpperCase();
+      const title = (a.title || '').toUpperCase();
+      const q = newsFilter;
+      return cats.includes(q) || tags.includes(q) || title.includes(q);
+    });
+  }
+  if (!articles.length) {
+    feedEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">Aucun article dans cette catégorie.</div>';
+    return;
+  }
+  feedEl.innerHTML = articles.slice(0, 25).map(a => {
+    const time = new Date(a.published_on * 1000);
+    const timeStr = time.toLocaleDateString('fr-FR', {day:'2-digit',month:'short'}) + ' · ' + time.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const cats = (a.categories || '').split('|').filter(Boolean).slice(0,3);
+    const img = a.imageurl ? `<img class="news-img" src="${a.imageurl}" alt="" loading="lazy" onerror="this.style.display='none'">` : '';
+    return `
+      <div class="news-card">
+        <a href="${a.url}" target="_blank" rel="noopener">
+          ${img}
+          <div class="news-body">
+            <div class="news-source">${a.source_info?.name || a.source || '—'}</div>
+            <div class="news-title">${a.title}</div>
+            <div class="news-excerpt">${a.body ? a.body.slice(0,160) + '…' : ''}</div>
+            <div class="news-footer">
+              <span class="news-time">${timeStr}</span>
+              <div class="news-cats">${cats.map(c => `<span class="news-cat">${c.trim()}</span>`).join('')}</div>
+            </div>
+          </div>
+        </a>
+      </div>`;
+  }).join('');
+}
+
+// Auto-refresh toutes les 5 min quand l'onglet News est visible
+setInterval(() => {
+  if (document.getElementById('mod-news')?.classList.contains('active')) fetchNews(true);
+}, 5 * 60 * 1000);
 
 function applyUpdate() {
   if (window._pendingSW) {
