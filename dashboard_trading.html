@@ -1607,9 +1607,10 @@ function restoreKrakenHistory5k() {
     {date:'2026-07-28',actif:'BTC/USD',sens:'Vente',lots:0.125,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.78, risque:0.4,pnl:36.12, solde:5128.22,emotion:'—',note:''},
     {date:'2026-07-29',actif:'BTC/USD',sens:'Achat',lots:0.085,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.90, risque:0.4,pnl:18.38, solde:5146.60,emotion:'—',note:''},
   ];
-  const el = document.getElementById('recoveryResults');
-  if (!appData) { el.innerHTML = '<p style="color:var(--red);font-size:13px;">Déverrouillez d\'abord le dashboard.</p>'; return; }
-  migrateAndAdd(trades);
+  if (!appData) return;
+  if (!confirm('Vider tous les trades du compte 5K et importer les 18 positions ?')) return;
+  appData.trades = [];
+  _forceImport(trades);
 }
 
 function restoreKrakenHistory10k() {
@@ -1622,9 +1623,25 @@ function restoreKrakenHistory10k() {
     {date:'2026-07-27',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.38, risque:0.4,pnl:15.23, solde:10128.55,emotion:'—',note:''},
     {date:'2026-07-28',actif:'BTC/USD',sens:'Vente',lots:0.25, setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.80, risque:0.4,pnl:71.88, solde:10200.43,emotion:'—',note:''},
   ];
-  const el = document.getElementById('recoveryResults');
-  if (!appData) { el.innerHTML = '<p style="color:var(--red);font-size:13px;">Déverrouillez d\'abord le dashboard.</p>'; return; }
-  migrateAndAdd(trades);
+  if (!appData) return;
+  if (!confirm('Vider tous les trades du compte 10K et importer les 7 positions ?')) return;
+  appData.trades = [];
+  _forceImport(trades);
+}
+
+function _forceImport(trades) {
+  trades.forEach((t, i) => {
+    appData.trades.push({
+      id: 'rst_' + Date.now() + '_' + i,
+      date: t.date, actif: t.actif, sens: t.sens, lots: t.lots,
+      setup: t.setup, session: t.session, qualite: t.qualite,
+      rrPrevu: t.rrPrevu, rrReel: t.rrReel, risque: t.risque,
+      pnl: t.pnl, solde: t.solde, emotion: t.emotion, note: t.note, capture: null
+    });
+  });
+  persist();
+  renderTrades();
+  renderCockpit();
 }
 
 // ─────────────────────────────────────────────
