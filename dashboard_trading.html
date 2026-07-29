@@ -573,7 +573,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;max-width:400px;margin:0 auto;text-align:left;">
         <div style="font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">⚡ Restauration rapide</div>
         <div style="display:flex;flex-direction:column;gap:8px;">
-          <button onclick="restoreKrakenHistory5k()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🥈 18 trades — Compte 5K <span style="float:right;opacity:.6;font-weight:400">mai→juil 2026</span></button>
+          <button onclick="restoreKrakenHistory5k()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🥈 3 trades — Compte 5K <span style="float:right;opacity:.6;font-weight:400">juil 2026</span></button>
           <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🥇 7 trades — Compte 10K <span style="float:right;opacity:.6;font-weight:400">juil 2026</span></button>
         </div>
         <div id="emptyRestoreMsg" style="margin-top:10px;font-size:12px;min-height:18px;"></div>
@@ -592,7 +592,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:6px;">⚡ Restauration rapide — Historique Kraken</div>
           <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Importe l'historique extrait de tes captures Kraken dans le compte actif</div>
           <div style="display:flex;flex-direction:column;gap:8px;">
-            <button onclick="restoreKrakenHistory5k()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🥈 Restaurer 15 trades — Compte 5K (mai→juil 2026)</button>
+            <button onclick="restoreKrakenHistory5k()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🥈 Restaurer 3 trades — Compte 5K (juil 2026)</button>
             <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🥇 Restaurer 7 trades — Compte 10K (14→28 juil 2026)</button>
           </div>
         </div>
@@ -1588,27 +1588,12 @@ function applyUpdate() {
 // ─────────────────────────────────────────────
 function restoreKrakenHistory5k() {
   const trades = [
-    {date:'2026-05-29',actif:'BTC/USD',sens:'Vente',lots:0.05,setup:'—',session:'New York', qualite:3,rrPrevu:2,rrReel:-1.40,risque:0.4,pnl:-28.04,solde:4971.96,emotion:'—',note:''},
-    {date:'2026-06-03',actif:'BTC/USD',sens:'Vente',lots:0.05,setup:'—',session:'New York', qualite:3,rrPrevu:2,rrReel:2.43, risque:0.4,pnl:48.32, solde:5020.28,emotion:'—',note:''},
-    {date:'2026-06-08',actif:'BTC/USD',sens:'Achat',lots:0.05,setup:'—',session:'New York', qualite:3,rrPrevu:2,rrReel:-0.84,risque:0.4,pnl:-8.41, solde:5011.87,emotion:'—',note:''},
-    {date:'2026-06-11',actif:'BTC/USD',sens:'Achat',lots:0.05,setup:'—',session:'New York', qualite:3,rrPrevu:2,rrReel:-1.43,risque:0.4,pnl:-28.55,solde:4983.32,emotion:'—',note:''},
-    {date:'2026-06-12',actif:'BTC/USD',sens:'Vente',lots:0.05,setup:'—',session:'New York', qualite:3,rrPrevu:2,rrReel:0.37, risque:0.4,pnl:7.34,  solde:4990.66,emotion:'—',note:''},
-    {date:'2026-06-17',actif:'BTC/USD',sens:'Vente',lots:0.05,setup:'—',session:'New York', qualite:3,rrPrevu:2,rrReel:-1.68,risque:0.4,pnl:-33.62,solde:4957.04,emotion:'—',note:''},
-    {date:'2026-06-18',actif:'BTC/USD',sens:'Vente',lots:0.05,setup:'—',session:'New York', qualite:3,rrPrevu:2,rrReel:2.47, risque:0.4,pnl:49.46, solde:5006.50,emotion:'—',note:''},
-    {date:'2026-06-22',actif:'BTC/USD',sens:'Vente',lots:0.05,setup:'—',session:'New York', qualite:3,rrPrevu:2,rrReel:1.15, risque:0.4,pnl:23.02, solde:5029.52,emotion:'—',note:''},
-    {date:'2026-06-23',actif:'BTC/USD',sens:'Vente',lots:0.05,setup:'—',session:'New York', qualite:3,rrPrevu:2,rrReel:-1.41,risque:0.4,pnl:-28.13,solde:5001.39,emotion:'—',note:''},
-    {date:'2026-06-25',actif:'BTC/USD',sens:'Achat',lots:0.05,setup:'—',session:'New York', qualite:3,rrPrevu:2,rrReel:-1.52,risque:0.4,pnl:-30.32,solde:4971.07,emotion:'—',note:''},
-    {date:'2026-06-26',actif:'BTC/USD',sens:'Achat',lots:0.05,setup:'—',session:'London',   qualite:3,rrPrevu:2,rrReel:-1.45,risque:0.4,pnl:-29.07,solde:4942.00,emotion:'—',note:''},
-    {date:'2026-06-26',actif:'BTC/USD',sens:'Achat',lots:0.05,setup:'—',session:'New York', qualite:3,rrPrevu:2,rrReel:4.50, risque:0.4,pnl:90.07, solde:5032.07,emotion:'—',note:''},
-    {date:'2026-07-01',actif:'BTC/USD',sens:'Achat',lots:0.05,setup:'—',session:'New York', qualite:3,rrPrevu:2,rrReel:1.89, risque:0.4,pnl:37.73, solde:5069.80,emotion:'—',note:''},
-    {date:'2026-07-07',actif:'BTC/USD',sens:'Achat',lots:0.05,setup:'—',session:'New York', qualite:3,rrPrevu:2,rrReel:0.77, risque:0.4,pnl:15.34, solde:5085.14,emotion:'—',note:''},
-    {date:'2026-07-09',actif:'BTC/USD',sens:'Achat',lots:0.05,setup:'—',session:'New York', qualite:3,rrPrevu:2,rrReel:-0.01,risque:0.4,pnl:-0.19, solde:5084.95,emotion:'—',note:''},
-    {date:'2026-07-27',actif:'BTC/USD',sens:'Vente',lots:0.273,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:0.35, risque:0.4,pnl:7.15,  solde:5092.10,emotion:'—',note:''},
-    {date:'2026-07-28',actif:'BTC/USD',sens:'Vente',lots:0.125,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.78, risque:0.4,pnl:36.12, solde:5128.22,emotion:'—',note:''},
-    {date:'2026-07-29',actif:'BTC/USD',sens:'Achat',lots:0.085,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.90, risque:0.4,pnl:18.38, solde:5146.60,emotion:'—',note:''},
+    {date:'2026-07-27',actif:'BTC/USD',sens:'Vente',lots:0.273,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:0.30,risque:0.4,pnl:21.45,solde:5021.45,emotion:'—',note:''},
+    {date:'2026-07-28',actif:'BTC/USD',sens:'Vente',lots:0.125,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:1.35,risque:0.4,pnl:42.43,solde:5063.88,emotion:'—',note:''},
+    {date:'2026-07-29',actif:'BTC/USD',sens:'Achat',lots:0.085,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:1.05,risque:0.4,pnl:22.76,solde:5086.64,emotion:'—',note:''},
   ];
   if (!appData) return;
-  if (!confirm('Vider tous les trades du compte 5K et importer les 18 positions ?')) return;
+  if (!confirm('Vider tous les trades du compte 5K et importer les 3 positions ?')) return;
   appData.trades = [];
   _forceImport(trades);
 }
