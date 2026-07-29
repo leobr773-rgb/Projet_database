@@ -1588,9 +1588,9 @@ function applyUpdate() {
 // ─────────────────────────────────────────────
 function restoreKrakenHistory5k() {
   const trades = [
-    {date:'2026-07-27',actif:'BTC/USD',sens:'Vente',lots:0.273,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:0.30,risque:0.4,pnl:21.45,solde:5021.45,emotion:'—',note:''},
-    {date:'2026-07-28',actif:'BTC/USD',sens:'Vente',lots:0.125,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:1.35,risque:0.4,pnl:42.43,solde:5063.88,emotion:'—',note:''},
-    {date:'2026-07-29',actif:'BTC/USD',sens:'Achat',lots:0.085,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:1.05,risque:0.4,pnl:22.76,solde:5086.64,emotion:'—',note:''},
+    {date:'2026-07-27',actif:'BTC/USD',sens:'Vente',lots:0.273,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:0.10,risque:0.4,pnl:7.15, solde:5007.15,emotion:'—',note:''},
+    {date:'2026-07-28',actif:'BTC/USD',sens:'Vente',lots:0.125,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:1.15,risque:0.4,pnl:36.11,solde:5043.26,emotion:'—',note:''},
+    {date:'2026-07-29',actif:'BTC/USD',sens:'Achat',lots:0.085,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:0.85,risque:0.4,pnl:18.37,solde:5061.63,emotion:'—',note:''},
   ];
   if (!appData) return;
   if (!confirm('Vider tous les trades du compte 5K et importer les 3 positions ?')) return;
