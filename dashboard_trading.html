@@ -120,10 +120,16 @@ body{display:flex;flex-direction:column;overflow-x:hidden}
 .check-item.checked span{color:var(--green)}
 
 /* ── Plan rules ── */
-.plan-block{background:var(--panel2);border:1px solid var(--border);border-left:4px solid var(--gold);border-radius:10px;padding:14px}
+.plan-block{background:var(--panel2);border:1px solid var(--border);border-left:4px solid var(--gold);border-radius:10px;padding:14px;margin-bottom:10px}
 .plan-block ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
 .plan-block li{font-size:13px;color:var(--muted);padding-left:12px;position:relative}
 .plan-block li::before{content:"→";position:absolute;left:0;color:var(--gold)}
+.plan-section-edit{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px}
+.plan-rule-row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.plan-rule-row input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-size:13px}
+.plan-rule-row input:focus{outline:none;border-color:var(--blue)}
+.plan-del{background:transparent;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px 6px;opacity:.7}
+.plan-del:hover{opacity:1}
 
 /* ── Textarea ── */
 .auto-textarea{width:100%;min-height:80px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:system-ui,sans-serif;font-size:13px;resize:vertical;outline:none}
@@ -398,21 +404,22 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
 
-    <div class="section-title">Plan de Trading — Règles ICT</div>
-    <div class="plan-block">
-      <p style="font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Entrée</p>
-      <ul style="margin-bottom:14px">
-        <li>Liquidity Sweep + retour dans le range</li>
-        <li>FVG H15 dans la direction du bias H4</li>
-        <li>Breaker Block sur niveau clé</li>
-      </ul>
-      <p style="font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Risk Management</p>
-      <ul>
-        <li>Risque max : 0.5% par trade (25$ sur 5 000$)</li>
-        <li>RR minimum : 2:1</li>
-        <li>Maximum 1 trade par jour</li>
-        <li>Stop loss sous le swing bas (achat) / au-dessus swing haut (vente)</li>
-      </ul>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="section-title" style="margin-bottom:0">Plan de Trading</div>
+      <button onclick="togglePlanEdit()" id="planEditBtn" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">✏️ Modifier</button>
+    </div>
+
+    <!-- VUE LECTURE -->
+    <div id="planView"></div>
+
+    <!-- VUE ÉDITION -->
+    <div id="planEditor" style="display:none;">
+      <div id="planSections"></div>
+      <button onclick="addPlanSection()" style="width:100%;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:8px;padding:10px;font-size:13px;cursor:pointer;margin-top:8px;">+ Ajouter une section</button>
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        <button onclick="savePlan()" style="flex:1;background:var(--green);border:none;color:#fff;border-radius:8px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;">💾 Sauvegarder</button>
+        <button onclick="togglePlanEdit()" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:11px 18px;font-size:13px;cursor:pointer;">Annuler</button>
+      </div>
     </div>
   </div>
 
@@ -822,7 +829,7 @@ async function switchAccount(id) {
   document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
   document.querySelector('[data-tab="cockpit"]').classList.add('active');
   document.getElementById('mod-cockpit').classList.add('active');
-  loadBias(); loadChecklist(); renderTrades(); renderCockpit();
+  loadBias(); loadChecklist(); renderPlanView(); renderTrades(); renderCockpit();
 }
 
 // ─────────────────────────────────────────────
@@ -851,6 +858,7 @@ function initApp() {
   loadBias();
   loadChecklist();
   loadJournal();
+  renderPlanView();
   renderTrades();
   renderCockpit();
   updateKillzones();
@@ -1161,6 +1169,121 @@ function updateKillzones() {
 // ─────────────────────────────────────────────
 //  BIAS / CHECKLIST / JOURNAL
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  PLAN DE TRADING
+// ─────────────────────────────────────────────
+const DEFAULT_PLAN = [
+  { title: 'Entrée', rules: ['Liquidity Sweep + retour dans le range', 'FVG H15 dans la direction du bias H4', 'Breaker Block sur niveau clé'] },
+  { title: 'Risk Management', rules: ['Risque max : 0.4% par trade + 0.1% frais', 'RR minimum : 2:1', 'Maximum 1 trade par jour', 'Stop loss sous le swing bas (achat) / au-dessus swing haut (vente)'] },
+  { title: 'Psychologie', rules: ['Ne pas trader après 2 pertes consécutives', 'Respecter le plan sans exception', 'Journaliser chaque trade'] },
+];
+
+function getPlan() {
+  return appData.plan && appData.plan.length ? appData.plan : DEFAULT_PLAN;
+}
+
+function renderPlanView() {
+  const plan = getPlan();
+  document.getElementById('planView').innerHTML = plan.map(s => `
+    <div class="plan-block">
+      <p style="font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">${s.title}</p>
+      <ul>${s.rules.map(r => `<li>${r}</li>`).join('')}</ul>
+    </div>`).join('');
+}
+
+function togglePlanEdit() {
+  const editor = document.getElementById('planEditor');
+  const view   = document.getElementById('planView');
+  const btn    = document.getElementById('planEditBtn');
+  const isOpen = editor.style.display !== 'none';
+  if (isOpen) {
+    editor.style.display = 'none';
+    view.style.display   = 'block';
+    btn.textContent = '✏️ Modifier';
+  } else {
+    renderPlanEditor();
+    editor.style.display = 'block';
+    view.style.display   = 'none';
+    btn.textContent = '✕ Fermer';
+  }
+}
+
+function renderPlanEditor() {
+  const plan = getPlan();
+  document.getElementById('planSections').innerHTML = plan.map((s, si) => `
+    <div class="plan-section-edit" data-si="${si}">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+        <input value="${s.title}" onchange="updateSectionTitle(${si},this.value)"
+          style="flex:1;background:var(--bg);border:1px solid var(--gold);border-radius:6px;color:var(--gold);padding:7px 10px;font-size:13px;font-weight:700;">
+        <button class="plan-del" onclick="deletePlanSection(${si})" title="Supprimer la section">🗑</button>
+      </div>
+      <div id="rules-${si}">
+        ${s.rules.map((r, ri) => `
+          <div class="plan-rule-row">
+            <input value="${r.replace(/"/g,'&quot;')}" onchange="updateRule(${si},${ri},this.value)">
+            <button class="plan-del" onclick="deleteRule(${si},${ri})">✕</button>
+          </div>`).join('')}
+      </div>
+      <button onclick="addRule(${si})" style="background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;margin-top:6px;">+ Règle</button>
+    </div>`).join('');
+}
+
+function getSectionDraft(si) {
+  const el = document.querySelector(`.plan-section-edit[data-si="${si}"]`);
+  if (!el) return null;
+  const title = el.querySelector('input').value;
+  const rules = [...el.querySelectorAll('.plan-rule-row input')].map(i => i.value).filter(v => v.trim());
+  return { title, rules };
+}
+
+function updateSectionTitle(si, val) { /* live, saved on submit */ }
+function updateRule(si, ri, val)     { /* live, saved on submit */ }
+
+function addRule(si) {
+  const draft = getCurrentDraft();
+  draft[si].rules.push('');
+  appData.plan = draft;
+  renderPlanEditor();
+}
+
+function deleteRule(si, ri) {
+  const draft = getCurrentDraft();
+  draft[si].rules.splice(ri, 1);
+  appData.plan = draft;
+  renderPlanEditor();
+}
+
+function addPlanSection() {
+  const draft = getCurrentDraft();
+  draft.push({ title: 'Nouvelle section', rules: [''] });
+  appData.plan = draft;
+  renderPlanEditor();
+}
+
+function deletePlanSection(si) {
+  const draft = getCurrentDraft();
+  draft.splice(si, 1);
+  appData.plan = draft;
+  renderPlanEditor();
+}
+
+function getCurrentDraft() {
+  const sections = document.querySelectorAll('.plan-section-edit');
+  return [...sections].map((el, si) => {
+    const inputs = [...el.querySelectorAll('input')];
+    const title = inputs[0].value;
+    const rules = inputs.slice(1).map(i => i.value).filter(v => v.trim());
+    return { title, rules };
+  });
+}
+
+function savePlan() {
+  appData.plan = getCurrentDraft();
+  persist();
+  renderPlanView();
+  togglePlanEdit();
+}
+
 function loadBias() {
   document.getElementById('biasTextarea').value = appData.bias || '';
 }
