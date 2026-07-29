@@ -654,6 +654,18 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div style="font-size:18px;font-weight:700;color:var(--text);">Actualités Crypto &amp; Macro</div>
       <button onclick="fetchNews(true)" id="newsRefreshBtn" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;">🔄 Actualiser</button>
     </div>
+
+    <!-- Calendrier économique -->
+    <a href="https://fr.investing.com/economic-calendar/" target="_blank" rel="noopener"
+       style="display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--gold);border-radius:12px;padding:14px 16px;margin-bottom:16px;text-decoration:none;transition:border-color .15s;"
+       onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.borderLeftColor='var(--gold)'">
+      <span style="font-size:28px;flex-shrink:0;">📅</span>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px;">Calendrier Économique — Investing.com</div>
+        <div style="font-size:12px;color:var(--muted);">NFP · CPI · FOMC · PIB · taux d'intérêt · événements macro</div>
+      </div>
+      <span style="margin-left:auto;color:var(--muted);font-size:18px;flex-shrink:0;">↗</span>
+    </a>
     <!-- Filtres -->
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" id="newsFilters">
       <button class="news-filter active" data-cat="ALL"    onclick="setNewsFilter(this,'ALL')">Tout</button>
