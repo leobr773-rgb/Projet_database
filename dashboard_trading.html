@@ -827,17 +827,9 @@ async function unlockAccount(accountId, pwd) {
     if (!data.checklist) data.checklist = [false,false,false,false,false];
     aesKeys[accountId]  = key;
     allDatas[accountId] = data;
-    return;
-  } catch(_) {}
-  // Fallback total : sel/données corrompus → compte vierge avec le mot de passe fourni
-  const newSalt = crypto.getRandomValues(new Uint8Array(16));
-  localStorage.setItem(acct.saltKey, btoa(String.fromCharCode(...newSalt)));
-  const newKey = await deriveKey(pwd, newSalt);
-  const fresh = EMPTY_DATA();
-  const enc = await encryptData(newKey, fresh);
-  localStorage.setItem(acct.storageKey, JSON.stringify(enc));
-  aesKeys[accountId]  = newKey;
-  allDatas[accountId] = fresh;
+  } catch(_) {
+    // Décryption échouée (mauvais mdp ou données absentes) → compte reste verrouillé
+  }
 }
 
 function resetAll() {
