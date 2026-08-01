@@ -793,10 +793,8 @@ async function decryptData(key, stored) {
 // ─────────────────────────────────────────────
 async function persist() {
   if (!aesKey || !appData) return;
-  try {
-    const enc = await encryptData(aesKey, appData);
-    localStorage.setItem(cfg().storageKey, JSON.stringify(enc));
-  } catch (e) { console.error('Persist error', e); }
+  const enc = await encryptData(aesKey, appData);
+  localStorage.setItem(cfg().storageKey, JSON.stringify(enc));
 }
 
 // ─────────────────────────────────────────────
@@ -1971,16 +1969,37 @@ function renderMental() {
 // ─────────────────────────────────────────────
 //  CAPTURE / LIGHTBOX
 // ─────────────────────────────────────────────
+function compressImage(dataUrl, maxW, maxH, quality) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxW || h > maxH) {
+        const ratio = Math.min(maxW / w, maxH / h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = dataUrl;
+  });
+}
+
 document.getElementById('f-capture').addEventListener('change', function() {
   const file = this.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
+  const inputEl = this;
+  reader.onload = async e => {
+    const compressed = await compressImage(e.target.result, 1200, 1200, 0.75);
     const preview = document.getElementById('f-capture-preview');
     const img = document.getElementById('f-capture-img');
-    img.src = e.target.result;
+    img.src = compressed;
     preview.style.display = 'block';
-    this.dataset.b64 = e.target.result;
+    inputEl.dataset.b64 = compressed;
   };
   reader.readAsDataURL(file);
 });
@@ -2008,11 +2027,17 @@ function triggerCaptureInput(id) {
     const file = this.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = e => {
+    reader.onload = async e => {
+      const compressed = await compressImage(e.target.result, 1200, 1200, 0.75);
       const trade = appData.trades.find(t => t.id === id);
       if (trade) {
-        trade.capture = e.target.result;
-        persist();
+        trade.capture = compressed;
+        try {
+          await persist();
+        } catch(err) {
+          alert('⚠️ Stockage plein — impossible de sauvegarder la capture. Supprime des anciennes captures pour libérer de la place.');
+          trade.capture = null;
+        }
         renderTrades();
       }
     };
