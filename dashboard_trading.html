@@ -546,7 +546,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
         <div class="form-group full">
           <label class="form-label">📸 Capture (optionnel)</label>
-          <input type="file" accept="image/*" capture="environment" id="f-capture" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;cursor:pointer;">
+          <input type="file" accept="image/*" id="f-capture" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;cursor:pointer;">
           <div id="f-capture-preview" style="margin-top:8px;display:none;">
             <img id="f-capture-img" style="max-width:100%;max-height:140px;border-radius:8px;border:1px solid var(--border);">
           </div>
@@ -2004,7 +2004,6 @@ function triggerCaptureInput(id) {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
-  input.capture = 'environment';
   input.onchange = function() {
     const file = this.files[0];
     if (!file) return;
