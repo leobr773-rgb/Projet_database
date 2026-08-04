@@ -268,8 +268,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <!-- ═══ ACCOUNT SWITCHER ═══ -->
 <div id="acctBar" style="display:none;">
   <span style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Compte</span>
-  <button class="acct-btn" data-acct="10k" onclick="switchAccount('10k')">🥇 Challenge 10K</button>
-  <button class="acct-btn" data-acct="5k"  onclick="switchAccount('5k')">🥈 Challenge 5K</button>
+  <button class="acct-btn" data-acct="10k"  onclick="switchAccount('10k')">🥇 10K-A</button>
+  <button class="acct-btn" data-acct="10k2" onclick="switchAccount('10k2')">🏆 10K-B</button>
+  <button class="acct-btn" data-acct="5k"   onclick="switchAccount('5k')">🥈 5K</button>
 </div>
 
 <!-- ═══ UPDATE BANNER ═══ -->
@@ -552,6 +553,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
           </div>
         </div>
       </div>
+      <div style="padding:10px 0 4px;display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="f-sync" style="width:16px;height:16px;cursor:pointer;accent-color:var(--gold);">
+        <label for="f-sync" style="font-size:13px;color:var(--gold);cursor:pointer;font-weight:600;">🔗 Synchroniser sur tous les comptes</label>
+      </div>
       <div class="form-actions">
         <button class="btn-save" id="saveTrade">💾 Enregistrer</button>
         <button class="btn-cancel" id="cancelTrade">Annuler</button>
@@ -580,7 +585,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div style="font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">⚡ Restauration rapide</div>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <button onclick="restoreKrakenHistory5k()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🥈 3 trades — Compte 5K <span style="float:right;opacity:.6;font-weight:400">juil 2026</span></button>
-          <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🥇 7 trades — Compte 10K <span style="float:right;opacity:.6;font-weight:400">juil 2026</span></button>
+          <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🥇 7 trades — Compte 10K-A <span style="float:right;opacity:.6;font-weight:400">juil 2026</span></button>
+          <button onclick="restoreKrakenHistory10k2()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🏆 7 trades — Compte 10K-B <span style="float:right;opacity:.6;font-weight:400">juil 2026</span></button>
         </div>
         <div id="emptyRestoreMsg" style="margin-top:10px;font-size:12px;min-height:18px;"></div>
       </div>
@@ -730,8 +736,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 // ── Comptes ──
 const ACCOUNTS = {
-  '5k':  { id:'5k',  label:'5K',  emoji:'🥈', soldeInit:5000,  objectifAbs:500,  ddMaxAbs:300, storageKey:'challenge5k_v1',  saltKey:'challenge5k_salt'  },
-  '10k': { id:'10k', label:'10K', emoji:'🥇', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600, storageKey:'challenge10k_v1', saltKey:'challenge10k_salt' },
+  '5k':   { id:'5k',   label:'5K',    emoji:'🥈', soldeInit:5000,  objectifAbs:500,  ddMaxAbs:300, storageKey:'challenge5k_v1',   saltKey:'challenge5k_salt'   },
+  '10k':  { id:'10k',  label:'10K-A', emoji:'🥇', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600, storageKey:'challenge10k_v1',  saltKey:'challenge10k_salt'  },
+  '10k2': { id:'10k2', label:'10K-B', emoji:'🏆', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600, storageKey:'challenge10k2_v1', saltKey:'challenge10k2_salt' },
 };
 let currentAccount = '10k';
 const aesKeys  = {};   // { '5k': CryptoKey, '10k': CryptoKey }
@@ -838,7 +845,7 @@ async function unlockAccount(accountId, pwd) {
 
 function resetAll() {
   if (!confirm('Effacer toutes les données et choisir un nouveau mot de passe ?')) return;
-  ['challenge5k_v1','challenge5k_salt','challenge10k_v1','challenge10k_salt'].forEach(k => localStorage.removeItem(k));
+  ['challenge5k_v1','challenge5k_salt','challenge10k_v1','challenge10k_salt','challenge10k2_v1','challenge10k2_salt'].forEach(k => localStorage.removeItem(k));
   document.getElementById('lockErr').textContent = '✅ Réinitialisé. Choisissez un nouveau mot de passe.';
   document.getElementById('lockErr').style.color = 'var(--green)';
   document.getElementById('pwdInput').value = '';
@@ -854,13 +861,13 @@ async function handleUnlock() {
   btn.textContent = 'Chargement…';
   try {
     // Déverrouiller les deux comptes — allSettled ne rejette jamais
-    await Promise.allSettled([unlockAccount('5k', pwd), unlockAccount('10k', pwd)]);
+    await Promise.allSettled([unlockAccount('5k', pwd), unlockAccount('10k', pwd), unlockAccount('10k2', pwd)]);
     // Il faut au moins un compte valide
-    if (!aesKeys['10k'] && !aesKeys['5k']) {
+    if (!aesKeys['10k'] && !aesKeys['5k'] && !aesKeys['10k2']) {
       throw new Error('Mot de passe incorrect.');
     }
-    // Compte actif = 10K si dispo, sinon 5K
-    currentAccount = aesKeys['10k'] ? '10k' : '5k';
+    // Compte actif = 10K-A si dispo, sinon 10K-B, sinon 5K
+    currentAccount = aesKeys['10k'] ? '10k' : aesKeys['10k2'] ? '10k2' : '5k';
     aesKey  = aesKeys[currentAccount];
     appData = allDatas[currentAccount];
     document.getElementById('lockScreen').style.display = 'none';
@@ -1418,7 +1425,7 @@ document.getElementById('f-pnl').addEventListener('input', () => {
 
 document.getElementById('saveTrade').addEventListener('click', saveTrade);
 
-function saveTrade() {
+async function saveTrade() {
   const rrReelRaw = document.getElementById('f-rrReel').value;
   if (rrReelRaw === '') { alert('Le champ R réalisé est obligatoire.'); return; }
   const rrReel = parseFloat(rrReelRaw);
@@ -1448,8 +1455,28 @@ function saveTrade() {
     capture: document.getElementById('f-capture').dataset.b64 || null,
   };
 
-  appData.trades.push(trade);
-  persist();
+  const syncAll = document.getElementById('f-sync').checked;
+  if (syncAll) {
+    // Copie sur tous les comptes déverrouillés
+    for (const acctId of Object.keys(ACCOUNTS)) {
+      if (!aesKeys[acctId]) continue;
+      const targetData = allDatas[acctId];
+      const lastSolde = targetData.trades.length
+        ? (targetData.trades[targetData.trades.length - 1].solde || ACCOUNTS[acctId].soldeInit)
+        : ACCOUNTS[acctId].soldeInit;
+      targetData.trades.push({
+        ...trade,
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2) + acctId,
+        solde: pnl !== 0 ? lastSolde + pnl : lastSolde,
+      });
+      // Persist chaque compte avec sa propre clé
+      const enc = await encryptData(aesKeys[acctId], targetData);
+      localStorage.setItem(ACCOUNTS[acctId].storageKey, JSON.stringify(enc));
+    }
+  } else {
+    appData.trades.push(trade);
+    await persist();
+  }
   renderTrades();
   renderCockpit();
   document.getElementById('tradeForm').style.display = 'none';
@@ -1606,6 +1633,22 @@ function restoreKrakenHistory10k() {
   ];
   if (!appData) return;
   if (!confirm('Vider tous les trades du compte 10K et importer les 7 positions ?')) return;
+  appData.trades = [];
+  _forceImport(trades);
+}
+
+function restoreKrakenHistory10k2() {
+  const trades = [
+    {date:'2026-07-14',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:0.71, risque:0.4,pnl:28.50, solde:10028.50,emotion:'—',note:''},
+    {date:'2026-07-14',actif:'BTC/USD',sens:'Vente',lots:0.262,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:0.77, risque:0.4,pnl:30.75, solde:10059.25,emotion:'—',note:''},
+    {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.531,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.68, risque:0.4,pnl:27.34, solde:10086.59,emotion:'—',note:''},
+    {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.27, setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.04,risque:0.4,pnl:-1.47, solde:10085.12,emotion:'—',note:''},
+    {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.71, risque:0.4,pnl:28.20, solde:10113.32,emotion:'—',note:''},
+    {date:'2026-07-27',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.38, risque:0.4,pnl:15.23, solde:10128.55,emotion:'—',note:''},
+    {date:'2026-07-28',actif:'BTC/USD',sens:'Vente',lots:0.25, setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.80, risque:0.4,pnl:71.88, solde:10200.43,emotion:'—',note:''},
+  ];
+  if (!appData) return;
+  if (!confirm('Vider tous les trades du compte 10K-B et importer les 7 positions ?')) return;
   appData.trades = [];
   _forceImport(trades);
 }
