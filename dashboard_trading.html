@@ -800,8 +800,13 @@ async function decryptData(key, stored) {
 // ─────────────────────────────────────────────
 async function persist() {
   if (!aesKey || !appData) return;
-  const enc = await encryptData(aesKey, appData);
-  localStorage.setItem(cfg().storageKey, JSON.stringify(enc));
+  try {
+    const enc = await encryptData(aesKey, appData);
+    localStorage.setItem(cfg().storageKey, JSON.stringify(enc));
+  } catch(e) {
+    console.error('Persist error:', e);
+    throw e;
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -1455,27 +1460,31 @@ async function saveTrade() {
     capture: document.getElementById('f-capture').dataset.b64 || null,
   };
 
-  const syncAll = document.getElementById('f-sync').checked;
-  if (syncAll) {
-    // Copie sur tous les comptes déverrouillés
-    for (const acctId of Object.keys(ACCOUNTS)) {
-      if (!aesKeys[acctId]) continue;
-      const targetData = allDatas[acctId];
-      const lastSolde = targetData.trades.length
-        ? (targetData.trades[targetData.trades.length - 1].solde || ACCOUNTS[acctId].soldeInit)
-        : ACCOUNTS[acctId].soldeInit;
-      targetData.trades.push({
-        ...trade,
-        id: Date.now().toString(36) + Math.random().toString(36).slice(2) + acctId,
-        solde: pnl !== 0 ? lastSolde + pnl : lastSolde,
-      });
-      // Persist chaque compte avec sa propre clé
-      const enc = await encryptData(aesKeys[acctId], targetData);
-      localStorage.setItem(ACCOUNTS[acctId].storageKey, JSON.stringify(enc));
+  try {
+    const syncEl = document.getElementById('f-sync');
+    const syncAll = syncEl ? syncEl.checked : false;
+    if (syncAll) {
+      for (const acctId of Object.keys(ACCOUNTS)) {
+        if (!aesKeys[acctId]) continue;
+        const targetData = allDatas[acctId];
+        const lastS = targetData.trades.length
+          ? (targetData.trades[targetData.trades.length - 1].solde || ACCOUNTS[acctId].soldeInit)
+          : ACCOUNTS[acctId].soldeInit;
+        targetData.trades.push({
+          ...trade,
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2) + acctId,
+          solde: pnl !== 0 ? lastS + pnl : lastS,
+        });
+        const enc = await encryptData(aesKeys[acctId], targetData);
+        localStorage.setItem(ACCOUNTS[acctId].storageKey, JSON.stringify(enc));
+      }
+    } else {
+      appData.trades.push(trade);
+      await persist();
     }
-  } else {
-    appData.trades.push(trade);
-    await persist();
+  } catch(e) {
+    alert('Erreur lors de l\'enregistrement : ' + (e.message || e));
+    return;
   }
   renderTrades();
   renderCockpit();
