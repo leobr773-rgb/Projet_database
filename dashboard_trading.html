@@ -778,13 +778,19 @@ async function deriveKey(password, salt) {
   );
 }
 
+function uint8ToBase64(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
 async function encryptData(key, data) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(JSON.stringify(data));
   const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
   return {
-    iv: btoa(String.fromCharCode(...iv)),
-    data: btoa(String.fromCharCode(...new Uint8Array(cipher)))
+    iv: uint8ToBase64(iv),
+    data: uint8ToBase64(new Uint8Array(cipher))
   };
 }
 
