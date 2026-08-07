@@ -758,6 +758,50 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">DIM</div>
     </div>
     <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;"></div>
+    <!-- Mini-formulaire rapide -->
+    <div id="calQuickModal" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.6);align-items:center;justify-content:center;">
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:24px 20px;width:min(340px,92vw);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <span id="calQTitle" style="font-size:15px;font-weight:700;"></span>
+          <button onclick="document.getElementById('calQuickModal').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <button id="calQBtnReel"  onclick="calQSelectType('reel')"  style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;background:var(--gold);color:#000;">🟡 Réel</button>
+          <button id="calQBtnPaper" onclick="calQSelectType('paper')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;background:var(--panel2);color:var(--muted);">🔵 Paper</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+          <div>
+            <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Actif</label>
+            <input id="calQ-actif" value="BTC/USD" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:14px;">
+          </div>
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;">
+              <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">PnL net $</label>
+              <div style="display:flex;gap:4px;">
+                <input id="calQ-pnl" type="text" inputmode="decimal" placeholder="-49.61" style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 10px;font-size:14px;">
+                <button type="button" onclick="toggleSign('calQ-pnl')" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0 10px;font-size:15px;cursor:pointer;font-weight:700;">±</button>
+              </div>
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">R réalisé</label>
+              <div style="display:flex;gap:4px;">
+                <input id="calQ-rr" type="text" inputmode="decimal" placeholder="-1.2" style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 10px;font-size:14px;">
+                <button type="button" onclick="toggleSign('calQ-rr')" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0 10px;font-size:15px;cursor:pointer;font-weight:700;">±</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Sens</label>
+            <div style="display:flex;gap:8px;">
+              <button id="calQBuy"  onclick="calQSens('Achat')" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;background:var(--panel2);color:var(--muted);">▲ Achat</button>
+              <button id="calQSell" onclick="calQSens('Vente')" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;background:var(--panel2);color:var(--muted);">▼ Vente</button>
+            </div>
+          </div>
+        </div>
+        <button onclick="calQuickSave()" style="width:100%;background:var(--gold);border:none;color:#000;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;">💾 Enregistrer</button>
+      </div>
+    </div>
+
     <!-- Détail jour -->
     <div id="calDayDetail" style="display:none;margin-top:16px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -1736,10 +1780,18 @@ function renderCalendar() {
     const pnlReel  = info && info.reelPnl  ? `<div style="font-size:9px;color:${info.reelPnl >= 0 ? 'var(--green)' : 'var(--red)'};line-height:1.2">${info.reelPnl >= 0 ? '+' : ''}${info.reelPnl.toFixed(0)}$</div>` : '';
     const pnlPaper = info && info.paperPnl ? `<div style="font-size:9px;color:var(--blue);line-height:1.2">P:${info.paperPnl >= 0 ? '+' : ''}${info.paperPnl.toFixed(0)}$</div>` : '';
 
-    html += `<div onclick="calShowDay('${dateStr}')" style="min-height:64px;background:${bg};border:${todayBorder};border-radius:8px;padding:6px 5px;cursor:${info ? 'pointer' : 'default'};transition:.15s;">
-      <div style="font-size:12px;font-weight:${isToday ? '800' : '600'};color:${isToday ? 'var(--text)' : 'var(--muted)'};margin-bottom:4px;">${d}</div>
-      <div style="display:flex;flex-wrap:wrap;margin-bottom:3px;">${dots}</div>
-      ${pnlReel}${pnlPaper}
+    html += `<div style="min-height:72px;background:${bg};border:${todayBorder};border-radius:8px;padding:5px 4px;transition:.15s;position:relative;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;">
+        <span style="font-size:12px;font-weight:${isToday ? '800' : '600'};color:${isToday ? 'var(--text)' : 'var(--muted)'};" onclick="calShowDay('${dateStr}')">${d}</span>
+        <span style="display:flex;gap:2px;">
+          <button onclick="event.stopPropagation();calQuickAdd('${dateStr}','reel')"  title="Ajouter trade réel"  style="background:rgba(240,185,11,.2);border:none;color:var(--gold);border-radius:4px;width:18px;height:18px;font-size:10px;cursor:pointer;padding:0;line-height:1;">+</button>
+          <button onclick="event.stopPropagation();calQuickAdd('${dateStr}','paper')" title="Ajouter trade paper" style="background:rgba(74,144,226,.2);border:none;color:var(--blue);border-radius:4px;width:18px;height:18px;font-size:10px;cursor:pointer;padding:0;line-height:1;">+</button>
+        </span>
+      </div>
+      <div onclick="calShowDay('${dateStr}')" style="cursor:${info ? 'pointer' : 'default'}">
+        <div style="display:flex;flex-wrap:wrap;margin-bottom:2px;">${dots}</div>
+        ${pnlReel}${pnlPaper}
+      </div>
     </div>`;
   }
 
@@ -1775,6 +1827,73 @@ function calShowDay(dateStr) {
 
   list.innerHTML = rows || '<p style="color:var(--muted);font-size:13px;">Aucun trade ce jour.</p>';
   detail.style.display = 'block';
+}
+
+let calQDate = '';
+let calQType = 'reel';
+let calQSensVal = 'Achat';
+
+function calQuickAdd(dateStr, type) {
+  calQDate = dateStr;
+  calQType = type;
+  calQSensVal = 'Achat';
+  const [y, m, d] = dateStr.split('-');
+  const label = type === 'reel' ? '🟡 Réel' : '🔵 Paper';
+  document.getElementById('calQTitle').textContent = label + ' — ' + parseInt(d) + '/' + parseInt(m) + '/' + y;
+  document.getElementById('calQ-pnl').value = '';
+  document.getElementById('calQ-rr').value = '';
+  document.getElementById('calQ-actif').value = 'BTC/USD';
+  calQSelectType(type);
+  calQSens('Achat');
+  document.getElementById('calQuickModal').style.display = 'flex';
+}
+
+function calQSelectType(t) {
+  calQType = t;
+  document.getElementById('calQBtnReel').style.background  = t === 'reel'  ? 'var(--gold)'   : 'var(--panel2)';
+  document.getElementById('calQBtnReel').style.color       = t === 'reel'  ? '#000'          : 'var(--muted)';
+  document.getElementById('calQBtnPaper').style.background = t === 'paper' ? 'var(--blue)'   : 'var(--panel2)';
+  document.getElementById('calQBtnPaper').style.color      = t === 'paper' ? '#fff'          : 'var(--muted)';
+}
+
+function calQSens(s) {
+  calQSensVal = s;
+  document.getElementById('calQBuy').style.background  = s === 'Achat' ? 'var(--green)' : 'var(--panel2)';
+  document.getElementById('calQBuy').style.color       = s === 'Achat' ? '#fff'         : 'var(--muted)';
+  document.getElementById('calQSell').style.background = s === 'Vente' ? 'var(--red)'   : 'var(--panel2)';
+  document.getElementById('calQSell').style.color      = s === 'Vente' ? '#fff'         : 'var(--muted)';
+}
+
+async function calQuickSave() {
+  const rrRaw = document.getElementById('calQ-rr').value;
+  if (rrRaw === '') { alert('R réalisé obligatoire.'); return; }
+  const rrReel = parseFloat(rrRaw);
+  if (isNaN(rrReel)) { alert('R réalisé invalide.'); return; }
+  const pnl = parseFloat(document.getElementById('calQ-pnl').value) || 0;
+  const lastSolde = appData.trades.length
+    ? (appData.trades[appData.trades.length - 1].solde || SOLDE_INIT())
+    : SOLDE_INIT();
+
+  const trade = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+    date: calQDate,
+    actif: document.getElementById('calQ-actif').value || 'BTC/USD',
+    sens: calQSensVal,
+    lots: 0, setup: '—', session: '—', qualite: 3,
+    rrPrevu: 0, rrReel, risque: 0.5,
+    pnl, solde: pnl !== 0 ? lastSolde + pnl : lastSolde,
+    emotion: '—', note: '', capture: null,
+    type: calQType,
+  };
+  try {
+    appData.trades.push(trade);
+    await persist();
+    document.getElementById('calQuickModal').style.display = 'none';
+    renderCalendar();
+  } catch(e) {
+    appData.trades.pop();
+    alert('Erreur : ' + e.message);
+  }
 }
 
 function applyUpdate() {
