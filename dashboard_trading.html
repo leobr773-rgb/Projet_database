@@ -283,6 +283,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <button class="tab-btn active" data-tab="cockpit">🎯 Cockpit</button>
   <button class="tab-btn" data-tab="prep">🌅 Préparation</button>
   <button class="tab-btn" data-tab="trades">📓 Trades</button>
+  <button class="tab-btn" data-tab="calendrier">📅 Calendrier</button>
   <button class="tab-btn" data-tab="analyse">📊 Analyse</button>
   <button class="tab-btn" data-tab="mental">🧠 Mental</button>
   <button class="tab-btn" data-tab="news">📰 News</button>
@@ -452,6 +453,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <button id="addTradeBtn">+ Ajouter un trade</button>
 
     <div id="tradeForm">
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button type="button" id="btn-reel" onclick="selectType('reel')" class="sens-btn active-buy" style="flex:1;font-size:13px;">🟡 Réel</button>
+        <button type="button" id="btn-paper" onclick="selectType('paper')" class="sens-btn" style="flex:1;font-size:13px;">🔵 Paper</button>
+      </div>
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label">Date</label>
@@ -729,6 +734,40 @@ tr:hover td{background:rgba(255,255,255,.02)}
     </div>
   </div>
 
+  <!-- ══ MODULE CALENDRIER ══ -->
+  <div class="module" id="mod-calendrier" style="padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button onclick="calNav(-1)" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;font-size:16px;cursor:pointer;">‹</button>
+        <span id="calTitle" style="font-size:16px;font-weight:700;min-width:140px;text-align:center;"></span>
+        <button onclick="calNav(1)"  style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;font-size:16px;cursor:pointer;">›</button>
+      </div>
+      <div style="display:flex;gap:12px;font-size:12px;align-items:center;">
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:50%;background:var(--gold);display:inline-block;"></span>Réel</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:50%;background:var(--blue);display:inline-block;"></span>Paper</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:50%;background:var(--green);display:inline-block;"></span>Les deux</span>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px;">
+      <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">LUN</div>
+      <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">MAR</div>
+      <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">MER</div>
+      <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">JEU</div>
+      <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">VEN</div>
+      <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">SAM</div>
+      <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">DIM</div>
+    </div>
+    <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;"></div>
+    <!-- Détail jour -->
+    <div id="calDayDetail" style="display:none;margin-top:16px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <span id="calDayTitle" style="font-size:14px;font-weight:700;"></span>
+        <button onclick="document.getElementById('calDayDetail').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;">✕</button>
+      </div>
+      <div id="calDayTrades"></div>
+    </div>
+  </div>
+
 </div><!-- /appContent -->
 
 <script>
@@ -754,6 +793,9 @@ let aesKey  = null;   // alias → aesKeys[currentAccount]
 let appData = null;   // alias → allDatas[currentAccount]
 let rdistChartInst = null;
 let selectedSens = '';
+let selectedType = 'reel';
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
 
 const EMPTY_DATA = () => ({
   trades: [],
@@ -928,6 +970,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (tab === 'mental') renderMental();
     if (tab === 'news') fetchNews();
     if (tab === 'prep') updateKillzones();
+    if (tab === 'calendrier') renderCalendar();
   });
 });
 
@@ -1425,6 +1468,12 @@ function selectSens(s) {
   document.getElementById('btn-sell').className = 'sens-btn' + (s === 'Vente' ? ' active-sell' : '');
 }
 
+function selectType(t) {
+  selectedType = t;
+  document.getElementById('btn-reel').className  = 'sens-btn' + (t === 'reel'  ? ' active-buy' : '');
+  document.getElementById('btn-paper').className = 'sens-btn' + (t === 'paper' ? ' active-buy' : '');
+}
+
 document.getElementById('f-pnl').addEventListener('input', () => {
   const pnl = parseFloat(document.getElementById('f-pnl').value) || 0;
   const lastSolde = appData.trades.length
@@ -1463,6 +1512,7 @@ async function saveTrade() {
     emotion: document.getElementById('f-emotion').value,
     note: document.getElementById('f-note').value,
     capture: document.getElementById('f-capture').dataset.b64 || null,
+    type: selectedType || 'reel',
   };
 
   try {
@@ -1509,6 +1559,7 @@ function resetForm() {
   selectedSens = '';
   document.getElementById('btn-buy').className = 'sens-btn';
   document.getElementById('btn-sell').className = 'sens-btn';
+  selectType('reel');
   setDefaultDate();
   const cap = document.getElementById('f-capture');
   cap.value = '';
@@ -1611,6 +1662,120 @@ function renderNewsFeed() {
 setInterval(() => {
   if (document.getElementById('mod-news')?.classList.contains('active')) fetchNews(true);
 }, 5 * 60 * 1000);
+
+// ─────────────────────────────────────────────
+//  CALENDRIER RÉEL / PAPER
+// ─────────────────────────────────────────────
+function calNav(dir) {
+  calMonth += dir;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0)  { calMonth = 11; calYear--; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  document.getElementById('calTitle').textContent = MOIS[calMonth] + ' ' + calYear;
+
+  // Indexer les trades par date pour tous les comptes
+  const byDate = {};
+  for (const acctId of Object.keys(ACCOUNTS)) {
+    const data = allDatas[acctId];
+    if (!data) continue;
+    (data.trades || []).forEach(t => {
+      if (!t.date) return;
+      if (!byDate[t.date]) byDate[t.date] = { reel: 0, paper: 0, reelPnl: 0, paperPnl: 0 };
+      const type = t.type || 'reel';
+      byDate[t.date][type]++;
+      byDate[t.date][type + 'Pnl'] += (t.pnl || 0);
+    });
+  }
+
+  // Construire la grille
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay  = new Date(calYear, calMonth + 1, 0);
+  // Lundi = 0
+  let startOffset = (firstDay.getDay() + 6) % 7;
+  const grid = document.getElementById('calGrid');
+  let html = '';
+
+  // Cellules vides avant le 1er
+  for (let i = 0; i < startOffset; i++) {
+    html += `<div style="min-height:64px;"></div>`;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const mm = String(calMonth + 1).padStart(2, '0');
+    const dd = String(d).padStart(2, '0');
+    const dateStr = `${calYear}-${mm}-${dd}`;
+    const info = byDate[dateStr];
+    const isToday = dateStr === today;
+
+    let dots = '';
+    let borderColor = 'var(--border)';
+    let bg = 'var(--panel)';
+
+    if (info) {
+      const hasReel  = info.reel > 0;
+      const hasPaper = info.paper > 0;
+      if (hasReel && hasPaper) {
+        borderColor = 'var(--green)'; bg = 'rgba(76,175,80,.08)';
+        dots = `<span style="width:8px;height:8px;border-radius:50%;background:var(--gold);display:inline-block;margin:1px"></span><span style="width:8px;height:8px;border-radius:50%;background:var(--blue);display:inline-block;margin:1px"></span>`;
+      } else if (hasReel) {
+        borderColor = 'var(--gold)'; bg = 'rgba(240,185,11,.08)';
+        dots = `<span style="width:8px;height:8px;border-radius:50%;background:var(--gold);display:inline-block;margin:1px"></span>`.repeat(Math.min(info.reel, 3));
+      } else if (hasPaper) {
+        borderColor = 'var(--blue)'; bg = 'rgba(74,144,226,.08)';
+        dots = `<span style="width:8px;height:8px;border-radius:50%;background:var(--blue);display:inline-block;margin:1px"></span>`.repeat(Math.min(info.paper, 3));
+      }
+    }
+
+    const todayBorder = isToday ? '2px solid var(--text)' : `1px solid ${borderColor}`;
+    const pnlReel  = info && info.reelPnl  ? `<div style="font-size:9px;color:${info.reelPnl >= 0 ? 'var(--green)' : 'var(--red)'};line-height:1.2">${info.reelPnl >= 0 ? '+' : ''}${info.reelPnl.toFixed(0)}$</div>` : '';
+    const pnlPaper = info && info.paperPnl ? `<div style="font-size:9px;color:var(--blue);line-height:1.2">P:${info.paperPnl >= 0 ? '+' : ''}${info.paperPnl.toFixed(0)}$</div>` : '';
+
+    html += `<div onclick="calShowDay('${dateStr}')" style="min-height:64px;background:${bg};border:${todayBorder};border-radius:8px;padding:6px 5px;cursor:${info ? 'pointer' : 'default'};transition:.15s;">
+      <div style="font-size:12px;font-weight:${isToday ? '800' : '600'};color:${isToday ? 'var(--text)' : 'var(--muted)'};margin-bottom:4px;">${d}</div>
+      <div style="display:flex;flex-wrap:wrap;margin-bottom:3px;">${dots}</div>
+      ${pnlReel}${pnlPaper}
+    </div>`;
+  }
+
+  grid.innerHTML = html;
+  document.getElementById('calDayDetail').style.display = 'none';
+}
+
+function calShowDay(dateStr) {
+  const detail = document.getElementById('calDayDetail');
+  const title  = document.getElementById('calDayTitle');
+  const list   = document.getElementById('calDayTrades');
+
+  const [y, m, d] = dateStr.split('-');
+  title.textContent = `${parseInt(d)} / ${parseInt(m)} / ${y}`;
+
+  let rows = '';
+  for (const acctId of Object.keys(ACCOUNTS)) {
+    const data = allDatas[acctId];
+    if (!data) continue;
+    const trades = (data.trades || []).filter(t => t.date === dateStr);
+    trades.forEach(t => {
+      const type = t.type || 'reel';
+      const pnlColor = t.pnl > 0 ? 'var(--green)' : t.pnl < 0 ? 'var(--red)' : 'var(--muted)';
+      rows += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+        <span style="width:8px;height:8px;border-radius:50%;background:${type === 'reel' ? 'var(--gold)' : 'var(--blue)'};flex-shrink:0;"></span>
+        <span style="font-size:11px;background:var(--panel2);border-radius:4px;padding:2px 6px;color:var(--muted);flex-shrink:0;">${ACCOUNTS[acctId].label}</span>
+        <span style="font-size:12px;font-weight:600;flex:1;">${t.actif} · ${t.sens}</span>
+        <span style="font-size:12px;font-weight:700;color:${pnlColor}">${t.pnl ? (t.pnl > 0 ? '+' : '') + t.pnl.toFixed(2) + '$' : t.rrReel + 'R'}</span>
+        <span style="font-size:11px;color:var(--muted);">${type === 'reel' ? '🟡 Réel' : '🔵 Paper'}</span>
+      </div>`;
+    });
+  }
+
+  list.innerHTML = rows || '<p style="color:var(--muted);font-size:13px;">Aucun trade ce jour.</p>';
+  detail.style.display = 'block';
+}
 
 function applyUpdate() {
   if (window._pendingSW) {
