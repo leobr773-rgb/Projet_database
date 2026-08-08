@@ -759,8 +759,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
     </div>
     <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;"></div>
     <!-- Mini-formulaire rapide -->
-    <div id="calQuickModal" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.6);align-items:center;justify-content:center;">
-      <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:24px 20px;width:min(340px,92vw);">
+    <div id="calQuickModal" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center;">
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px 16px 0 0;padding:20px 16px 32px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <span id="calQTitle" style="font-size:15px;font-weight:700;"></span>
           <button onclick="document.getElementById('calQuickModal').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
