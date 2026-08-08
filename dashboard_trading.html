@@ -774,20 +774,18 @@ tr:hover td{background:rgba(255,255,255,.02)}
             <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Actif</label>
             <input id="calQ-actif" value="BTC/USD" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:14px;">
           </div>
-          <div style="display:flex;gap:8px;">
-            <div style="flex:1;">
-              <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">PnL net $</label>
-              <div style="display:flex;gap:4px;">
-                <input id="calQ-pnl" type="text" inputmode="decimal" placeholder="-49.61" style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 10px;font-size:14px;">
-                <button type="button" onclick="toggleSign('calQ-pnl')" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0 10px;font-size:15px;cursor:pointer;font-weight:700;">±</button>
-              </div>
+          <div>
+            <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">PnL net $</label>
+            <div style="display:flex;gap:6px;">
+              <input id="calQ-pnl" type="text" inputmode="decimal" placeholder="-49.61" style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-size:15px;">
+              <button type="button" onclick="toggleSign('calQ-pnl')" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0 14px;font-size:16px;cursor:pointer;font-weight:700;">±</button>
             </div>
-            <div style="flex:1;">
-              <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">R réalisé</label>
-              <div style="display:flex;gap:4px;">
-                <input id="calQ-rr" type="text" inputmode="decimal" placeholder="-1.2" style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 10px;font-size:14px;">
-                <button type="button" onclick="toggleSign('calQ-rr')" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0 10px;font-size:15px;cursor:pointer;font-weight:700;">±</button>
-              </div>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">R réalisé</label>
+            <div style="display:flex;gap:6px;">
+              <input id="calQ-rr" type="text" inputmode="decimal" placeholder="-1.2" style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-size:15px;">
+              <button type="button" onclick="toggleSign('calQ-rr')" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0 14px;font-size:16px;cursor:pointer;font-weight:700;">±</button>
             </div>
           </div>
           <div>
