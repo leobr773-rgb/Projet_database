@@ -417,14 +417,19 @@ tr:hover td{background:rgba(255,255,255,.02)}
         placeholder="Ex : BTC/USD haussier H4, FVG identifié à 42 800$. Surveiller BTC/ETH/XRP..."></textarea>
     </div>
 
-    <div class="section-title">Checklist Pré-Trade</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div class="section-title" style="margin-bottom:0">Checklist Pré-Trade</div>
+      <button onclick="toggleChecklistEdit()" id="clEditBtn" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">✏️ Modifier</button>
+    </div>
     <div class="card mb-16">
-      <div class="checklist" id="checklist">
-        <label class="check-item"><input type="checkbox" data-idx="0"><span>Bias H4 défini et documenté</span></label>
-        <label class="check-item"><input type="checkbox" data-idx="1"><span>Dans la killzone (London / New York)</span></label>
-        <label class="check-item"><input type="checkbox" data-idx="2"><span>Setup ICT identifié (LS / FVG / BB)</span></label>
-        <label class="check-item"><input type="checkbox" data-idx="3"><span>RR ≥ 2:1 minimum calculé</span></label>
-        <label class="check-item"><input type="checkbox" data-idx="4"><span>Risque ≤ 0.5% du compte</span></label>
+      <div class="checklist" id="checklist"></div>
+      <div id="clEditor" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
+        <div id="clEditorItems" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+        <button onclick="addChecklistItem()" style="width:100%;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:8px;padding:9px;font-size:13px;cursor:pointer;margin-bottom:10px;">+ Ajouter une règle</button>
+        <div style="display:flex;gap:8px;">
+          <button onclick="saveChecklistEdit()" style="flex:1;background:var(--green);border:none;color:#fff;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">💾 Sauvegarder</button>
+          <button onclick="toggleChecklistEdit()" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:10px 14px;font-size:13px;cursor:pointer;">Annuler</button>
+        </div>
       </div>
     </div>
 
@@ -839,9 +844,19 @@ let selectedType = 'reel';
 let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth();
 
+const DEFAULT_CHECKLIST_LABELS = [
+  'Bias H4 défini et documenté',
+  'Dans la killzone (London / New York)',
+  'Setup ICT identifié (LS / FVG / BB)',
+  'RR ≥ 2:1 minimum calculé',
+  'Risque ≤ 0.5% du compte',
+];
+
 const EMPTY_DATA = () => ({
   trades: [],
   checklist: [false, false, false, false, false],
+  checklistLabels: [...DEFAULT_CHECKLIST_LABELS],
+  calComments: {},
   bias: '',
   journals: {}
 });
@@ -931,6 +946,8 @@ async function unlockAccount(accountId, pwd) {
     }
     if (!data.journals) data.journals = {};
     if (!data.checklist) data.checklist = [false,false,false,false,false];
+    if (!data.checklistLabels) data.checklistLabels = [...DEFAULT_CHECKLIST_LABELS];
+    if (!data.calComments) data.calComments = {};
     aesKeys[accountId]  = key;
     allDatas[accountId] = data;
   } catch(_) {
@@ -1461,17 +1478,62 @@ document.getElementById('biasTextarea').addEventListener('input', e => {
 });
 
 function loadChecklist() {
-  document.querySelectorAll('#checklist .check-item').forEach(el => {
-    const cb = el.querySelector('input[type=checkbox]');
+  if (!appData.checklistLabels) appData.checklistLabels = [...DEFAULT_CHECKLIST_LABELS];
+  // Ajuster le tableau checklist si le nombre d'items a changé
+  while (appData.checklist.length < appData.checklistLabels.length) appData.checklist.push(false);
+  const container = document.getElementById('checklist');
+  container.innerHTML = appData.checklistLabels.map((label, idx) => `
+    <label class="check-item ${appData.checklist[idx] ? 'checked' : ''}" data-idx="${idx}">
+      <input type="checkbox" data-idx="${idx}" ${appData.checklist[idx] ? 'checked' : ''}>
+      <span>${label}</span>
+    </label>`).join('');
+  container.querySelectorAll('.check-item').forEach(el => {
+    const cb = el.querySelector('input');
     const idx = parseInt(cb.dataset.idx);
-    cb.checked = appData.checklist[idx] || false;
-    el.classList.toggle('checked', cb.checked);
     cb.addEventListener('change', () => {
       appData.checklist[idx] = cb.checked;
       el.classList.toggle('checked', cb.checked);
       persist();
     });
   });
+}
+
+function toggleChecklistEdit() {
+  const editor = document.getElementById('clEditor');
+  const open = editor.style.display === 'none';
+  if (open) {
+    if (!appData.checklistLabels) appData.checklistLabels = [...DEFAULT_CHECKLIST_LABELS];
+    document.getElementById('clEditorItems').innerHTML = appData.checklistLabels.map((lbl, i) => `
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input type="text" value="${lbl.replace(/"/g,'&quot;')}" data-cl-idx="${i}" style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:13px;">
+        <button onclick="removeChecklistItem(${i})" style="background:var(--red);border:none;color:#fff;border-radius:6px;width:30px;height:34px;font-size:14px;cursor:pointer;flex-shrink:0;">✕</button>
+      </div>`).join('');
+    document.getElementById('clEditBtn').textContent = '✕ Fermer';
+  } else {
+    document.getElementById('clEditBtn').textContent = '✏️ Modifier';
+  }
+  editor.style.display = open ? 'block' : 'none';
+}
+
+function addChecklistItem() {
+  if (!appData.checklistLabels) appData.checklistLabels = [...DEFAULT_CHECKLIST_LABELS];
+  appData.checklistLabels.push('Nouvelle règle');
+  appData.checklist.push(false);
+  toggleChecklistEdit(); toggleChecklistEdit(); // refresh editor
+}
+
+function removeChecklistItem(idx) {
+  appData.checklistLabels.splice(idx, 1);
+  appData.checklist.splice(idx, 1);
+  toggleChecklistEdit(); toggleChecklistEdit();
+}
+
+function saveChecklistEdit() {
+  const inputs = document.querySelectorAll('#clEditorItems input[data-cl-idx]');
+  inputs.forEach((inp, i) => { appData.checklistLabels[i] = inp.value.trim() || 'Règle ' + (i+1); });
+  persist();
+  loadChecklist();
+  toggleChecklistEdit();
 }
 
 function loadJournal() {
@@ -1777,16 +1839,19 @@ function renderCalendar() {
     const todayBorder = isToday ? '2px solid var(--text)' : `1px solid ${borderColor}`;
     const pnlReel  = info && info.reelPnl  ? `<div style="font-size:9px;color:${info.reelPnl >= 0 ? 'var(--green)' : 'var(--red)'};line-height:1.2">${info.reelPnl >= 0 ? '+' : ''}${info.reelPnl.toFixed(0)}$</div>` : '';
     const pnlPaper = info && info.paperPnl ? `<div style="font-size:9px;color:var(--blue);line-height:1.2">P:${info.paperPnl >= 0 ? '+' : ''}${info.paperPnl.toFixed(0)}$</div>` : '';
+    const hasComment = appData.calComments && appData.calComments[dateStr];
+    const commentDot = hasComment ? `<span style="font-size:9px;color:var(--muted);">💬</span>` : '';
 
     html += `<div style="min-height:72px;background:${bg};border:${todayBorder};border-radius:8px;padding:5px 4px;transition:.15s;position:relative;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;">
         <span style="font-size:12px;font-weight:${isToday ? '800' : '600'};color:${isToday ? 'var(--text)' : 'var(--muted)'};" onclick="calShowDay('${dateStr}')">${d}</span>
-        <span style="display:flex;gap:2px;">
-          <button onclick="event.stopPropagation();calQuickAdd('${dateStr}','reel')"  title="Ajouter trade réel"  style="background:rgba(240,185,11,.2);border:none;color:var(--gold);border-radius:4px;width:18px;height:18px;font-size:10px;cursor:pointer;padding:0;line-height:1;">+</button>
-          <button onclick="event.stopPropagation();calQuickAdd('${dateStr}','paper')" title="Ajouter trade paper" style="background:rgba(74,144,226,.2);border:none;color:var(--blue);border-radius:4px;width:18px;height:18px;font-size:10px;cursor:pointer;padding:0;line-height:1;">+</button>
+        <span style="display:flex;gap:2px;align-items:center;">
+          ${commentDot}
+          <button onclick="event.stopPropagation();calQuickAdd('${dateStr}','reel')"  title="Trade réel"  style="background:rgba(240,185,11,.2);border:none;color:var(--gold);border-radius:4px;width:18px;height:18px;font-size:10px;cursor:pointer;padding:0;line-height:1;">+</button>
+          <button onclick="event.stopPropagation();calQuickAdd('${dateStr}','paper')" title="Trade paper" style="background:rgba(74,144,226,.2);border:none;color:var(--blue);border-radius:4px;width:18px;height:18px;font-size:10px;cursor:pointer;padding:0;line-height:1;">+</button>
         </span>
       </div>
-      <div onclick="calShowDay('${dateStr}')" style="cursor:${info ? 'pointer' : 'default'}">
+      <div onclick="calShowDay('${dateStr}')" style="cursor:pointer">
         <div style="display:flex;flex-wrap:wrap;margin-bottom:2px;">${dots}</div>
         ${pnlReel}${pnlPaper}
       </div>
@@ -1824,7 +1889,28 @@ function calShowDay(dateStr) {
   }
 
   list.innerHTML = rows || '<p style="color:var(--muted);font-size:13px;">Aucun trade ce jour.</p>';
+
+  // Commentaire
+  if (!appData.calComments) appData.calComments = {};
+  const existing = appData.calComments[dateStr] || '';
+  list.innerHTML += `
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+      <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">💬 Commentaire</div>
+      <textarea id="calComment-${dateStr}" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-size:13px;resize:vertical;min-height:80px;" placeholder="Analyse, ressenti, leçon du jour...">${existing}</textarea>
+      <button onclick="saveCalComment('${dateStr}')" style="margin-top:8px;background:var(--gold);border:none;color:#000;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;">💾 Sauvegarder</button>
+    </div>`;
+
   detail.style.display = 'block';
+}
+
+function saveCalComment(dateStr) {
+  if (!appData.calComments) appData.calComments = {};
+  const val = document.getElementById('calComment-' + dateStr).value.trim();
+  if (val) appData.calComments[dateStr] = val;
+  else delete appData.calComments[dateStr];
+  persist();
+  renderCalendar();
+  calShowDay(dateStr);
 }
 
 let calQDate = '';
