@@ -2006,10 +2006,8 @@ function restoreKrakenHistory10k() {
     {date:'2026-08-17',actif:'BTC/USD',sens:'Achat',lots:0.666,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.85,risque:0.4,pnl:-33.90,solde:10070.92,emotion:'—',note:''},
     {date:'2026-08-20',actif:'BTC/USD',sens:'Achat',lots:0.144,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.43, risque:0.4,pnl:57.30, solde:10128.22,emotion:'—',note:''},
   ];
-  if (!appData) return;
   if (!confirm('Vider tous les trades du compte 10K-A et importer les 12 positions ?')) return;
-  appData.trades = [];
-  _forceImport(trades);
+  _forceImportAccount('10k', trades);
 }
 
 function restoreKrakenHistory10k2() {
@@ -2024,10 +2022,8 @@ function restoreKrakenHistory10k2() {
     {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.177,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.63, risque:0.4,pnl:25.33, solde:10034.40,emotion:'—',note:''},
     {date:'2026-08-20',actif:'BTC/USD',sens:'Achat',lots:0.144,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:1.56, risque:0.4,pnl:62.44, solde:10096.84,emotion:'—',note:''},
   ];
-  if (!appData) return;
   if (!confirm('Vider tous les trades du compte 10K-B et importer les 9 positions ?')) return;
-  appData.trades = [];
-  _forceImport(trades);
+  _forceImportAccount('10k2', trades);
 }
 
 function restoreKrakenHistory10k3() {
@@ -2036,10 +2032,8 @@ function restoreKrakenHistory10k3() {
     {date:'2026-08-17',actif:'BTC/USD',sens:'Achat',lots:0.666,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.85,risque:0.4,pnl:-33.90,solde:9959.33, emotion:'—',note:''},
     {date:'2026-08-20',actif:'BTC/USD',sens:'Achat',lots:0.144,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:1.61, risque:0.4,pnl:64.51, solde:10023.84,emotion:'—',note:''},
   ];
-  if (!appData) return;
   if (!confirm('Vider tous les trades du compte 10K-C et importer les 3 positions ?')) return;
-  appData.trades = [];
-  _forceImport(trades);
+  _forceImportAccount('10k3', trades);
 }
 
 function toggleSign(id) {
@@ -2049,8 +2043,18 @@ function toggleSign(id) {
 }
 
 function _forceImport(trades) {
+  _forceImportAccount(currentAccount, trades);
+}
+
+async function _forceImportAccount(accountId, trades) {
+  if (!aesKeys[accountId]) {
+    alert('Compte ' + accountId + ' non déverrouillé. Déverrouillez-le d\'abord.');
+    return;
+  }
+  const data = allDatas[accountId];
+  data.trades = [];
   trades.forEach((t, i) => {
-    appData.trades.push({
+    data.trades.push({
       id: 'rst_' + Date.now() + '_' + i,
       date: t.date, actif: t.actif, sens: t.sens, lots: t.lots,
       setup: t.setup, session: t.session, qualite: t.qualite,
@@ -2058,9 +2062,15 @@ function _forceImport(trades) {
       pnl: t.pnl, solde: t.solde, emotion: t.emotion, note: t.note, capture: null
     });
   });
-  persist();
-  renderTrades();
-  renderCockpit();
+  const acct = ACCOUNTS[accountId];
+  const enc = await encryptData(aesKeys[accountId], data);
+  localStorage.setItem(acct.storageKey, JSON.stringify(enc));
+  // Rafraîchir si c'est le compte actif
+  if (accountId === currentAccount) {
+    renderTrades();
+    renderCockpit();
+  }
+  alert('✅ ' + trades.length + ' trades importés dans ' + (acct.label || accountId));
 }
 
 // ─────────────────────────────────────────────
