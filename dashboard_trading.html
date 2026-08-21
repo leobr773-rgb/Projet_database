@@ -603,6 +603,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
     </div>
 
     <!-- ── Récupération de données ── -->
+    <div style="margin-top:16px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v41</b></span>
+      <button onclick="forceUpdate()" style="background:var(--blue);border:none;color:#fff;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🔄 Forcer la mise à jour</button>
+    </div>
+
     <div id="recoveryPanel" style="margin-top:24px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;cursor:pointer;" onclick="toggleRecovery()">
         <span style="font-size:13px;font-weight:600;color:var(--muted);">🔧 Récupération de données</span>
@@ -2076,6 +2081,19 @@ async function _forceImportAccount(accountId, trades) {
 // ─────────────────────────────────────────────
 //  RÉCUPÉRATION DE DONNÉES
 // ─────────────────────────────────────────────
+async function forceUpdate() {
+  if ('serviceWorker' in navigator) {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg) {
+      await reg.unregister();
+    }
+    // Vider tous les caches
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => caches.delete(k)));
+  }
+  window.location.reload(true);
+}
+
 function toggleRecovery() {
   const body = document.getElementById('recoveryBody');
   const arrow = document.getElementById('recoveryArrow');
