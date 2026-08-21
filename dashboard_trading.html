@@ -594,9 +594,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;max-width:400px;margin:0 auto;text-align:left;">
         <div style="font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">⚡ Restauration rapide</div>
         <div style="display:flex;flex-direction:column;gap:8px;">
-          <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🥇 7 trades — Compte 10K-A <span style="float:right;opacity:.6;font-weight:400">juil 2026</span></button>
-          <button onclick="restoreKrakenHistory10k2()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🏆 7 trades — Compte 10K-B <span style="float:right;opacity:.6;font-weight:400">juil 2026</span></button>
-          <button onclick="restoreKrakenHistory10k3()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🎯 7 trades — Compte 10K-C <span style="float:right;opacity:.6;font-weight:400">juil 2026</span></button>
+          <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🥇 12 trades — Compte 10K-A <span style="float:right;opacity:.6;font-weight:400">juil→août 2026</span></button>
+          <button onclick="restoreKrakenHistory10k2()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🏆 9 trades — Compte 10K-B <span style="float:right;opacity:.6;font-weight:400">août 2026</span></button>
+          <button onclick="restoreKrakenHistory10k3()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🎯 3 trades — Compte 10K-C <span style="float:right;opacity:.6;font-weight:400">août 2026</span></button>
         </div>
         <div id="emptyRestoreMsg" style="margin-top:10px;font-size:12px;min-height:18px;"></div>
       </div>
@@ -615,7 +615,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Importe l'historique extrait de tes captures Kraken dans le compte actif</div>
           <div style="display:flex;flex-direction:column;gap:8px;">
             <button onclick="restoreKrakenHistory5k()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🥈 Restaurer 3 trades — Compte 5K (juil 2026)</button>
-            <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🥇 Restaurer 7 trades — Compte 10K (14→28 juil 2026)</button>
+            <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🥇 Restaurer 12 trades — Compte 10K-A (juil→août 2026)</button>
           </div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
@@ -1195,8 +1195,10 @@ function calcStats(trades) {
 // ─────────────────────────────────────────────
 //  COCKPIT
 // ─────────────────────────────────────────────
+const realTrades = () => (appData.trades || []).filter(t => (t.type || 'reel') !== 'paper');
+
 function renderCockpit() {
-  const stats = calcStats(appData.trades);
+  const stats = calcStats(realTrades());
   const totalPnl = stats ? stats.totalPnl : 0;
   const ddAbs = stats ? stats.ddAbs : 0;
   const objPct = Math.min(100, Math.max(0, totalPnl  / OBJECTIF_ABS() * 100));
@@ -1580,9 +1582,8 @@ function selectType(t) {
 
 document.getElementById('f-pnl').addEventListener('input', () => {
   const pnl = parseFloat(document.getElementById('f-pnl').value) || 0;
-  const lastSolde = appData.trades.length
-    ? (appData.trades[appData.trades.length - 1].solde || SOLDE_INIT())
-    : SOLDE_INIT();
+  const rt = realTrades();
+  const lastSolde = rt.length ? (rt[rt.length - 1].solde || SOLDE_INIT()) : SOLDE_INIT();
   if (pnl !== 0) document.getElementById('f-solde').value = (lastSolde + pnl).toFixed(2);
 });
 
@@ -1593,9 +1594,8 @@ async function saveTrade() {
   if (rrReelRaw === '') { alert('Le champ R réalisé est obligatoire.'); return; }
   const rrReel = parseFloat(rrReelRaw);
   const pnl = parseFloat(document.getElementById('f-pnl').value) || 0;
-  const lastSolde = appData.trades.length
-    ? (appData.trades[appData.trades.length - 1].solde || SOLDE_INIT())
-    : SOLDE_INIT();
+  const _rt = realTrades();
+  const lastSolde = _rt.length ? (_rt[_rt.length - 1].solde || SOLDE_INIT()) : SOLDE_INIT();
   let solde = parseFloat(document.getElementById('f-solde').value);
   if (isNaN(solde)) solde = pnl !== 0 ? lastSolde + pnl : lastSolde;
 
@@ -1954,9 +1954,8 @@ async function calQuickSave() {
   const rrReel = parseFloat(rrRaw);
   if (isNaN(rrReel)) { alert('R réalisé invalide.'); return; }
   const pnl = parseFloat(document.getElementById('calQ-pnl').value) || 0;
-  const lastSolde = appData.trades.length
-    ? (appData.trades[appData.trades.length - 1].solde || SOLDE_INIT())
-    : SOLDE_INIT();
+  const _rtQ = realTrades();
+  const lastSolde = _rtQ.length ? (_rtQ[_rtQ.length - 1].solde || SOLDE_INIT()) : SOLDE_INIT();
 
   const trade = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2),
@@ -1996,45 +1995,48 @@ function restoreKrakenHistory10k() {
     {date:'2026-07-14',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:0.71, risque:0.4,pnl:28.50, solde:10028.50,emotion:'—',note:''},
     {date:'2026-07-14',actif:'BTC/USD',sens:'Vente',lots:0.262,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:0.77, risque:0.4,pnl:30.75, solde:10059.25,emotion:'—',note:''},
     {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.531,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.68, risque:0.4,pnl:27.34, solde:10086.59,emotion:'—',note:''},
-    {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.27, setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.04,risque:0.4,pnl:-1.47, solde:10085.12,emotion:'—',note:''},
+    {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.270,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.04,risque:0.4,pnl:-1.47, solde:10085.12,emotion:'—',note:''},
     {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.71, risque:0.4,pnl:28.20, solde:10113.32,emotion:'—',note:''},
     {date:'2026-07-27',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.38, risque:0.4,pnl:15.23, solde:10128.55,emotion:'—',note:''},
-    {date:'2026-07-28',actif:'BTC/USD',sens:'Vente',lots:0.25, setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.80, risque:0.4,pnl:71.88, solde:10200.43,emotion:'—',note:''},
+    {date:'2026-07-28',actif:'BTC/USD',sens:'Vente',lots:0.250,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.80, risque:0.4,pnl:71.88, solde:10200.43,emotion:'—',note:''},
+    {date:'2026-07-30',actif:'BTC/USD',sens:'Achat',lots:0.140,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-0.98,risque:0.4,pnl:-39.23,solde:10161.20,emotion:'—',note:''},
+    {date:'2026-08-04',actif:'BTC/USD',sens:'Vente',lots:0.178,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-1.24,risque:0.4,pnl:-49.61,solde:10111.59,emotion:'—',note:''},
+    {date:'2026-08-06',actif:'BTC/USD',sens:'Achat',lots:0.141,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-0.17,risque:0.4,pnl:-6.77, solde:10104.82,emotion:'—',note:''},
+    {date:'2026-08-17',actif:'BTC/USD',sens:'Achat',lots:0.666,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.85,risque:0.4,pnl:-33.90,solde:10070.92,emotion:'—',note:''},
+    {date:'2026-08-20',actif:'BTC/USD',sens:'Achat',lots:0.144,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.43, risque:0.4,pnl:57.30, solde:10128.22,emotion:'—',note:''},
   ];
   if (!appData) return;
-  if (!confirm('Vider tous les trades du compte 10K et importer les 7 positions ?')) return;
+  if (!confirm('Vider tous les trades du compte 10K-A et importer les 12 positions ?')) return;
   appData.trades = [];
   _forceImport(trades);
 }
 
 function restoreKrakenHistory10k2() {
   const trades = [
-    {date:'2026-07-14',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:0.71, risque:0.4,pnl:28.50, solde:10028.50,emotion:'—',note:''},
-    {date:'2026-07-14',actif:'BTC/USD',sens:'Vente',lots:0.262,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:0.77, risque:0.4,pnl:30.75, solde:10059.25,emotion:'—',note:''},
-    {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.531,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.68, risque:0.4,pnl:27.34, solde:10086.59,emotion:'—',note:''},
-    {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.27, setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.04,risque:0.4,pnl:-1.47, solde:10085.12,emotion:'—',note:''},
-    {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.71, risque:0.4,pnl:28.20, solde:10113.32,emotion:'—',note:''},
-    {date:'2026-07-27',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.38, risque:0.4,pnl:15.23, solde:10128.55,emotion:'—',note:''},
-    {date:'2026-07-28',actif:'BTC/USD',sens:'Vente',lots:0.25, setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.80, risque:0.4,pnl:71.88, solde:10200.43,emotion:'—',note:''},
+    {date:'2026-08-04',actif:'BTC/USD',sens:'Vente',lots:0.178,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-1.26,risque:0.4,pnl:-50.36,solde:9949.64, emotion:'—',note:''},
+    {date:'2026-08-06',actif:'BTC/USD',sens:'Achat',lots:0.141,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-0.17,risque:0.4,pnl:-6.77, solde:9942.87, emotion:'—',note:''},
+    {date:'2026-08-17',actif:'BTC/USD',sens:'Achat',lots:0.666,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.85,risque:0.4,pnl:-33.90,solde:9908.97, emotion:'—',note:''},
+    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.137,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.46,risque:0.4,pnl:-18.54,solde:9890.43, emotion:'—',note:''},
+    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.206,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:1.07, risque:0.4,pnl:42.64, solde:9933.07, emotion:'—',note:''},
+    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.184,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.51, risque:0.4,pnl:20.38, solde:9953.45, emotion:'—',note:''},
+    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.165,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.39, risque:0.4,pnl:55.62, solde:10009.07,emotion:'—',note:''},
+    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.177,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.63, risque:0.4,pnl:25.33, solde:10034.40,emotion:'—',note:''},
+    {date:'2026-08-20',actif:'BTC/USD',sens:'Achat',lots:0.144,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:1.56, risque:0.4,pnl:62.44, solde:10096.84,emotion:'—',note:''},
   ];
   if (!appData) return;
-  if (!confirm('Vider tous les trades du compte 10K-B et importer les 7 positions ?')) return;
+  if (!confirm('Vider tous les trades du compte 10K-B et importer les 9 positions ?')) return;
   appData.trades = [];
   _forceImport(trades);
 }
 
 function restoreKrakenHistory10k3() {
   const trades = [
-    {date:'2026-07-14',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:0.71, risque:0.4,pnl:28.50, solde:10028.50,emotion:'—',note:''},
-    {date:'2026-07-14',actif:'BTC/USD',sens:'Vente',lots:0.262,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:0.77, risque:0.4,pnl:30.75, solde:10059.25,emotion:'—',note:''},
-    {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.531,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.68, risque:0.4,pnl:27.34, solde:10086.59,emotion:'—',note:''},
-    {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.27, setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.04,risque:0.4,pnl:-1.47, solde:10085.12,emotion:'—',note:''},
-    {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.71, risque:0.4,pnl:28.20, solde:10113.32,emotion:'—',note:''},
-    {date:'2026-07-27',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.38, risque:0.4,pnl:15.23, solde:10128.55,emotion:'—',note:''},
-    {date:'2026-07-28',actif:'BTC/USD',sens:'Vente',lots:0.25, setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.80, risque:0.4,pnl:71.88, solde:10200.43,emotion:'—',note:''},
+    {date:'2026-08-06',actif:'BTC/USD',sens:'Achat',lots:0.141,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-0.17,risque:0.4,pnl:-6.77, solde:9993.23, emotion:'—',note:''},
+    {date:'2026-08-17',actif:'BTC/USD',sens:'Achat',lots:0.666,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.85,risque:0.4,pnl:-33.90,solde:9959.33, emotion:'—',note:''},
+    {date:'2026-08-20',actif:'BTC/USD',sens:'Achat',lots:0.144,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:1.61, risque:0.4,pnl:64.51, solde:10023.84,emotion:'—',note:''},
   ];
   if (!appData) return;
-  if (!confirm('Vider tous les trades du compte 10K-C et importer les 7 positions ?')) return;
+  if (!confirm('Vider tous les trades du compte 10K-C et importer les 3 positions ?')) return;
   appData.trades = [];
   _forceImport(trades);
 }
@@ -2240,7 +2242,7 @@ function renderTrades() {
 //  ANALYSE
 // ─────────────────────────────────────────────
 function renderAnalyse() {
-  const stats = calcStats(appData.trades);
+  const stats = calcStats(realTrades());
   if (!stats) {
     ['an-esp','an-fp','an-rtotal','an-dd'].forEach(id => document.getElementById(id).textContent = '—');
     document.getElementById('setupBars').innerHTML = '<p style="color:var(--muted);font-size:13px">Aucune donnée.</p>';
@@ -2294,8 +2296,8 @@ function renderAnalyse() {
     : '<p style="color:var(--muted);font-size:13px">Aucune donnée.</p>';
 
   // RR comparison
-  const prevArr = appData.trades.filter(t => t.rrPrevu > 0).map(t => t.rrPrevu);
-  const reelArr = appData.trades.map(t => t.rrReel);
+  const prevArr = realTrades().filter(t => t.rrPrevu > 0).map(t => t.rrPrevu);
+  const reelArr = realTrades().map(t => t.rrReel);
   const avgPrev = prevArr.length ? prevArr.reduce((a, b) => a + b, 0) / prevArr.length : 0;
   const avgReel = reelArr.length ? reelArr.reduce((a, b) => a + b, 0) / reelArr.length : 0;
   const maxRR = Math.max(Math.abs(avgPrev), Math.abs(avgReel), 1);
@@ -2351,7 +2353,7 @@ function renderRdist(rs) {
 //  MENTAL
 // ─────────────────────────────────────────────
 function renderMental() {
-  const stats = calcStats(appData.trades);
+  const stats = calcStats(realTrades());
   const noEmo = !stats || !Object.keys(stats.emotions).length;
 
   if (noEmo) {
