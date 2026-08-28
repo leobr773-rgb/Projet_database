@@ -595,7 +595,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div style="font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">⚡ Restauration rapide</div>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🥇 23 trades — Compte 10K-A <span style="float:right;opacity:.6;font-weight:400">juil→août 2026</span></button>
-          <button onclick="restoreKrakenHistory10k2()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🏆 9 trades — Compte 10K-B <span style="float:right;opacity:.6;font-weight:400">août 2026</span></button>
+          <button onclick="restoreKrakenHistory10k2()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🏆 20 trades — Compte 10K-B <span style="float:right;opacity:.6;font-weight:400">août 2026</span></button>
           <button onclick="restoreKrakenHistory10k3()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🎯 3 trades — Compte 10K-C <span style="float:right;opacity:.6;font-weight:400">août 2026</span></button>
         </div>
         <div id="emptyRestoreMsg" style="margin-top:10px;font-size:12px;min-height:18px;"></div>
@@ -621,7 +621,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <div style="display:flex;flex-direction:column;gap:8px;">
             <button onclick="wipeAllAccounts()" style="background:#c0392b;border:none;color:#fff;padding:11px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🗑️ Vider TOUS les trades (A + B + C)</button>
             <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🥇 Restaurer 23 trades — Compte 10K-A (juil→août 2026)</button>
-            <button onclick="restoreKrakenHistory10k2()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🏆 Restaurer 9 trades — Compte 10K-B (août 2026)</button>
+            <button onclick="restoreKrakenHistory10k2()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🏆 Restaurer 20 trades — Compte 10K-B (août 2026)</button>
             <button onclick="restoreKrakenHistory10k3()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🎯 Restaurer 3 trades — Compte 10K-C (août 2026)</button>
           </div>
         </div>
@@ -2029,17 +2029,28 @@ function restoreKrakenHistory10k() {
 
 function restoreKrakenHistory10k2() {
   const trades = [
-    {date:'2026-08-04',actif:'BTC/USD',sens:'Vente',lots:0.178,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-1.26,risque:0.4,pnl:-50.36,solde:9949.64, emotion:'—',note:''},
-    {date:'2026-08-06',actif:'BTC/USD',sens:'Achat',lots:0.141,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-0.17,risque:0.4,pnl:-6.77, solde:9942.87, emotion:'—',note:''},
-    {date:'2026-08-17',actif:'BTC/USD',sens:'Achat',lots:0.666,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.85,risque:0.4,pnl:-33.90,solde:9908.97, emotion:'—',note:''},
-    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.137,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.46,risque:0.4,pnl:-18.54,solde:9890.43, emotion:'—',note:''},
-    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.206,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:1.07, risque:0.4,pnl:42.64, solde:9933.07, emotion:'—',note:''},
-    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.184,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.51, risque:0.4,pnl:20.38, solde:9953.45, emotion:'—',note:''},
-    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.165,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.39, risque:0.4,pnl:55.62, solde:10009.07,emotion:'—',note:''},
-    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.177,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.63, risque:0.4,pnl:25.33, solde:10034.40,emotion:'—',note:''},
-    {date:'2026-08-20',actif:'BTC/USD',sens:'Achat',lots:0.144,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:1.56, risque:0.4,pnl:62.44, solde:10096.84,emotion:'—',note:''},
+    {date:'2026-08-04',actif:'BTC/USD',sens:'Vente',lots:0.178,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-1.26,risque:0.4,pnl:-50.36, solde:9949.64, emotion:'—',note:''},
+    {date:'2026-08-06',actif:'BTC/USD',sens:'Achat',lots:0.141,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-0.17,risque:0.4,pnl:-6.77,  solde:9942.87, emotion:'—',note:''},
+    {date:'2026-08-17',actif:'BTC/USD',sens:'Achat',lots:0.666,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.85,risque:0.4,pnl:-33.90, solde:9908.97, emotion:'—',note:''},
+    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.137,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.46,risque:0.4,pnl:-18.54, solde:9890.43, emotion:'—',note:''},
+    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.206,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:1.07, risque:0.4,pnl:42.64,  solde:9933.07, emotion:'—',note:''},
+    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.184,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.51, risque:0.4,pnl:20.38,  solde:9953.45, emotion:'—',note:''},
+    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.165,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.39, risque:0.4,pnl:55.62,  solde:10009.07,emotion:'—',note:''},
+    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.177,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.63, risque:0.4,pnl:25.33,  solde:10034.40,emotion:'—',note:''},
+    {date:'2026-08-20',actif:'BTC/USD',sens:'Achat',lots:0.144,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:1.56, risque:0.4,pnl:62.44,  solde:10096.84,emotion:'—',note:''},
+    {date:'2026-08-21',actif:'BTC/USD',sens:'Achat',lots:0.066,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.13, risque:0.4,pnl:5.28,   solde:10102.12,emotion:'—',note:''},
+    {date:'2026-08-24',actif:'BTC/USD',sens:'Achat',lots:0.096,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-2.42,risque:0.4,pnl:-96.71, solde:10005.41,emotion:'—',note:''},
+    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.165,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-2.49,risque:0.4,pnl:-99.41, solde:9906.00, emotion:'—',note:''},
+    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.224,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:2.87, risque:0.4,pnl:114.70, solde:10020.70,emotion:'—',note:''},
+    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.117,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-2.44,risque:0.4,pnl:-97.65, solde:9923.05, emotion:'—',note:''},
+    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.128,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.23,risque:0.4,pnl:-9.11,  solde:9913.94, emotion:'—',note:''},
+    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.162,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.20,risque:0.4,pnl:-8.18,  solde:9905.76, emotion:'—',note:''},
+    {date:'2026-08-26',actif:'BTC/USD',sens:'Vente',lots:0.500,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:11.17,risque:0.4,pnl:446.90, solde:10352.66,emotion:'—',note:''},
+    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.199,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-2.49,risque:0.4,pnl:-99.68, solde:10252.98,emotion:'—',note:''},
+    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.500,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:2.32, risque:0.4,pnl:92.85,  solde:10345.83,emotion:'—',note:''},
+    {date:'2026-08-27',actif:'BTC/USD',sens:'Achat',lots:0.146,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:3.01, risque:0.4,pnl:120.50, solde:10466.33,emotion:'—',note:''},
   ];
-  if (!confirm('Vider tous les trades du compte 10K-B et importer les 9 positions ?')) return;
+  if (!confirm('Vider tous les trades du compte 10K-B et importer les 20 positions ?')) return;
   _forceImportAccount('10k2', trades);
 }
 
