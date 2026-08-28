@@ -617,8 +617,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div id="recoveryStatus" style="font-size:13px;color:var(--muted);margin-bottom:12px;">Cliquez sur "Scanner" pour chercher vos anciens trades.</div>
         <div style="background:var(--panel2);border:1px solid var(--gold);border-radius:10px;padding:14px;margin-bottom:16px;">
           <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:6px;">⚡ Restauration rapide — Historique Kraken</div>
-          <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Importe l'historique extrait de tes captures Kraken dans le compte actif</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Chaque bouton écrit directement dans le compte ciblé, peu importe le compte actif</div>
           <div style="display:flex;flex-direction:column;gap:8px;">
+            <button onclick="wipeAllAccounts()" style="background:#c0392b;border:none;color:#fff;padding:11px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🗑️ Vider TOUS les trades (A + B + C)</button>
             <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🥇 Restaurer 12 trades — Compte 10K-A (juil→août 2026)</button>
             <button onclick="restoreKrakenHistory10k2()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🏆 Restaurer 9 trades — Compte 10K-B (août 2026)</button>
             <button onclick="restoreKrakenHistory10k3()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🎯 Restaurer 3 trades — Compte 10K-C (août 2026)</button>
@@ -2049,6 +2050,22 @@ function toggleSign(id) {
 
 function _forceImport(trades) {
   _forceImportAccount(currentAccount, trades);
+}
+
+async function wipeAllAccounts() {
+  if (!confirm('⚠️ Vider TOUS les trades des 3 comptes (10K-A, B, C) ? Cette action est irréversible.')) return;
+  let done = [];
+  for (const id of ['10k','10k2','10k3']) {
+    if (!aesKeys[id]) { continue; }
+    allDatas[id].trades = [];
+    const enc = await encryptData(aesKeys[id], allDatas[id]);
+    localStorage.setItem(ACCOUNTS[id].storageKey, JSON.stringify(enc));
+    done.push(ACCOUNTS[id].label);
+  }
+  if (done.length === 0) { alert('Aucun compte déverrouillé.'); return; }
+  renderTrades();
+  renderCockpit();
+  alert('✅ Trades effacés : ' + done.join(', '));
 }
 
 async function _forceImportAccount(accountId, trades) {
