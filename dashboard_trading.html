@@ -841,6 +841,7 @@ let aesKey  = null;   // alias → aesKeys[currentAccount]
 let appData = null;   // alias → allDatas[currentAccount]
 let rdistChartInst = null;
 let selectedSens = '';
+let editingTradeId = null;
 let selectedType = 'reel';
 let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth();
@@ -1589,6 +1590,54 @@ document.getElementById('f-pnl').addEventListener('input', () => {
 
 document.getElementById('saveTrade').addEventListener('click', saveTrade);
 
+function editTrade(id) {
+  const t = appData.trades.find(x => x.id === id);
+  if (!t) return;
+  editingTradeId = id;
+
+  document.getElementById('f-date').value = t.date || '';
+  document.getElementById('f-actif').value = t.actif || 'BTC/USD';
+  document.getElementById('f-lots').value = t.lots || '';
+  document.getElementById('f-setup').value = t.setup || '';
+  document.getElementById('f-session').value = t.session || '';
+  document.getElementById('f-qualite').value = t.qualite || 3;
+  document.getElementById('f-rrPrevu').value = t.rrPrevu || '';
+  document.getElementById('f-rrReel').value = t.rrReel !== undefined ? t.rrReel : '';
+  document.getElementById('f-risque').value = t.risque || 0.5;
+  document.getElementById('f-pnl').value = t.pnl || '';
+  document.getElementById('f-solde').value = t.solde || '';
+  document.getElementById('f-emotion').value = t.emotion || 'Discipliné';
+  document.getElementById('f-note').value = t.note || '';
+
+  // Sens
+  selectedSens = t.sens || 'Achat';
+  document.getElementById('btn-buy').className  = 'sens-btn' + (selectedSens === 'Achat' ? ' active-buy'  : '');
+  document.getElementById('btn-sell').className = 'sens-btn' + (selectedSens === 'Vente' ? ' active-sell' : '');
+
+  // Type paper/reel
+  selectType(t.type || 'reel');
+
+  // Capture
+  const cap = document.getElementById('f-capture');
+  cap.value = '';
+  if (t.capture) {
+    cap.dataset.b64 = t.capture;
+    const prev = document.getElementById('f-capture-preview');
+    if (prev) { prev.src = t.capture; prev.style.display = 'block'; }
+  } else {
+    delete cap.dataset.b64;
+    const prev = document.getElementById('f-capture-preview');
+    if (prev) prev.style.display = 'none';
+  }
+
+  // Titre du bouton
+  document.getElementById('saveTrade').textContent = '💾 Modifier le trade';
+
+  // Ouvrir le formulaire et scroller dessus
+  document.getElementById('tradeForm').style.display = 'block';
+  document.getElementById('tradeForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 async function saveTrade() {
   const rrReelRaw = document.getElementById('f-rrReel').value;
   if (rrReelRaw === '') { alert('Le champ R réalisé est obligatoire.'); return; }
@@ -1600,7 +1649,7 @@ async function saveTrade() {
   if (isNaN(solde)) solde = pnl !== 0 ? lastSolde + pnl : lastSolde;
 
   const trade = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+    id: editingTradeId || (Date.now().toString(36) + Math.random().toString(36).slice(2)),
     date: document.getElementById('f-date').value || todayStr(),
     actif: document.getElementById('f-actif').value || 'BTC/USD',
     sens: selectedSens || 'Achat',
@@ -1637,6 +1686,10 @@ async function saveTrade() {
         const enc = await encryptData(aesKeys[acctId], targetData);
         localStorage.setItem(ACCOUNTS[acctId].storageKey, JSON.stringify(enc));
       }
+    } else if (editingTradeId) {
+      const idx = appData.trades.findIndex(x => x.id === editingTradeId);
+      if (idx !== -1) appData.trades[idx] = trade;
+      await persist();
     } else {
       appData.trades.push(trade);
       await persist();
@@ -1652,6 +1705,8 @@ async function saveTrade() {
 }
 
 function resetForm() {
+  editingTradeId = null;
+  document.getElementById('saveTrade').textContent = '💾 Enregistrer';
   ['f-actif','f-lots','f-rrPrevu','f-rrReel','f-pnl','f-solde','f-note'].forEach(id => {
     document.getElementById(id).value = '';
   });
@@ -2287,6 +2342,7 @@ function renderTrades() {
       <td class="text-mono">${t.solde ? t.solde.toFixed(2) + '$' : '—'}</td>
       <td style="white-space:nowrap">
         ${t.capture ? `<button onclick="openCapture('${t.id}')" style="background:var(--blue);border:none;color:#fff;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;margin-right:4px;">📸</button>` : `<button onclick="triggerCaptureInput('${t.id}')" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;margin-right:4px;">+📸</button>`}
+        <button onclick="editTrade('${t.id}')" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;margin-right:4px;">✏️</button>
         <button class="del-btn" onclick="deleteTrade('${t.id}')">🗑</button>
       </td>
     </tr>`).join('');
@@ -2297,6 +2353,7 @@ function renderTrades() {
         <span class="tc-pair">${t.actif}</span>
         <span style="color:${sensColor(t.sens)};font-weight:700">${t.sens}</span>
         <span class="${resultClass(t.rrReel)}">${t.rrReel > 0 ? '+' : ''}${t.rrReel}R</span>
+        <button onclick="editTrade('${t.id}')" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">✏️</button>
         <button class="del-btn" onclick="deleteTrade('${t.id}')">🗑</button>
       </div>
       ${t.capture ? `<img src="${t.capture}" onclick="openCapture('${t.id}')" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px;cursor:zoom-in;border:1px solid var(--border);">` : `<button onclick="triggerCaptureInput('${t.id}')" style="width:100%;background:var(--panel2);border:1px dashed var(--border);color:var(--muted);border-radius:8px;padding:8px;font-size:12px;cursor:pointer;margin-bottom:8px;">📸 Ajouter une capture</button>`}
