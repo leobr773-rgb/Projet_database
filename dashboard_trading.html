@@ -269,8 +269,6 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <div id="acctBar" style="display:none;">
   <span style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Compte</span>
   <button class="acct-btn" data-acct="10k"  onclick="switchAccount('10k')">🥇 10K-A</button>
-  <button class="acct-btn" data-acct="10k2" onclick="switchAccount('10k2')">🏆 10K-B</button>
-  <button class="acct-btn" data-acct="10k3" onclick="switchAccount('10k3')">🎯 10K-C</button>
 </div>
 
 <!-- ═══ UPDATE BANNER ═══ -->
@@ -595,8 +593,6 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div style="font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">⚡ Restauration rapide</div>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🥇 23 trades — Compte 10K-A <span style="float:right;opacity:.6;font-weight:400">juil→août 2026</span></button>
-          <button onclick="restoreKrakenHistory10k2()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🏆 20 trades — Compte 10K-B <span style="float:right;opacity:.6;font-weight:400">août 2026</span></button>
-          <button onclick="restoreKrakenHistory10k3()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🎯 17 trades — Compte 10K-C <span style="float:right;opacity:.6;font-weight:400">août 2026</span></button>
         </div>
         <div id="emptyRestoreMsg" style="margin-top:10px;font-size:12px;min-height:18px;"></div>
       </div>
@@ -621,8 +617,6 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <div style="display:flex;flex-direction:column;gap:8px;">
             <button onclick="wipeAllAccounts()" style="background:#c0392b;border:none;color:#fff;padding:11px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🗑️ Vider TOUS les trades (A + B + C)</button>
             <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🥇 Restaurer 23 trades — Compte 10K-A (juil→août 2026)</button>
-            <button onclick="restoreKrakenHistory10k2()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🏆 Restaurer 20 trades — Compte 10K-B (août 2026)</button>
-            <button onclick="restoreKrakenHistory10k3()" style="background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🎯 Restaurer 17 trades — Compte 10K-C (août 2026)</button>
           </div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
@@ -830,8 +824,6 @@ tr:hover td{background:rgba(255,255,255,.02)}
 // ── Comptes ──
 const ACCOUNTS = {
   '10k':  { id:'10k',  label:'10K-A', emoji:'🥇', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600, storageKey:'challenge10k_v1',  saltKey:'challenge10k_salt'  },
-  '10k2': { id:'10k2', label:'10K-B', emoji:'🏆', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600, storageKey:'challenge10k2_v1', saltKey:'challenge10k2_salt' },
-  '10k3': { id:'10k3', label:'10K-C', emoji:'🎯', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600, storageKey:'challenge10k3_v1', saltKey:'challenge10k3_salt' },
 };
 let currentAccount = '10k';
 const aesKeys  = {};   // { '5k': CryptoKey, '10k': CryptoKey }
@@ -964,7 +956,7 @@ async function unlockAccount(accountId, pwd) {
 
 function resetAll() {
   if (!confirm('Effacer toutes les données et choisir un nouveau mot de passe ?')) return;
-  ['challenge10k_v1','challenge10k_salt','challenge10k2_v1','challenge10k2_salt','challenge10k3_v1','challenge10k3_salt'].forEach(k => localStorage.removeItem(k));
+  ['challenge10k_v1','challenge10k_salt'].forEach(k => localStorage.removeItem(k));
   document.getElementById('lockErr').textContent = '✅ Réinitialisé. Choisissez un nouveau mot de passe.';
   document.getElementById('lockErr').style.color = 'var(--green)';
   document.getElementById('pwdInput').value = '';
@@ -980,12 +972,11 @@ async function handleUnlock() {
   btn.textContent = 'Chargement…';
   try {
     // Déverrouiller les deux comptes — allSettled ne rejette jamais
-    await Promise.allSettled([unlockAccount('10k', pwd), unlockAccount('10k2', pwd), unlockAccount('10k3', pwd)]);
-    // Il faut au moins un compte valide
-    if (!aesKeys['10k'] && !aesKeys['10k2'] && !aesKeys['10k3']) {
+    await unlockAccount('10k', pwd);
+    if (!aesKeys['10k']) {
       throw new Error('Mot de passe incorrect.');
     }
-    currentAccount = aesKeys['10k'] ? '10k' : aesKeys['10k2'] ? '10k2' : '10k3';
+    currentAccount = '10k';
     aesKey  = aesKeys[currentAccount];
     appData = allDatas[currentAccount];
     document.getElementById('lockScreen').style.display = 'none';
@@ -2091,7 +2082,7 @@ function _forceImport(trades) {
 async function wipeAllAccounts() {
   if (!confirm('⚠️ Vider TOUS les trades des 3 comptes (10K-A, B, C) ? Cette action est irréversible.')) return;
   let done = [];
-  for (const id of ['10k','10k2','10k3']) {
+  for (const id of ['10k']) {
     if (!aesKeys[id]) { continue; }
     allDatas[id].trades = [];
     const enc = await encryptData(aesKeys[id], allDatas[id]);
