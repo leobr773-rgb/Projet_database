@@ -269,6 +269,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <div id="acctBar" style="display:none;">
   <span style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Compte</span>
   <button class="acct-btn" data-acct="10k"  onclick="switchAccount('10k')">🥇 10K-A</button>
+  <button class="acct-btn" data-acct="10k2" onclick="switchAccount('10k2')">🏆 10K-B</button>
 </div>
 
 <!-- ═══ UPDATE BANNER ═══ -->
@@ -824,6 +825,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 // ── Comptes ──
 const ACCOUNTS = {
   '10k':  { id:'10k',  label:'10K-A', emoji:'🥇', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600, storageKey:'challenge10k_v1',  saltKey:'challenge10k_salt'  },
+  '10k2': { id:'10k2', label:'10K-B', emoji:'🏆', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600, storageKey:'challenge10k2_v1', saltKey:'challenge10k2_salt' },
 };
 let currentAccount = '10k';
 const aesKeys  = {};   // { '5k': CryptoKey, '10k': CryptoKey }
@@ -956,7 +958,7 @@ async function unlockAccount(accountId, pwd) {
 
 function resetAll() {
   if (!confirm('Effacer toutes les données et choisir un nouveau mot de passe ?')) return;
-  ['challenge10k_v1','challenge10k_salt'].forEach(k => localStorage.removeItem(k));
+  ['challenge10k_v1','challenge10k_salt','challenge10k2_v1','challenge10k2_salt'].forEach(k => localStorage.removeItem(k));
   document.getElementById('lockErr').textContent = '✅ Réinitialisé. Choisissez un nouveau mot de passe.';
   document.getElementById('lockErr').style.color = 'var(--green)';
   document.getElementById('pwdInput').value = '';
@@ -972,11 +974,11 @@ async function handleUnlock() {
   btn.textContent = 'Chargement…';
   try {
     // Déverrouiller les deux comptes — allSettled ne rejette jamais
-    await unlockAccount('10k', pwd);
-    if (!aesKeys['10k']) {
+    await Promise.allSettled([unlockAccount('10k', pwd), unlockAccount('10k2', pwd)]);
+    if (!aesKeys['10k'] && !aesKeys['10k2']) {
       throw new Error('Mot de passe incorrect.');
     }
-    currentAccount = '10k';
+    currentAccount = aesKeys['10k'] ? '10k' : '10k2';
     aesKey  = aesKeys[currentAccount];
     appData = allDatas[currentAccount];
     document.getElementById('lockScreen').style.display = 'none';
@@ -2082,7 +2084,7 @@ function _forceImport(trades) {
 async function wipeAllAccounts() {
   if (!confirm('⚠️ Vider TOUS les trades des 3 comptes (10K-A, B, C) ? Cette action est irréversible.')) return;
   let done = [];
-  for (const id of ['10k']) {
+  for (const id of ['10k','10k2']) {
     if (!aesKeys[id]) { continue; }
     allDatas[id].trades = [];
     const enc = await encryptData(aesKeys[id], allDatas[id]);
