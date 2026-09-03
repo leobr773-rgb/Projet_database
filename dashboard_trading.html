@@ -1118,14 +1118,14 @@ function calcStats(trades) {
   const disciplined = trades.filter(t => (t.risque || 0) <= 0.5 && (t.rrPrevu || 0) >= 2).length;
   const discScore = Math.round(disciplined / n * 100);
 
-  // Solde & dd abs
-  const lastSolde = trades[trades.length - 1].solde || SOLDE_INIT();
-  const totalPnl = lastSolde - SOLDE_INIT();
-  let peakS = SOLDE_INIT(), ddAbs = 0;
+  // Solde & dd abs — recalcul propre depuis les PnL pour éviter toute contamination
+  const totalPnl = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+  const lastSolde = SOLDE_INIT() + totalPnl;
+  let peakS = SOLDE_INIT(), runS = SOLDE_INIT(), ddAbs = 0;
   trades.forEach(t => {
-    const s = t.solde || SOLDE_INIT();
-    if (s > peakS) peakS = s;
-    ddAbs = Math.min(ddAbs, s - peakS);
+    runS += (t.pnl || 0);
+    if (runS > peakS) peakS = runS;
+    ddAbs = Math.min(ddAbs, runS - peakS);
   });
 
   // Today
