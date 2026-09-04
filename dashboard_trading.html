@@ -327,22 +327,44 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- Calculateur risque -->
     <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;">
-      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">⚖️ Taille de position — Capital actuel</div>
+      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">⚖️ Calculateur taille de position</div>
+      <!-- Inputs -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">💼 Capital ($)</div>
+          <input id="rc-capital" type="text" inputmode="decimal"
+            style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;text-align:right;box-sizing:border-box;"
+            placeholder="10000" oninput="calcRisk()">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">🎯 Risque (%)</div>
+          <input id="rc-risk" type="text" inputmode="decimal" value="0.4"
+            style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;text-align:right;box-sizing:border-box;"
+            oninput="calcRisk()">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">💸 Frais (%)</div>
+          <input id="rc-fee" type="text" inputmode="decimal" value="0.1"
+            style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;text-align:right;box-sizing:border-box;"
+            oninput="calcRisk()">
+        </div>
+      </div>
+      <!-- Résultats -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
         <div style="background:var(--panel2);border-radius:10px;padding:12px;text-align:center;">
           <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">💰 Risque trade</div>
           <div style="font-size:18px;font-weight:800;color:var(--red);font-family:ui-monospace,monospace" id="risk-pos-val">—</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px;">0.4% du solde</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="risk-pos-pct">— % du capital</div>
         </div>
         <div style="background:var(--panel2);border-radius:10px;padding:12px;text-align:center;">
           <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">💸 Frais</div>
           <div style="font-size:18px;font-weight:800;color:var(--gold);font-family:ui-monospace,monospace" id="risk-fee-val">—</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px;">0.1% du solde</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="risk-fee-pct">— % du capital</div>
         </div>
         <div style="background:var(--panel2);border-radius:10px;padding:12px;text-align:center;">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">🎯 Total engagé</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">🎯 Total risqué</div>
           <div style="font-size:18px;font-weight:800;color:var(--blue);font-family:ui-monospace,monospace" id="risk-total-val">—</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px;">0.5% du solde</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="risk-total-pct">— % du capital</div>
         </div>
       </div>
     </div>
@@ -1220,14 +1242,10 @@ function renderCockpit() {
   document.getElementById('ch-solde').textContent =
     lastSolde.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '$';
 
-  // Calculateur risque
-  const rPos = lastSolde * 0.004;
-  const rFee = lastSolde * 0.001;
-  const rTot = lastSolde * 0.005;
-  const fmt = v => v.toFixed(2) + '$';
-  document.getElementById('risk-pos-val').textContent = fmt(rPos);
-  document.getElementById('risk-fee-val').textContent = fmt(rFee);
-  document.getElementById('risk-total-val').textContent = fmt(rTot);
+  // Calculateur risque — pré-remplir capital avec solde actuel si champ vide
+  const capEl = document.getElementById('rc-capital');
+  if (!capEl.value) capEl.value = lastSolde.toFixed(2);
+  calcRisk();
 
   if (stats && stats.todayTradesCount > 0) {
     const tp = stats.todayPnl;
@@ -2182,6 +2200,23 @@ async function _forceImportAccount(accountId, trades) {
 // ─────────────────────────────────────────────
 //  RÉCUPÉRATION DE DONNÉES
 // ─────────────────────────────────────────────
+function calcRisk() {
+  const capital = parseFloat(document.getElementById('rc-capital').value) || 0;
+  const riskPct = parseFloat(document.getElementById('rc-risk').value) || 0;
+  const feePct  = parseFloat(document.getElementById('rc-fee').value)  || 0;
+  const totalPct = riskPct + feePct;
+  const rPos = capital * riskPct / 100;
+  const rFee = capital * feePct  / 100;
+  const rTot = capital * totalPct / 100;
+  const fmt = v => capital > 0 ? v.toFixed(2) + '$' : '—';
+  document.getElementById('risk-pos-val').textContent   = fmt(rPos);
+  document.getElementById('risk-fee-val').textContent   = fmt(rFee);
+  document.getElementById('risk-total-val').textContent = fmt(rTot);
+  document.getElementById('risk-pos-pct').textContent   = capital > 0 ? riskPct  + '% du capital' : '— % du capital';
+  document.getElementById('risk-fee-pct').textContent   = capital > 0 ? feePct   + '% du capital' : '— % du capital';
+  document.getElementById('risk-total-pct').textContent = capital > 0 ? totalPct + '% du capital' : '— % du capital';
+}
+
 async function forceUpdate() {
   if ('serviceWorker' in navigator) {
     const reg = await navigator.serviceWorker.getRegistration();
