@@ -387,7 +387,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <text id="gaugeText" x="40" y="45" text-anchor="middle" fill="var(--text)" font-size="14"
             font-family="ui-monospace,monospace" font-weight="700">—</text>
         </svg>
-        <div style="font-size:11px;color:var(--muted);text-align:center">Risque ≤0.5%<br>&amp; RR ≥2:1</div>
+        <div style="font-size:11px;color:var(--muted);text-align:center">Risque ≤1%<br>&amp; RR ≥2:1</div>
       </div>
     </div>
 
@@ -414,7 +414,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">🎯 Risque / trade (%)</div>
-          <input id="mc-risk" type="text" inputmode="decimal" value="0.5"
+          <input id="mc-risk" type="text" inputmode="decimal" value="1"
             style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;box-sizing:border-box;">
         </div>
         <div>
@@ -613,7 +613,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
         <div class="form-group">
           <label class="form-label" style="color:var(--red)">Risque %</label>
-          <input type="number" class="form-input risk-input" id="f-risque" placeholder="0.5" step="0.01" min="0" value="0.5">
+          <input type="number" class="form-input risk-input" id="f-risque" placeholder="1" step="0.01" min="0" value="1">
         </div>
         <div class="form-group">
           <label class="form-label">PnL $ (optionnel)</label>
@@ -927,7 +927,7 @@ const DEFAULT_CHECKLIST_LABELS = [
   'Dans la killzone (London / New York)',
   'Setup ICT identifié (LS / FVG / BB)',
   'RR ≥ 2:1 minimum calculé',
-  'Risque ≤ 0.5% du compte',
+  'Risque ≤ 1% du compte',
 ];
 
 const EMPTY_DATA = () => ({
@@ -1191,7 +1191,7 @@ function calcStats(trades) {
   }
 
   // Discipline
-  const disciplined = trades.filter(t => (t.risque || 0) <= 0.5 && (t.rrPrevu || 0) >= 2).length;
+  const disciplined = trades.filter(t => (t.risque || 0) <= 1.0 && (t.rrPrevu || 0) >= 2).length;
   const discScore = Math.round(disciplined / n * 100);
 
   // Solde & dd abs — recalcul propre depuis les PnL pour éviter toute contamination
@@ -1656,7 +1656,7 @@ function selectType(t) {
 document.getElementById('f-pnl').addEventListener('input', () => {
   const pnl = parseFloat(document.getElementById('f-pnl').value) || 0;
   const rt = realTrades();
-  const lastSolde = rt.length ? (rt[rt.length - 1].solde || SOLDE_INIT()) : SOLDE_INIT();
+  const lastSolde = SOLDE_INIT() + rt.reduce((s, t) => s + (t.pnl || 0), 0);
   if (pnl !== 0) document.getElementById('f-solde').value = (lastSolde + pnl).toFixed(2);
 });
 
@@ -1716,7 +1716,7 @@ async function saveTrade() {
   const rrReel = parseFloat(rrReelRaw);
   const pnl = parseFloat(document.getElementById('f-pnl').value) || 0;
   const _rt = realTrades();
-  const lastSolde = _rt.length ? (_rt[_rt.length - 1].solde || SOLDE_INIT()) : SOLDE_INIT();
+  const lastSolde = SOLDE_INIT() + _rt.reduce((s, t) => s + (t.pnl || 0), 0);
   let solde = parseFloat(document.getElementById('f-solde').value);
   if (isNaN(solde)) solde = pnl !== 0 ? lastSolde + pnl : lastSolde;
 
@@ -1782,7 +1782,7 @@ function resetForm() {
   ['f-actif','f-lots','f-rrPrevu','f-rrReel','f-pnl','f-solde','f-note'].forEach(id => {
     document.getElementById(id).value = '';
   });
-  document.getElementById('f-risque').value = '0.5';
+  document.getElementById('f-risque').value = '1';
   document.getElementById('f-qualite').value = '4';
   document.getElementById('f-emotion').value = 'Discipliné';
   document.getElementById('f-setup').value = '';
@@ -2082,7 +2082,7 @@ async function calQuickSave() {
   if (isNaN(rrReel)) { alert('R réalisé invalide.'); return; }
   const pnl = parseFloat(document.getElementById('calQ-pnl').value) || 0;
   const _rtQ = realTrades();
-  const lastSolde = _rtQ.length ? (_rtQ[_rtQ.length - 1].solde || SOLDE_INIT()) : SOLDE_INIT();
+  const lastSolde = SOLDE_INIT() + _rtQ.reduce((s, t) => s + (t.pnl || 0), 0);
 
   const trade = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2),
@@ -2255,7 +2255,7 @@ async function _forceImportAccount(accountId, trades) {
 //  RÉCUPÉRATION DE DONNÉES
 // ─────────────────────────────────────────────
 function runMonteCarlo() {
-  const riskPct  = Math.abs(parseFloat(document.getElementById('mc-risk').value)   || 0.5) / 100;
+  const riskPct  = Math.abs(parseFloat(document.getElementById('mc-risk').value)   || 1.0) / 100;
   const winRate  = Math.abs(parseFloat(document.getElementById('mc-wr').value)      || 50)  / 100;
   const rr       = Math.abs(parseFloat(document.getElementById('mc-rr').value)      || 2);
   const nTrades  = Math.min(500, Math.max(1, parseInt(document.getElementById('mc-trades').value) || 50));
@@ -2464,7 +2464,7 @@ function migrateAndAdd(oldTrades) {
       rrReel: parseFloat(t.rrReel) || (parseFloat(t.pnl)>0 ? 1 : parseFloat(t.pnl)<0 ? -1 : 0),
       risque: parseFloat(t.risque) || 0.5,
       pnl,
-      solde: parseFloat(t.solde) || 5000,
+      solde: parseFloat(t.solde) || SOLDE_INIT(),
       emotion: t.emotion || '—',
       note: t.note || ''
     });
