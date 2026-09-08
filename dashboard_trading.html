@@ -265,12 +265,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
 </div>
 
-<!-- ═══ ACCOUNT SWITCHER ═══ -->
-<div id="acctBar" style="display:none;">
-  <span style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Compte</span>
-  <button class="acct-btn" data-acct="10k"  onclick="switchAccount('10k')">🥇 10K-A</button>
-  <button class="acct-btn" data-acct="10k2" onclick="switchAccount('10k2')">🏆 10K-B</button>
-</div>
+<!-- ═══ ACCOUNT SWITCHER — masqué (un seul compte) ═══ -->
+<div id="acctBar" style="display:none;"></div>
 
 <!-- ═══ UPDATE BANNER ═══ -->
 <div id="updateBanner" style="display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9990;background:var(--blue);color:#fff;border-radius:24px;padding:12px 20px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:pointer;white-space:nowrap;" onclick="applyUpdate()">
@@ -677,7 +673,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- ── Récupération de données ── -->
     <div style="margin-top:16px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v54</b></span>
+      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v55</b></span>
       <button onclick="forceUpdate()" style="background:var(--blue);border:none;color:#fff;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🔄 Forcer la mise à jour</button>
     </div>
 
@@ -692,7 +688,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:6px;">⚡ Restauration rapide — Historique Kraken</div>
           <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Chaque bouton écrit directement dans le compte ciblé, peu importe le compte actif</div>
           <div style="display:flex;flex-direction:column;gap:8px;">
-            <button onclick="wipeAllAccounts()" style="background:#c0392b;border:none;color:#fff;padding:11px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🗑️ Vider TOUS les trades (A + B)</button>
+            <button onclick="wipeAllAccounts()" style="background:#c0392b;border:none;color:#fff;padding:11px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🗑️ Vider tous les trades 10K-A</button>
             <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🥇 Restaurer 23 trades — Compte 10K-A (juil→août 2026)</button>
           </div>
         </div>
@@ -900,12 +896,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 // ── Comptes ──
 const ACCOUNTS = {
-  '10k':  { id:'10k',  label:'10K-A', emoji:'🥇', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600, storageKey:'challenge10k_v1',  saltKey:'challenge10k_salt'  },
-  '10k2': { id:'10k2', label:'10K-B', emoji:'🏆', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600, storageKey:'challenge10k2_v1', saltKey:'challenge10k2_salt' },
+  '10k': { id:'10k', label:'10K-A', emoji:'🥇', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600, storageKey:'challenge10k_v1', saltKey:'challenge10k_salt' },
 };
 let currentAccount = '10k';
-const aesKeys  = {};   // { '5k': CryptoKey, '10k': CryptoKey }
-const allDatas = {};   // { '5k': {trades,...}, '10k': {trades,...} }
+const aesKeys  = {};
+const allDatas = {};
 
 const cfg         = () => ACCOUNTS[currentAccount];
 const SOLDE_INIT  = () => cfg().soldeInit;
@@ -1035,7 +1030,7 @@ async function unlockAccount(accountId, pwd) {
 
 function resetAll() {
   if (!confirm('Effacer toutes les données et choisir un nouveau mot de passe ?')) return;
-  ['challenge10k_v1','challenge10k_salt','challenge10k2_v1','challenge10k2_salt'].forEach(k => localStorage.removeItem(k));
+  ['challenge10k_v1','challenge10k_salt'].forEach(k => localStorage.removeItem(k));
   document.getElementById('lockErr').textContent = '✅ Réinitialisé. Choisissez un nouveau mot de passe.';
   document.getElementById('lockErr').style.color = 'var(--green)';
   document.getElementById('pwdInput').value = '';
@@ -1050,12 +1045,9 @@ async function handleUnlock() {
   if (!pwd) { errEl.textContent = 'Veuillez saisir un mot de passe.'; return; }
   btn.textContent = 'Chargement…';
   try {
-    // Déverrouiller les deux comptes — allSettled ne rejette jamais
-    await Promise.allSettled([unlockAccount('10k', pwd), unlockAccount('10k2', pwd)]);
-    if (!aesKeys['10k'] && !aesKeys['10k2']) {
-      throw new Error('Mot de passe incorrect.');
-    }
-    currentAccount = aesKeys['10k'] ? '10k' : '10k2';
+    await unlockAccount('10k', pwd);
+    if (!aesKeys['10k']) throw new Error('Mot de passe incorrect.');
+    currentAccount = '10k';
     aesKey  = aesKeys[currentAccount];
     appData = allDatas[currentAccount];
     document.getElementById('lockScreen').style.display = 'none';
@@ -1282,7 +1274,7 @@ function renderCockpit() {
   const ddPct = Math.min(100, Math.abs(ddAbs)  / DD_MAX_ABS() * 100);
 
   const acct = cfg();
-  document.getElementById('ch-acct-label').textContent = `${acct.emoji} ${acct.label} — Objectif 10% — Progression`;
+  document.getElementById('ch-acct-label').textContent = `${acct.emoji} Challenge 10K — Objectif 10% — Progression`;
   document.getElementById('ch-obj-val').textContent =
     `${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)}$ / +${acct.objectifAbs}$  (${objPct.toFixed(1)}%)`;
   document.getElementById('ch-obj-bar').style.width = objPct + '%';
@@ -2206,9 +2198,9 @@ function _forceImport(trades) {
 }
 
 async function wipeAllAccounts() {
-  if (!confirm('⚠️ Vider TOUS les trades des 2 comptes (10K-A et 10K-B) ? Cette action est irréversible.')) return;
+  if (!confirm('⚠️ Vider tous les trades du compte 10K-A ? Cette action est irréversible.')) return;
   let done = [];
-  for (const id of ['10k','10k2']) {
+  for (const id of ['10k']) {
     if (!aesKeys[id]) { continue; }
     allDatas[id].trades = [];
     const enc = await encryptData(aesKeys[id], allDatas[id]);
