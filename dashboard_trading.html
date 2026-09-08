@@ -348,7 +348,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <!-- Résultats -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
         <div style="background:var(--panel2);border-radius:10px;padding:12px;text-align:center;">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">💰 Risque trade</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">💰 Risque net (hors frais)</div>
           <div style="font-size:18px;font-weight:800;color:var(--red);font-family:ui-monospace,monospace" id="risk-pos-val">—</div>
           <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="risk-pos-pct">— % du capital</div>
         </div>
@@ -358,7 +358,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="risk-fee-pct">— % du capital</div>
         </div>
         <div style="background:var(--panel2);border-radius:10px;padding:12px;text-align:center;">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">🎯 Total risqué</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">🎯 Enveloppe totale (1%)</div>
           <div style="font-size:18px;font-weight:800;color:var(--blue);font-family:ui-monospace,monospace" id="risk-total-val">—</div>
           <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="risk-total-pct">— % du capital</div>
         </div>
@@ -673,7 +673,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- ── Récupération de données ── -->
     <div style="margin-top:16px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v55</b></span>
+      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v56</b></span>
       <button onclick="forceUpdate()" style="background:var(--blue);border:none;color:#fff;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🔄 Forcer la mise à jour</button>
     </div>
 
@@ -2336,19 +2336,19 @@ function drawMCPaths(paths, nTrades, objMult, ddLimit) {
 
 function calcRisk() {
   const capital = parseFloat(document.getElementById('rc-capital').value) || 0;
-  const riskPct = parseFloat(document.getElementById('rc-risk').value) || 0;
-  const feePct  = parseFloat(document.getElementById('rc-fee').value)  || 0;
-  const totalPct = riskPct + feePct;
-  const rPos = capital * riskPct / 100;
+  const riskPct = parseFloat(document.getElementById('rc-risk').value) || 0;  // enveloppe totale (ex: 1%)
+  const feePct  = parseFloat(document.getElementById('rc-fee').value)  || 0;  // frais inclus dans l'enveloppe
+  const netPct  = Math.max(0, riskPct - feePct);                               // risque net après frais
+  const rTot = capital * riskPct / 100;   // enveloppe totale = plafond 1%
   const rFee = capital * feePct  / 100;
-  const rTot = capital * totalPct / 100;
+  const rNet = capital * netPct  / 100;
   const fmt = v => capital > 0 ? v.toFixed(2) + '$' : '—';
-  document.getElementById('risk-pos-val').textContent   = fmt(rPos);
+  document.getElementById('risk-pos-val').textContent   = fmt(rNet);
   document.getElementById('risk-fee-val').textContent   = fmt(rFee);
   document.getElementById('risk-total-val').textContent = fmt(rTot);
-  document.getElementById('risk-pos-pct').textContent   = capital > 0 ? riskPct  + '% du capital' : '— % du capital';
+  document.getElementById('risk-pos-pct').textContent   = capital > 0 ? netPct.toFixed(2)  + '% du capital' : '— % du capital';
   document.getElementById('risk-fee-pct').textContent   = capital > 0 ? feePct   + '% du capital' : '— % du capital';
-  document.getElementById('risk-total-pct').textContent = capital > 0 ? totalPct + '% du capital' : '— % du capital';
+  document.getElementById('risk-total-pct').textContent = capital > 0 ? riskPct  + '% du capital' : '— % du capital';
 }
 
 async function forceUpdate() {
