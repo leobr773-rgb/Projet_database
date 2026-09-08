@@ -405,6 +405,60 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="ins-value" id="ins-fix">—</div>
       </div>
     </div>
+
+    <!-- ══ MONTE CARLO ══ -->
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:16px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;">🎲 Simulateur Monte Carlo — Probabilité de passer le challenge</div>
+
+      <!-- Paramètres -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">🎯 Risque / trade (%)</div>
+          <input id="mc-risk" type="text" inputmode="decimal" value="0.5"
+            style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;box-sizing:border-box;">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">✅ Winrate (%)</div>
+          <input id="mc-wr" type="text" inputmode="decimal" value="50"
+            style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;box-sizing:border-box;">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">📈 Risk/Reward moyen</div>
+          <input id="mc-rr" type="text" inputmode="decimal" value="2"
+            style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;box-sizing:border-box;">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">🔢 Nombre de trades</div>
+          <input id="mc-trades" type="text" inputmode="decimal" value="50"
+            style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;box-sizing:border-box;">
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:10px;">Objectif : +10% · DD max : -6% · 1 000 simulations</div>
+      <button onclick="runMonteCarlo()" style="width:100%;background:var(--blue);border:none;color:#fff;padding:10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;">▶ Lancer la simulation</button>
+
+      <!-- Résultats -->
+      <div id="mc-results" style="display:none;">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
+          <div style="background:var(--panel2);border-radius:10px;padding:10px;text-align:center;border:1px solid var(--green)">
+            <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">✅ Succès</div>
+            <div style="font-size:22px;font-weight:800;color:var(--green);font-family:ui-monospace,monospace" id="mc-success">—</div>
+          </div>
+          <div style="background:var(--panel2);border-radius:10px;padding:10px;text-align:center;border:1px solid var(--red)">
+            <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">❌ Éliminé</div>
+            <div style="font-size:22px;font-weight:800;color:var(--red);font-family:ui-monospace,monospace" id="mc-fail">—</div>
+          </div>
+          <div style="background:var(--panel2);border-radius:10px;padding:10px;text-align:center;border:1px solid var(--muted)">
+            <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">⏳ En cours</div>
+            <div style="font-size:22px;font-weight:800;color:var(--muted);font-family:ui-monospace,monospace" id="mc-ongoing">—</div>
+          </div>
+        </div>
+        <div style="background:var(--panel2);border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px;color:var(--muted);line-height:1.8;" id="mc-stats"></div>
+        <!-- Graphique -->
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px;">Aperçu de 100 trajectoires simulées</div>
+        <svg id="mc-svg" viewBox="0 0 300 100" style="width:100%;height:140px;border-radius:8px;background:var(--panel2)"></svg>
+      </div>
+    </div>
+
   </div>
 
   <!-- ══ MODULE 2 — PRÉPARATION ══ -->
@@ -2200,6 +2254,96 @@ async function _forceImportAccount(accountId, trades) {
 // ─────────────────────────────────────────────
 //  RÉCUPÉRATION DE DONNÉES
 // ─────────────────────────────────────────────
+function runMonteCarlo() {
+  const riskPct  = Math.abs(parseFloat(document.getElementById('mc-risk').value)   || 0.5) / 100;
+  const winRate  = Math.abs(parseFloat(document.getElementById('mc-wr').value)      || 50)  / 100;
+  const rr       = Math.abs(parseFloat(document.getElementById('mc-rr').value)      || 2);
+  const nTrades  = Math.min(500, Math.max(1, parseInt(document.getElementById('mc-trades').value) || 50));
+  const nSims    = 1000;
+  const objMult  = 1.10;   // +10%
+  const ddLimit  = 0.94;   // -6%
+
+  let success = 0, fail = 0, ongoing = 0;
+  const samplePaths = []; // 100 trajectoires pour le graphique
+
+  for (let s = 0; s < nSims; s++) {
+    let cap = 1.0, peak = 1.0, done = false, outcome = 'ongoing';
+    const path = [1.0];
+    for (let t = 0; t < nTrades; t++) {
+      const win = Math.random() < winRate;
+      cap = win ? cap * (1 + rr * riskPct) : cap * (1 - riskPct);
+      if (cap > peak) peak = cap;
+      if (s < 100) path.push(cap);
+      // Vérification objectif / élimination
+      if (cap >= objMult) { outcome = 'success'; done = true; break; }
+      if (cap <= ddLimit) { outcome = 'fail';    done = true; break; }
+    }
+    if (!done) outcome = 'ongoing';
+    if (outcome === 'success') success++;
+    else if (outcome === 'fail') fail++;
+    else ongoing++;
+    if (s < 100) samplePaths.push(path);
+  }
+
+  const pSuccess = (success / nSims * 100).toFixed(1);
+  const pFail    = (fail    / nSims * 100).toFixed(1);
+  const pOngoing = (ongoing / nSims * 100).toFixed(1);
+
+  // Espérance mathématique
+  const esp = (winRate * rr - (1 - winRate)).toFixed(3);
+
+  document.getElementById('mc-success').textContent  = pSuccess + '%';
+  document.getElementById('mc-fail').textContent     = pFail    + '%';
+  document.getElementById('mc-ongoing').textContent  = pOngoing + '%';
+  document.getElementById('mc-stats').innerHTML =
+    `<b>Espérance</b> : ${esp}R par trade &nbsp;·&nbsp; `+
+    `<b>Trades simulés</b> : ${nTrades} &nbsp;·&nbsp; `+
+    `<b>Risque</b> : ${(riskPct*100).toFixed(2)}% &nbsp;·&nbsp; `+
+    `<b>RR</b> : 1:${rr} &nbsp;·&nbsp; `+
+    `<b>Winrate</b> : ${(winRate*100).toFixed(0)}%<br>`+
+    `${parseFloat(esp) > 0
+      ? '✅ Espérance positive — stratégie viable à long terme.'
+      : '⚠️ Espérance négative — difficulté structurelle à être profitable.'}`;
+
+  // Graphique SVG
+  drawMCPaths(samplePaths, nTrades, objMult, ddLimit);
+  document.getElementById('mc-results').style.display = 'block';
+}
+
+function drawMCPaths(paths, nTrades, objMult, ddLimit) {
+  const svg = document.getElementById('mc-svg');
+  const W = 300, H = 100, padX = 4, padY = 6;
+  // Plage de valeurs
+  const allVals = paths.flat();
+  const minV = Math.min(ddLimit - 0.02, ...allVals);
+  const maxV = Math.max(objMult + 0.02, ...allVals);
+  const scX = x => padX + (x / nTrades) * (W - 2 * padX);
+  const scY = v => (H - padY) - ((v - minV) / (maxV - minV)) * (H - 2 * padY);
+
+  // Lignes objectif et DD
+  const yObj = scY(objMult).toFixed(1);
+  const yDD  = scY(ddLimit).toFixed(1);
+
+  let html = '';
+  // Zone OK (verte transparente)
+  html += `<rect x="0" y="${yObj}" width="${W}" height="${(yDD - yObj).toFixed(1)}" fill="var(--green)" opacity="0.04"/>`;
+  // Lignes de référence
+  html += `<line x1="0" y1="${yObj}" x2="${W}" y2="${yObj}" stroke="var(--green)" stroke-width="0.5" stroke-dasharray="3,2" opacity="0.6"/>`;
+  html += `<line x1="0" y1="${yDD}"  x2="${W}" y2="${yDD}"  stroke="var(--red)"   stroke-width="0.5" stroke-dasharray="3,2" opacity="0.6"/>`;
+  html += `<text x="3" y="${(parseFloat(yObj)-1).toFixed(1)}" fill="var(--green)" font-size="4" font-family="system-ui">+10%</text>`;
+  html += `<text x="3" y="${(parseFloat(yDD)+4).toFixed(1)}"  fill="var(--red)"   font-size="4" font-family="system-ui">-6%</text>`;
+
+  // Trajectoires
+  paths.forEach(path => {
+    const end = path[path.length - 1];
+    const color = end >= objMult ? 'var(--green)' : end <= ddLimit ? 'var(--red)' : 'var(--muted)';
+    const pts = path.map((v, i) => `${scX(i).toFixed(1)},${scY(v).toFixed(1)}`).join(' ');
+    html += `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="0.4" opacity="0.35"/>`;
+  });
+
+  svg.innerHTML = html;
+}
+
 function calcRisk() {
   const capital = parseFloat(document.getElementById('rc-capital').value) || 0;
   const riskPct = parseFloat(document.getElementById('rc-risk').value) || 0;
