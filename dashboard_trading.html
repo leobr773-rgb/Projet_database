@@ -338,7 +338,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">🎯 Risque (%)</div>
-          <input id="rc-risk" type="text" inputmode="decimal" value="0.4"
+          <input id="rc-risk" type="text" inputmode="decimal" value="1"
             style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;text-align:right;box-sizing:border-box;"
             oninput="calcRisk()">
         </div>
@@ -419,7 +419,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">✅ Winrate (%)</div>
-          <input id="mc-wr" type="text" inputmode="decimal" value="50"
+          <input id="mc-wr" type="text" inputmode="decimal" value="60"
             style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;box-sizing:border-box;">
         </div>
         <div>
@@ -677,7 +677,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- ── Récupération de données ── -->
     <div style="margin-top:16px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v41</b></span>
+      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v54</b></span>
       <button onclick="forceUpdate()" style="background:var(--blue);border:none;color:#fff;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🔄 Forcer la mise à jour</button>
     </div>
 
@@ -692,7 +692,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:6px;">⚡ Restauration rapide — Historique Kraken</div>
           <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Chaque bouton écrit directement dans le compte ciblé, peu importe le compte actif</div>
           <div style="display:flex;flex-direction:column;gap:8px;">
-            <button onclick="wipeAllAccounts()" style="background:#c0392b;border:none;color:#fff;padding:11px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🗑️ Vider TOUS les trades (A + B + C)</button>
+            <button onclick="wipeAllAccounts()" style="background:#c0392b;border:none;color:#fff;padding:11px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🗑️ Vider TOUS les trades (A + B)</button>
             <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🥇 Restaurer 23 trades — Compte 10K-A (juil→août 2026)</button>
           </div>
         </div>
@@ -1432,7 +1432,7 @@ function updateKillzones() {
 // ─────────────────────────────────────────────
 const DEFAULT_PLAN = [
   { title: 'Entrée', rules: ['Liquidity Sweep + retour dans le range', 'FVG H15 dans la direction du bias H4', 'Breaker Block sur niveau clé'] },
-  { title: 'Risk Management', rules: ['Risque max : 0.4% par trade + 0.1% frais', 'RR minimum : 2:1', 'Maximum 1 trade par jour', 'Stop loss sous le swing bas (achat) / au-dessus swing haut (vente)'] },
+  { title: 'Risk Management', rules: ['Risque max : 1% par trade (frais inclus)', 'RR minimum : 2:1', 'Maximum 1 trade par jour', 'Stop loss sous le swing bas (achat) / au-dessus swing haut (vente)'] },
   { title: 'Psychologie', rules: ['Ne pas trader après 2 pertes consécutives', 'Respecter le plan sans exception', 'Journaliser chaque trade'] },
 ];
 
@@ -1675,7 +1675,7 @@ function editTrade(id) {
   document.getElementById('f-qualite').value = t.qualite || 3;
   document.getElementById('f-rrPrevu').value = t.rrPrevu || '';
   document.getElementById('f-rrReel').value = t.rrReel !== undefined ? t.rrReel : '';
-  document.getElementById('f-risque').value = t.risque || 0.5;
+  document.getElementById('f-risque').value = t.risque || 1;
   document.getElementById('f-pnl').value = t.pnl || '';
   document.getElementById('f-solde').value = t.solde || '';
   document.getElementById('f-emotion').value = t.emotion || 'Discipliné';
@@ -1694,12 +1694,11 @@ function editTrade(id) {
   cap.value = '';
   if (t.capture) {
     cap.dataset.b64 = t.capture;
-    const prev = document.getElementById('f-capture-preview');
-    if (prev) { prev.src = t.capture; prev.style.display = 'block'; }
+    document.getElementById('f-capture-img').src = t.capture;
+    document.getElementById('f-capture-preview').style.display = 'block';
   } else {
     delete cap.dataset.b64;
-    const prev = document.getElementById('f-capture-preview');
-    if (prev) prev.style.display = 'none';
+    document.getElementById('f-capture-preview').style.display = 'none';
   }
 
   // Titre du bouton
@@ -1731,7 +1730,7 @@ async function saveTrade() {
     qualite: parseInt(document.getElementById('f-qualite').value) || 3,
     rrPrevu: parseFloat(document.getElementById('f-rrPrevu').value) || 0,
     rrReel,
-    risque: parseFloat(document.getElementById('f-risque').value) || 0.5,
+    risque: parseFloat(document.getElementById('f-risque').value) || 1,
     pnl,
     solde,
     emotion: document.getElementById('f-emotion').value,
@@ -1747,9 +1746,7 @@ async function saveTrade() {
       for (const acctId of Object.keys(ACCOUNTS)) {
         if (!aesKeys[acctId]) continue;
         const targetData = allDatas[acctId];
-        const lastS = targetData.trades.length
-          ? (targetData.trades[targetData.trades.length - 1].solde || ACCOUNTS[acctId].soldeInit)
-          : ACCOUNTS[acctId].soldeInit;
+        const lastS = ACCOUNTS[acctId].soldeInit + targetData.trades.reduce((s, t) => s + (t.pnl || 0), 0);
         targetData.trades.push({
           ...trade,
           id: Date.now().toString(36) + Math.random().toString(36).slice(2) + acctId,
@@ -2090,7 +2087,7 @@ async function calQuickSave() {
     actif: document.getElementById('calQ-actif').value || 'BTC/USD',
     sens: calQSensVal,
     lots: 0, setup: '—', session: '—', qualite: 3,
-    rrPrevu: 0, rrReel, risque: 0.5,
+    rrPrevu: 0, rrReel, risque: 1,
     pnl, solde: pnl !== 0 ? lastSolde + pnl : lastSolde,
     emotion: '—', note: '', capture: null,
     type: calQType,
@@ -2209,7 +2206,7 @@ function _forceImport(trades) {
 }
 
 async function wipeAllAccounts() {
-  if (!confirm('⚠️ Vider TOUS les trades des 3 comptes (10K-A, B, C) ? Cette action est irréversible.')) return;
+  if (!confirm('⚠️ Vider TOUS les trades des 2 comptes (10K-A et 10K-B) ? Cette action est irréversible.')) return;
   let done = [];
   for (const id of ['10k','10k2']) {
     if (!aesKeys[id]) { continue; }
@@ -2237,7 +2234,8 @@ async function _forceImportAccount(accountId, trades) {
       date: t.date, actif: t.actif, sens: t.sens, lots: t.lots,
       setup: t.setup, session: t.session, qualite: t.qualite,
       rrPrevu: t.rrPrevu, rrReel: t.rrReel, risque: t.risque,
-      pnl: t.pnl, solde: t.solde, emotion: t.emotion, note: t.note, capture: null
+      pnl: t.pnl, solde: t.solde, emotion: t.emotion, note: t.note, capture: null,
+      type: t.type || 'reel'
     });
   });
   const acct = ACCOUNTS[accountId];
@@ -2256,7 +2254,7 @@ async function _forceImportAccount(accountId, trades) {
 // ─────────────────────────────────────────────
 function runMonteCarlo() {
   const riskPct  = Math.abs(parseFloat(document.getElementById('mc-risk').value)   || 1.0) / 100;
-  const winRate  = Math.abs(parseFloat(document.getElementById('mc-wr').value)      || 50)  / 100;
+  const winRate  = Math.abs(parseFloat(document.getElementById('mc-wr').value)      || 60)  / 100;
   const rr       = Math.abs(parseFloat(document.getElementById('mc-rr').value)      || 2);
   const nTrades  = Math.min(500, Math.max(1, parseInt(document.getElementById('mc-trades').value) || 50));
   const nSims    = 1000;
@@ -2462,7 +2460,7 @@ function migrateAndAdd(oldTrades) {
       qualite: parseInt(t.qualite) || 3,
       rrPrevu: parseFloat(t.rrPrevu) || 0,
       rrReel: parseFloat(t.rrReel) || (parseFloat(t.pnl)>0 ? 1 : parseFloat(t.pnl)<0 ? -1 : 0),
-      risque: parseFloat(t.risque) || 0.5,
+      risque: parseFloat(t.risque) || 1,
       pnl,
       solde: parseFloat(t.solde) || SOLDE_INIT(),
       emotion: t.emotion || '—',
