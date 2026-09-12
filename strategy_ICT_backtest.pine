@@ -1,300 +1,396 @@
 // ══════════════════════════════════════════════════════════════════════════════
-//  ICT PropFirm Strategy v2 — BTC/USD
+//  ICT PropFirm Strategy v3 — BTC/USD
 //
-//  Séquence :
-//    1. Prise de liquidité SSL (sweep du swing low → long) / BSL (sweep du swing high → short)
-//    2. Bougie de Displacement haussière/baissière créant un FVG
-//    3. Retracement dans le FVG → Entrée
-//    4. SL sous la bougie displacement (et sous le Breaker Block si valide)
-//    5. TP à 2R
+//  Nouveautés v3 :
+//    • calc_on_order_fills = true  → simulation bougie par bougie (intrabar)
+//    • Filtre news : FOMC + NFP 2025-2026 automatiquement exclus
+//    • Inputs optimisables via TradingView Optimizer (Strategy Tester → Optimizer)
+//    • Walk-forward : inputs fromDate / toDate pour splitter in-sample / out-of-sample
 //
-//  Session : NY Open — 09h30-10h45 New York (= 15h30-16h45 Paris CEST)
-//  Bias    : H4 — haussier si close H4 > EMA H4, baissier si < EMA H4
-//  Risk    : 1% du capital par trade
+//  Séquence d'entrée :
+//    1. Prise de liquidité SSL/BSL (sweep du swing low/high + rejet)
+//    2. Bougie Displacement (amplitude ≥ ATR×mult, corps fort)
+//    3. FVG créé par le displacement
+//    4. Retracement dans le FVG → ENTRÉE
+//    5. SL = min(low displacement, low Breaker Block) − buffer
+//    6. TP = SL distance × RR
 //
-//  Timeframe recommandé : M15
+//  Session  : NY Open 09h30-10h45 New York = 15h30-16h45 Paris (CEST)
+//  Bias     : H4 — close > EMA → long, close < EMA → short
+//  Risk     : 1% capital / trade  |  RR : 2:1
+//  TF recommandé : M15
 // ══════════════════════════════════════════════════════════════════════════════
 //@version=5
 strategy(
-    title                  = "ICT PropFirm v2 — Sweep + Displacement + FVG",
-    shorttitle             = "ICT_PF",
-    overlay                = true,
-    default_qty_type       = strategy.percent_of_equity,
-    default_qty_value      = 1,
-    initial_capital        = 10000,
-    commission_type        = strategy.commission.percent,
-    commission_value       = 0.1,
-    slippage               = 2,
-    calc_on_order_fills    = false,
-    process_orders_on_close = false
+    title                   = "ICT PropFirm v3 — Sweep + Disp + FVG",
+    shorttitle              = "ICT_PF_v3",
+    overlay                 = true,
+    default_qty_type        = strategy.percent_of_equity,
+    default_qty_value       = 1,
+    initial_capital         = 10000,
+    commission_type         = strategy.commission.percent,
+    commission_value        = 0.1,
+    slippage                = 2,
+    calc_on_order_fills     = true,   // ← simulation bar-by-bar intrabar
+    process_orders_on_close = false   // ← ordres exécutés à l'open de la bougie suivante
 )
 
-// ── PARAMÈTRES ───────────────────────────────────────────────────────────────
-var g_risk = "Risk Management"
-riskPct   = input.float(1.0,  "Risque par trade (%)",           minval=0.1, maxval=5.0,  step=0.1,  group=g_risk)
-rrTarget  = input.float(2.0,  "RR cible (TP = SL × RR)",        minval=1.0, maxval=10.0, step=0.1,  group=g_risk)
-feePct    = input.float(0.1,  "Frais aller-retour (%)",          minval=0.0, maxval=1.0,  step=0.05, group=g_risk)
+// ════════════════════════════════════════════════════════════
+//  PARAMÈTRES — tous optimisables via Strategy Tester Optimizer
+// ════════════════════════════════════════════════════════════
+var g_risk = "💰 Risk Management"
+riskPct  = input.float(1.0,  "Risque par trade (%)",         minval=0.5,  maxval=3.0,  step=0.5,  group=g_risk)
+rrTarget = input.float(2.0,  "RR cible (TP = SL × RR)",      minval=1.5,  maxval=4.0,  step=0.5,  group=g_risk)
 
-var g_setup = "Paramètres ICT"
-lsLookback      = input.int(20,   "Lookback prise de liquidité (bougies)", minval=5,   maxval=100, group=g_setup)
-dispMult        = input.float(1.5,"Displacement : multiple ATR min",        minval=0.8, maxval=5.0, step=0.1, group=g_setup,
-                   tooltip="La bougie displacement doit avoir une amplitude ≥ dispMult × ATR(14)")
-maxBarsWindow   = input.int(10,   "Fenêtre max sweep→displacement (bougies)", minval=2, maxval=30, group=g_setup)
-slBufferMult    = input.float(0.2,"SL buffer sous le low (× ATR)",           minval=0.0, maxval=2.0, step=0.05, group=g_setup)
+var g_setup = "🎯 Paramètres ICT"
+lsLookback    = input.int(20,   "Lookback prise de liquidité", minval=10, maxval=50, step=5,    group=g_setup,
+                  tooltip="Nombre de bougies pour le swing high/low référence")
+dispMult      = input.float(1.5,"Displacement mult ATR",       minval=1.0, maxval=3.0, step=0.25, group=g_setup,
+                  tooltip="Amplitude min de la bougie displacement en multiple d'ATR(14)")
+maxBarsWindow = input.int(8,    "Fenêtre sweep→displacement",  minval=3,  maxval=20,  step=1,    group=g_setup,
+                  tooltip="Nombre max de bougies entre le sweep et le displacement")
+slBuf         = input.float(0.2,"SL buffer (× ATR)",           minval=0.0, maxval=1.0, step=0.1,  group=g_setup)
 
-var g_bias = "Bias H4"
-biasLen   = input.int(50,    "EMA H4 période",       minval=10,  maxval=300, group=g_bias)
-useBias   = input.bool(true, "Activer filtre bias H4", group=g_bias, tooltip="Long uniquement si H4 close > EMA, Short si H4 close < EMA")
+var g_bias = "📊 Bias H4"
+biasLen  = input.int(50,    "EMA H4 période",        minval=20, maxval=200, step=10,  group=g_bias)
+useBias  = input.bool(true, "Activer filtre bias H4", group=g_bias)
 
-var g_disp = "Affichage"
-showFVGZones = input.bool(true,  "Afficher zones FVG",                group=g_disp)
-showSweeps   = input.bool(true,  "Afficher prises de liquidité",      group=g_disp)
-showBiasEma  = input.bool(true,  "Afficher EMA Bias (H4 sur M15)",   group=g_disp)
+var g_news = "📰 Filtre News"
+filterFOMC = input.bool(true, "Exclure jours FOMC",    group=g_news)
+filterNFP  = input.bool(true, "Exclure jours NFP",     group=g_news)
+filterCPI  = input.bool(true, "Exclure jours CPI",     group=g_news)
 
-// ── SESSION : NY OPEN 09h30-10h45 New York ───────────────────────────────────
-// = 15h30-16h45 Paris (CEST, UTC+2)
+var g_wf = "🔬 Walk-Forward (optionnel)"
+useWF     = input.bool(false, "Activer filtre de dates",      group=g_wf)
+fromDate  = input.time(timestamp("2025-09-01"), "Date début", group=g_wf)
+toDate    = input.time(timestamp("2026-09-12"), "Date fin",   group=g_wf)
+
+var g_ui = "🖥 Affichage"
+showFVG   = input.bool(true, "Zones FVG",               group=g_ui)
+showSweep = input.bool(true, "Prises de liquidité",     group=g_ui)
+showBias  = input.bool(true, "EMA Bias H4",             group=g_ui)
+
+// ════════════════════════════════════════════════════════════
+//  FILTRE DE DATES (Walk-Forward)
+// ════════════════════════════════════════════════════════════
+inDateRange = not useWF or (time >= fromDate and time <= toDate)
+
+// ════════════════════════════════════════════════════════════
+//  CALENDRIER NEWS — FOMC + NFP + CPI 2025-2026
+//  Source : Calendrier officiel Fed + BLS
+//  → Tradingview n'ayant pas d'API calendrier, les dates sont hardcodées
+//  → Ajouter les années suivantes en copiant le bloc
+// ════════════════════════════════════════════════════════════
+// ── FOMC (jour de la décision) ──
+var fomcDates = array.from(
+    // 2025
+    timestamp(2025, 1,29, 0,0), timestamp(2025, 3,19, 0,0), timestamp(2025, 5, 7, 0,0),
+    timestamp(2025, 6,18, 0,0), timestamp(2025, 7,30, 0,0), timestamp(2025, 9,17, 0,0),
+    timestamp(2025,10,29, 0,0), timestamp(2025,12,10, 0,0),
+    // 2026
+    timestamp(2026, 1,29, 0,0), timestamp(2026, 3,18, 0,0), timestamp(2026, 4,29, 0,0),
+    timestamp(2026, 6,10, 0,0), timestamp(2026, 7,29, 0,0), timestamp(2026, 9,16, 0,0),
+    timestamp(2026,10,28, 0,0), timestamp(2026,12, 9, 0,0)
+)
+
+// ── NFP — Premier vendredi de chaque mois ──
+var nfpDates = array.from(
+    // 2025
+    timestamp(2025, 1,10, 0,0), timestamp(2025, 2, 7, 0,0), timestamp(2025, 3, 7, 0,0),
+    timestamp(2025, 4, 4, 0,0), timestamp(2025, 5, 2, 0,0), timestamp(2025, 6, 6, 0,0),
+    timestamp(2025, 7, 3, 0,0), timestamp(2025, 8, 1, 0,0), timestamp(2025, 9, 5, 0,0),
+    timestamp(2025,10, 3, 0,0), timestamp(2025,11, 7, 0,0), timestamp(2025,12, 5, 0,0),
+    // 2026
+    timestamp(2026, 1, 9, 0,0), timestamp(2026, 2, 6, 0,0), timestamp(2026, 3, 6, 0,0),
+    timestamp(2026, 4, 3, 0,0), timestamp(2026, 5, 1, 0,0), timestamp(2026, 6, 5, 0,0),
+    timestamp(2026, 7, 9, 0,0), timestamp(2026, 8, 7, 0,0), timestamp(2026, 9, 4, 0,0),
+    timestamp(2026,10, 2, 0,0), timestamp(2026,11, 6, 0,0), timestamp(2026,12, 4, 0,0)
+)
+
+// ── CPI — Généralement 2e ou 3e mercredi du mois ──
+var cpiDates = array.from(
+    // 2025
+    timestamp(2025, 1,15, 0,0), timestamp(2025, 2,12, 0,0), timestamp(2025, 3,12, 0,0),
+    timestamp(2025, 4,10, 0,0), timestamp(2025, 5,13, 0,0), timestamp(2025, 6,11, 0,0),
+    timestamp(2025, 7,15, 0,0), timestamp(2025, 8,12, 0,0), timestamp(2025, 9,10, 0,0),
+    timestamp(2025,10, 9, 0,0), timestamp(2025,11,13, 0,0), timestamp(2025,12,10, 0,0),
+    // 2026
+    timestamp(2026, 1,14, 0,0), timestamp(2026, 2,11, 0,0), timestamp(2026, 3,11, 0,0),
+    timestamp(2026, 4,10, 0,0), timestamp(2026, 5,13, 0,0), timestamp(2026, 6,10, 0,0),
+    timestamp(2026, 7,15, 0,0), timestamp(2026, 8,12, 0,0), timestamp(2026, 9,11, 0,0),
+    timestamp(2026,10,14, 0,0), timestamp(2026,11,12, 0,0), timestamp(2026,12, 9, 0,0)
+)
+
+// Fonction : vrai si le jour courant est dans un array de timestamps
+isInDates(datesArr) =>
+    today = timestamp(year, month, dayofmonth, 0, 0)
+    found = false
+    for i = 0 to array.size(datesArr) - 1
+        if array.get(datesArr, i) == today
+            found := true
+            break
+    found
+
+isFOMC = filterFOMC and isInDates(fomcDates)
+isNFP  = filterNFP  and isInDates(nfpDates)
+isCPI  = filterCPI  and isInDates(cpiDates)
+isNewsDay = isFOMC or isNFP or isCPI
+
+// ════════════════════════════════════════════════════════════
+//  SESSION NY OPEN — 09h30-10h45 New York
+// ════════════════════════════════════════════════════════════
 inSession = not na(time(timeframe.period, "0930-1045:23456", "America/New_York"))
-// Exclure le weekend (sécurité supplémentaire)
 isWeekday = dayofweek != dayofweek.saturday and dayofweek != dayofweek.sunday
-inSession := inSession and isWeekday
+inSession := inSession and isWeekday and not isNewsDay and inDateRange
 
-// ── BIAS H4 ──────────────────────────────────────────────────────────────────
-// Charger la clôture H4 sans look-ahead
+// Fond de session (vert si actif, rouge si exclu par news)
+bgcolor(inSession                    ? color.new(color.blue,   93) : na, title="Session active")
+bgcolor(isNewsDay and isWeekday      ? color.new(color.orange, 88) : na, title="Jour news exclu")
+
+// ════════════════════════════════════════════════════════════
+//  BIAS H4
+// ════════════════════════════════════════════════════════════
 h4Close = request.security(syminfo.tickerid, "240", close, lookahead=barmerge.lookahead_off)
 h4Ema   = ta.ema(h4Close, biasLen)
 bullH4  = not useBias or h4Close > h4Ema
 bearH4  = not useBias or h4Close < h4Ema
 
-plot(showBiasEma ? h4Ema : na, "EMA Bias H4",
+plot(showBias ? h4Ema : na, "EMA Bias H4",
      color=h4Close > h4Ema ? color.new(color.teal, 20) : color.new(color.red, 20),
-     linewidth=2, style=plot.style_line)
+     linewidth=2)
 
-// ── ATR (référence risque & buffer) ──────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+//  ATR + SWINGS
+// ════════════════════════════════════════════════════════════
 atr = ta.atr(14)
+prevHigh = ta.highest(high[1], lsLookback)
+prevLow  = ta.lowest(low[1],  lsLookback)
 
-// ── SWING HIGH/LOW pour prise de liquidité ───────────────────────────────────
-// On exclut la bougie courante ([1]) pour éviter le lookahead
-prevSwingHigh = ta.highest(high[1], lsLookback)
-prevSwingLow  = ta.lowest(low[1],  lsLookback)
+// ════════════════════════════════════════════════════════════
+//  PRISE DE LIQUIDITÉ
+// ════════════════════════════════════════════════════════════
+sslSweep = low  < prevLow  and close > prevLow   // Sweep SSL → long
+bslSweep = high > prevHigh and close < prevHigh  // Sweep BSL → short
 
-// Prise de liquidité SSL (Sell Side) → setup LONG
-//   : la mèche casse le swing low, mais la clôture revient au-dessus
-sslSweep = low < prevSwingLow and close > prevSwingLow
+plotshape(showSweep and sslSweep, "SSL Sweep", shape.diamond, location.belowbar,
+          color.new(color.green, 30), size=size.small)
+plotshape(showSweep and bslSweep, "BSL Sweep", shape.diamond, location.abovebar,
+          color.new(color.red, 30),   size=size.small)
 
-// Prise de liquidité BSL (Buy Side) → setup SHORT
-//   : la mèche casse le swing high, mais la clôture revient en-dessous
-bslSweep = high > prevSwingHigh and close < prevSwingHigh
+// ════════════════════════════════════════════════════════════
+//  DISPLACEMENT
+// ════════════════════════════════════════════════════════════
+isBullDisp = close > open
+             and (high - low) >= atr * dispMult
+             and close >= high - (high - low) * 0.25  // clôture dans le quart supérieur
 
-plotshape(showSweeps and sslSweep, "SSL Sweep (Long)", shape.diamond,
-          location.belowbar, color.new(color.green, 30), size=size.small)
-plotshape(showSweeps and bslSweep, "BSL Sweep (Short)", shape.diamond,
-          location.abovebar, color.new(color.red, 30), size=size.small)
+isBearDisp = close < open
+             and (high - low) >= atr * dispMult
+             and close <= low  + (high - low) * 0.25  // clôture dans le quart inférieur
 
-// ── DÉTECTION DISPLACEMENT ───────────────────────────────────────────────────
-// Bougie haussière : amplitude ≥ dispMult×ATR + clôture dans le quart supérieur
-isBullDisplacement = close > open
-                    and (high - low) >= atr * dispMult
-                    and close >= high - (high - low) * 0.25
+// ════════════════════════════════════════════════════════════
+//  MACHINE D'ÉTAT — LONG
+//  States : 0=idle | 1=sweep détecté | 2=FVG prêt (attente retracement)
+// ════════════════════════════════════════════════════════════
+var int   ls = 0
+var int   ls_sweepBar = na
+var float ls_fvgTop   = na  // low de la bougie displacement
+var float ls_fvgBot   = na  // high[2] avant displacement
+var float ls_sl       = na
+var float ls_bbLow    = na
 
-// Bougie baissière : amplitude ≥ dispMult×ATR + clôture dans le quart inférieur
-isBearDisplacement = close < open
-                    and (high - low) >= atr * dispMult
-                    and close <= low + (high - low) * 0.25
+// Timeout
+if ls == 1 and not na(ls_sweepBar) and bar_index - ls_sweepBar > maxBarsWindow
+    ls := 0
 
-// ── MACHINE D'ÉTAT — SETUP LONG ──────────────────────────────────────────────
-var int   ls_state      = 0    // 0=idle, 1=sweep détecté, 2=FVG prêt (attente retracement)
-var int   ls_sweepBar   = na
-var float ls_fvg_top    = na   // haut du FVG  = low de la bougie displacement
-var float ls_fvg_bot    = na   // bas du FVG   = high[2] de la bougie displacement
-var float ls_sl         = na   // stop loss calculé
-var float ls_bbLow      = na   // low du Breaker Block
+// Invalidation : prix clôture sous le FVG
+if ls == 2 and close < ls_fvgBot
+    ls := 0
 
-// Reset si fenêtre dépassée ou setup invalidé
-if ls_state == 1 and not na(ls_sweepBar) and bar_index - ls_sweepBar > maxBarsWindow
-    ls_state := 0
-
-// Invalidation si prix clôture sous le FVG sans déclencher d'entrée
-if ls_state == 2 and close < ls_fvg_bot
-    ls_state := 0
-
-// ÉTAPE 1 — SSL Sweep
-if ls_state == 0 and sslSweep and bullH4
-    ls_state    := 1
+// Étape 1 — SSL sweep
+if ls == 0 and sslSweep and bullH4
+    ls         := 1
     ls_sweepBar := bar_index
 
-// ÉTAPE 2 — Displacement haussier + FVG
-if ls_state == 1 and isBullDisplacement
-    fvgTop = low        // bas de la bougie displacement = plafond du FVG
-    fvgBot = high[2]    // haut de la bougie 2 avant    = plancher du FVG
-    if fvgTop > fvgBot  // FVG valide (il y a bien un gap)
-        ls_fvg_top := fvgTop
-        ls_fvg_bot := fvgBot
+// Étape 2 — Displacement haussier → FVG + Breaker Block
+if ls == 1 and isBullDisp
+    fTop = low      // plancher = low du displacement
+    fBot = high[2]  // plafond  = high 2 bougies avant
+    if fTop > fBot
+        ls_fvgTop := fTop
+        ls_fvgBot := fBot
         // Breaker Block = dernière bougie baissière avant le displacement
-        // (la bougie[1] si elle est baissière, sinon on prend bougie[2])
-        bbCandle_low = close[1] < open[1] ? low[1] : (close[2] < open[2] ? low[2] : low[1])
-        ls_bbLow := bbCandle_low
-        // SL = sous le min(low displacement, low Breaker Block) − buffer
-        ls_sl    := math.min(low, ls_bbLow) - atr * slBufferMult
-        ls_state := 2
+        bbLow = close[1] < open[1] ? low[1] : (close[2] < open[2] ? low[2] : low)
+        ls_bbLow := bbLow
+        ls_sl    := math.min(low, ls_bbLow) - atr * slBuf
+        ls       := 2
 
-// ── MACHINE D'ÉTAT — SETUP SHORT ─────────────────────────────────────────────
-var int   ss_state      = 0
-var int   ss_sweepBar   = na
-var float ss_fvg_top    = na   // haut du FVG  = low[2] avant la bougie displacement baissière
-var float ss_fvg_bot    = na   // bas du FVG   = high de la bougie displacement
-var float ss_sl         = na
-var float ss_bbHigh     = na
+// ════════════════════════════════════════════════════════════
+//  MACHINE D'ÉTAT — SHORT
+// ════════════════════════════════════════════════════════════
+var int   ss = 0
+var int   ss_sweepBar = na
+var float ss_fvgTop   = na
+var float ss_fvgBot   = na
+var float ss_sl       = na
+var float ss_bbHigh   = na
 
-if ss_state == 1 and not na(ss_sweepBar) and bar_index - ss_sweepBar > maxBarsWindow
-    ss_state := 0
+if ss == 1 and not na(ss_sweepBar) and bar_index - ss_sweepBar > maxBarsWindow
+    ss := 0
 
-if ss_state == 2 and close > ss_fvg_top
-    ss_state := 0
+if ss == 2 and close > ss_fvgTop
+    ss := 0
 
-if ss_state == 0 and bslSweep and bearH4
-    ss_state    := 1
+if ss == 0 and bslSweep and bearH4
+    ss         := 1
     ss_sweepBar := bar_index
 
-if ss_state == 1 and isBearDisplacement
-    fvgTop = low[2]     // bas de la bougie 2 avant = plafond du FVG baissier
-    fvgBot = high       // haut de la bougie displacement = plancher du FVG baissier
-    if fvgTop > fvgBot
-        ss_fvg_top := fvgTop
-        ss_fvg_bot := fvgBot
-        bbCandle_high = close[1] > open[1] ? high[1] : (close[2] > open[2] ? high[2] : high[1])
-        ss_bbHigh := bbCandle_high
-        ss_sl     := math.max(high, ss_bbHigh) + atr * slBufferMult
-        ss_state  := 2
+if ss == 1 and isBearDisp
+    fTop = low[2]
+    fBot = high
+    if fTop > fBot
+        ss_fvgTop := fTop
+        ss_fvgBot := fBot
+        bbHigh    = close[1] > open[1] ? high[1] : (close[2] > open[2] ? high[2] : high)
+        ss_bbHigh := bbHigh
+        ss_sl     := math.max(high, ss_bbHigh) + atr * slBuf
+        ss        := 2
 
-// ── AFFICHAGE DES ZONES FVG ───────────────────────────────────────────────────
-// Dessin des boxes FVG actives
-var box longFVGBox  = na
-var box shortFVGBox = na
+// ════════════════════════════════════════════════════════════
+//  AFFICHAGE ZONES FVG
+// ════════════════════════════════════════════════════════════
+var box longBox  = na
+var box shortBox = na
 
-if showFVGZones
-    if ls_state == 2 and not na(ls_fvg_top)
-        if not na(longFVGBox)
-            box.delete(longFVGBox)
-        longFVGBox := box.new(bar_index - 1, ls_fvg_top, bar_index + 5, ls_fvg_bot,
-                              border_color=color.new(color.teal, 0),
-                              bgcolor=color.new(color.teal, 85),
-                              border_width=1)
-    if ss_state == 2 and not na(ss_fvg_top)
-        if not na(shortFVGBox)
-            box.delete(shortFVGBox)
-        shortFVGBox := box.new(bar_index - 1, ss_fvg_top, bar_index + 5, ss_fvg_bot,
-                               border_color=color.new(color.red, 0),
-                               bgcolor=color.new(color.red, 85),
-                               border_width=1)
+if showFVG
+    if ls == 2 and not na(ls_fvgTop)
+        if not na(longBox)
+            box.delete(longBox)
+        longBox := box.new(bar_index - 1, ls_fvgTop, bar_index + 6, ls_fvgBot,
+                           border_color=color.teal, bgcolor=color.new(color.teal, 85), border_width=1)
+    if ss == 2 and not na(ss_fvgTop)
+        if not na(shortBox)
+            box.delete(shortBox)
+        shortBox := box.new(bar_index - 1, ss_fvgTop, bar_index + 6, ss_fvgBot,
+                            border_color=color.red, bgcolor=color.new(color.red, 85), border_width=1)
 
-// ── SIGNAUX D'ENTRÉE ──────────────────────────────────────────────────────────
-// Long : retracement dans le FVG haussier, clôture dans la zone, session active, pas de position
-longEntry = ls_state == 2
-            and strategy.position_size == 0
-            and inSession
-            and low  <= ls_fvg_top   // prix entre dans le FVG
-            and close >= ls_fvg_bot  // mais ne clôture pas sous le FVG
+// ════════════════════════════════════════════════════════════
+//  SIGNAUX & ENTRÉES
+// ════════════════════════════════════════════════════════════
+longEntry  = ls == 2 and strategy.position_size == 0 and inSession
+             and low  <= ls_fvgTop and close >= ls_fvgBot
 
-// Short : retracement dans le FVG baissier
-shortEntry = ss_state == 2
-             and strategy.position_size == 0
-             and inSession
-             and high >= ss_fvg_bot   // prix entre dans le FVG
-             and close <= ss_fvg_top  // mais ne clôture pas au-dessus du FVG
+shortEntry = ss == 2 and strategy.position_size == 0 and inSession
+             and high >= ss_fvgBot and close <= ss_fvgTop
 
-// ── EXÉCUTION ─────────────────────────────────────────────────────────────────
 if longEntry
-    entryEst = close
-    slDist   = entryEst - ls_sl
-    tpPrice  = entryEst + slDist * rrTarget
+    slDist  = close - ls_sl
+    tpPrice = close + slDist * rrTarget
     strategy.entry("Long", strategy.long)
-    strategy.exit("Long Exit", from_entry="Long", stop=ls_sl, limit=tpPrice,
-                  comment_loss="SL", comment_profit="TP " + str.tostring(rrTarget) + "R")
-    // Reset du setup
-    ls_state := 0
-    if not na(longFVGBox)
-        box.delete(longFVGBox)
+    strategy.exit("L-exit", "Long",
+                  stop    = ls_sl,
+                  limit   = tpPrice,
+                  comment_loss   = "🔴 SL",
+                  comment_profit = "✅ TP " + str.tostring(rrTarget) + "R")
+    if showFVG and not na(longBox)
+        box.delete(longBox)
+    ls := 0
 
 if shortEntry
-    entryEst = close
-    slDist   = ss_sl - entryEst
-    tpPrice  = entryEst - slDist * rrTarget
+    slDist  = ss_sl - close
+    tpPrice = close - slDist * rrTarget
     strategy.entry("Short", strategy.short)
-    strategy.exit("Short Exit", from_entry="Short", stop=ss_sl, limit=tpPrice,
-                  comment_loss="SL", comment_profit="TP " + str.tostring(rrTarget) + "R")
-    ss_state := 0
-    if not na(shortFVGBox)
-        box.delete(shortFVGBox)
+    strategy.exit("S-exit", "Short",
+                  stop    = ss_sl,
+                  limit   = tpPrice,
+                  comment_loss   = "🔴 SL",
+                  comment_profit = "✅ TP " + str.tostring(rrTarget) + "R")
+    if showFVG and not na(shortBox)
+        box.delete(shortBox)
+    ss := 0
 
-// ── MARQUEURS ─────────────────────────────────────────────────────────────────
-plotshape(longEntry,  "Long",  shape.arrowup,   location.belowbar, color.new(color.lime,  0), size=size.normal)
-plotshape(shortEntry, "Short", shape.arrowdown, location.abovebar, color.new(color.red,   0), size=size.normal)
+plotshape(longEntry,  "Long",  shape.arrowup,   location.belowbar, color.lime, size=size.normal)
+plotshape(shortEntry, "Short", shape.arrowdown, location.abovebar, color.red,  size=size.normal)
 
-// Indicateur de session (fond coloré)
-bgcolor(inSession ? color.new(color.blue, 93) : na, title="Session NY Open")
+// ════════════════════════════════════════════════════════════
+//  LABEL NEWS
+// ════════════════════════════════════════════════════════════
+if isNewsDay and isWeekday and barstate.isconfirmed
+    newsLabel = isFOMC ? "FOMC" : isNFP ? "NFP" : "CPI"
+    if not na(time(timeframe.period, "0000-0001:23456", "America/New_York"))
+        label.new(bar_index, high * 1.001, "⚠️ " + newsLabel,
+                  color=color.new(color.orange, 60),
+                  textcolor=color.white,
+                  style=label.style_label_down,
+                  size=size.small)
 
-// ── DASHBOARD ─────────────────────────────────────────────────────────────────
-var table dash = table.new(position.top_right, 2, 10,
-    bgcolor=color.new(color.black, 72),
-    border_width=1, border_color=color.new(color.white, 75),
-    frame_color=color.new(color.white, 55), frame_width=1)
+// ════════════════════════════════════════════════════════════
+//  DASHBOARD
+// ════════════════════════════════════════════════════════════
+var table dash = table.new(position.top_right, 2, 12,
+    bgcolor     = color.new(color.black, 72),
+    border_width = 1, border_color = color.new(color.white, 75),
+    frame_color  = color.new(color.white, 55), frame_width = 1)
 
 if barstate.islast
-    cl(v, good, warn) =>
-        v >= good ? color.lime : v >= warn ? color.yellow : color.red
+    cg(v, g, w) => v >= g ? color.lime : v >= w ? color.yellow : color.red
 
-    totalTrades = strategy.closedtrades
-    wins        = strategy.wintrades
-    losses      = strategy.losstrades
-    winPct      = totalTrades > 0 ? wins / totalTrades * 100 : 0.0
-    pf          = strategy.grossloss != 0 ? math.abs(strategy.grossprofit / strategy.grossloss) : 0.0
-    avgWin      = wins    > 0 ? strategy.grossprofit / wins    : 0.0
-    avgLoss     = losses  > 0 ? math.abs(strategy.grossloss / losses) : 0.0
-    rrReal      = avgLoss > 0 ? avgWin / avgLoss : 0.0
-    netPnl      = strategy.netprofit
-    maxDD       = strategy.max_drawdown
+    n    = strategy.closedtrades
+    wins = strategy.wintrades
+    loss = strategy.losstrades
+    wr   = n > 0 ? wins / n * 100 : 0.0
+    pf   = strategy.grossloss != 0 ? math.abs(strategy.grossprofit / strategy.grossloss) : 0.0
+    avgW = wins > 0 ? strategy.grossprofit  / wins : 0.0
+    avgL = loss > 0 ? math.abs(strategy.grossloss / loss) : 0.0
+    rrR  = avgL > 0 ? avgW / avgL : 0.0
+    pnl  = strategy.netprofit
+    dd   = strategy.max_drawdown
+    espR = wr / 100 * rrTarget - (1 - wr / 100)
 
-    hdr(col, row, txt) =>
-        table.cell(dash, col, row, txt, text_color=color.new(color.white, 20),
-                   text_size=size.small, bgcolor=color.new(color.black, 60))
-    val(col, row, txt, c) =>
-        table.cell(dash, col, row, txt, text_color=c,
-                   text_size=size.small, text_halign=text.align_right, bgcolor=color.new(color.black, 80))
+    h(c,r,t)   => table.cell(dash,c,r,t, text_color=color.new(color.white,20),
+                             text_size=size.small, bgcolor=color.new(color.black,60))
+    v(c,r,t,cl) => table.cell(dash,c,r,t, text_color=cl,
+                              text_size=size.small, text_halign=text.align_right,
+                              bgcolor=color.new(color.black,80))
 
-    table.cell(dash, 0, 0, "ICT PropFirm Backtest",
-               text_color=color.yellow, text_size=size.small, text_halign=text.align_center,
-               bgcolor=color.new(color.black, 50))
-    table.cell(dash, 1, 0, "M15 · NY Open",
-               text_color=color.new(color.white, 30), text_size=size.small, text_halign=text.align_right,
-               bgcolor=color.new(color.black, 50))
+    table.cell(dash,0,0,"ICT PropFirm v3", text_color=color.yellow,
+               text_size=size.small, text_halign=text.align_center, bgcolor=color.new(color.black,50))
+    table.cell(dash,1,0,"M15 · NY Open", text_color=color.new(color.white,30),
+               text_size=size.small, text_halign=text.align_right, bgcolor=color.new(color.black,50))
 
-    hdr(0, 1, "P&L Net")
-    val(1, 1, (netPnl >= 0 ? "+" : "") + str.tostring(netPnl, "#.##") + " $",
-        netPnl >= 0 ? color.lime : color.red)
+    h(0,1,"P&L Net")
+    v(1,1,(pnl>=0?"+":"")+str.tostring(pnl,"#.##")+" $", pnl>=0?color.lime:color.red)
 
-    hdr(0, 2, "Trades")
-    val(1, 2, str.tostring(totalTrades) + "  (" + str.tostring(wins) + "W / " + str.tostring(losses) + "L)",
-        color.white)
+    h(0,2,"Trades")
+    v(1,2,str.tostring(n)+"  ("+str.tostring(wins)+"W / "+str.tostring(loss)+"L)", color.white)
 
-    hdr(0, 3, "Win Rate")
-    val(1, 3, str.tostring(winPct, "#.1") + "%", cl(winPct, 60, 50))
+    h(0,3,"Win Rate")
+    v(1,3,str.tostring(wr,"#.1")+"%", cg(wr,60,50))
 
-    hdr(0, 4, "Profit Factor")
-    val(1, 4, str.tostring(pf, "#.##"), cl(pf, 1.5, 1.0))
+    h(0,4,"Profit Factor")
+    v(1,4,str.tostring(pf,"#.##"), cg(pf,1.5,1.0))
 
-    hdr(0, 5, "RR réalisé moyen")
-    val(1, 5, str.tostring(rrReal, "#.##") + " : 1", cl(rrReal, 2.0, 1.5))
+    h(0,5,"RR réalisé moyen")
+    v(1,5,str.tostring(rrR,"#.##")+" : 1", cg(rrR,2.0,1.5))
 
-    hdr(0, 6, "Max Drawdown")
-    val(1, 6, "-" + str.tostring(maxDD, "#.##") + " $",
-        maxDD > 600 ? color.red : maxDD > 300 ? color.yellow : color.lime)
+    h(0,6,"Max Drawdown")
+    v(1,6,"-"+str.tostring(dd,"#.##")+" $", dd>600?color.red:dd>300?color.yellow:color.lime)
 
-    hdr(0, 7, "Esp. / trade")
-    espR = winPct / 100 * rrTarget - (1 - winPct / 100)
-    val(1, 7, str.tostring(espR, "#.###") + " R", espR > 0 ? color.lime : color.red)
+    h(0,7,"Espérance / trade")
+    v(1,7,str.tostring(espR,"#.###")+" R", espR>0?color.lime:color.red)
 
-    hdr(0, 8, "Setup")
-    val(1, 8, "Sweep → Disp → FVG", color.new(color.white, 20))
+    h(0,8,"Filtre news")
+    newsStatus = (filterFOMC?"FOMC ":"")+(filterNFP?"NFP ":"")+(filterCPI?"CPI":"")
+    v(1,8,newsStatus==""?"Désactivé":newsStatus, color.new(color.white,20))
 
-    hdr(0, 9, "Risque / RR cible")
-    val(1, 9, str.tostring(riskPct) + "% / 1:" + str.tostring(rrTarget), color.teal)
+    h(0,9,"Risque / RR cible")
+    v(1,9,str.tostring(riskPct)+"% / 1:"+str.tostring(rrTarget), color.teal)
+
+    h(0,10,"Lookback / Disp")
+    v(1,10,str.tostring(lsLookback)+" · "+str.tostring(dispMult)+"×ATR", color.new(color.white,20))
+
+    h(0,11,"Période testée")
+    dateStr = useWF
+              ? str.format_time(fromDate,"dd/MM/yy")+" → "+str.format_time(toDate,"dd/MM/yy")
+              : "Tout l'historique"
+    v(1,11,dateStr, color.new(color.white,30))
