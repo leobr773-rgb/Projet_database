@@ -1,209 +1,300 @@
 // ══════════════════════════════════════════════════════════════════════════════
-//  ICT Backtest Strategy — BTC/USD PropFirm Challenge
-//  Setups : FVG Retest + Liquidity Sweep
-//  Sessions : London Open (09h-11h UTC+2) + New York (14h30-17h UTC+2)
-//  Risk : 1% par trade | RR : 2:1 minimum
-//  Timeframe recommandé : 15min (entrée) avec bias H4
+//  ICT PropFirm Strategy v2 — BTC/USD
+//
+//  Séquence :
+//    1. Prise de liquidité SSL (sweep du swing low → long) / BSL (sweep du swing high → short)
+//    2. Bougie de Displacement haussière/baissière créant un FVG
+//    3. Retracement dans le FVG → Entrée
+//    4. SL sous la bougie displacement (et sous le Breaker Block si valide)
+//    5. TP à 2R
+//
+//  Session : NY Open — 09h30-10h45 New York (= 15h30-16h45 Paris CEST)
+//  Bias    : H4 — haussier si close H4 > EMA H4, baissier si < EMA H4
+//  Risk    : 1% du capital par trade
+//
+//  Timeframe recommandé : M15
 // ══════════════════════════════════════════════════════════════════════════════
 //@version=5
 strategy(
-  title       = "ICT PropFirm — FVG + Liquidity Sweep",
-  shorttitle  = "ICT_PF",
-  overlay     = true,
-  default_qty_type  = strategy.percent_of_equity,
-  default_qty_value = 1,
-  initial_capital   = 10000,
-  commission_type   = strategy.commission.percent,
-  commission_value  = 0.1,
-  slippage          = 2,
-  calc_on_order_fills = false,
-  process_orders_on_close = false
+    title                  = "ICT PropFirm v2 — Sweep + Displacement + FVG",
+    shorttitle             = "ICT_PF",
+    overlay                = true,
+    default_qty_type       = strategy.percent_of_equity,
+    default_qty_value      = 1,
+    initial_capital        = 10000,
+    commission_type        = strategy.commission.percent,
+    commission_value       = 0.1,
+    slippage               = 2,
+    calc_on_order_fills    = false,
+    process_orders_on_close = false
 )
 
-// ── PARAMÈTRES ──────────────────────────────────────────────────────────────
-var g_risk   = "Risk Management"
-riskPct      = input.float(1.0,  "Risque par trade (%)",     minval=0.1, maxval=5.0, step=0.1, group=g_risk)
-rrTarget     = input.float(2.0,  "Risk/Reward cible",        minval=1.0, maxval=10.0, step=0.1, group=g_risk)
-feePct       = input.float(0.1,  "Frais aller-retour (%)",   minval=0.0, maxval=1.0,  step=0.05, group=g_risk)
+// ── PARAMÈTRES ───────────────────────────────────────────────────────────────
+var g_risk = "Risk Management"
+riskPct   = input.float(1.0,  "Risque par trade (%)",           minval=0.1, maxval=5.0,  step=0.1,  group=g_risk)
+rrTarget  = input.float(2.0,  "RR cible (TP = SL × RR)",        minval=1.0, maxval=10.0, step=0.1,  group=g_risk)
+feePct    = input.float(0.1,  "Frais aller-retour (%)",          minval=0.0, maxval=1.0,  step=0.05, group=g_risk)
 
-var g_setup  = "Setups ICT"
-fvgMinSize   = input.float(0.05, "FVG taille minimum (%)",   minval=0.01, maxval=1.0, step=0.01, group=g_setup, tooltip="Taille minimale du gap en % du prix")
-lsLookback   = input.int(20,     "Lookback Liquidity Sweep", minval=5,   maxval=100,  group=g_setup, tooltip="Nombre de bougies pour identifier le swing high/low à sweeper")
-useFVG       = input.bool(true,  "Activer FVG Retest",       group=g_setup)
-useLS        = input.bool(true,  "Activer Liquidity Sweep",  group=g_setup)
+var g_setup = "Paramètres ICT"
+lsLookback      = input.int(20,   "Lookback prise de liquidité (bougies)", minval=5,   maxval=100, group=g_setup)
+dispMult        = input.float(1.5,"Displacement : multiple ATR min",        minval=0.8, maxval=5.0, step=0.1, group=g_setup,
+                   tooltip="La bougie displacement doit avoir une amplitude ≥ dispMult × ATR(14)")
+maxBarsWindow   = input.int(10,   "Fenêtre max sweep→displacement (bougies)", minval=2, maxval=30, group=g_setup)
+slBufferMult    = input.float(0.2,"SL buffer sous le low (× ATR)",           minval=0.0, maxval=2.0, step=0.05, group=g_setup)
 
-var g_bias   = "Bias & Filtre"
-biasEmaLen   = input.int(50,     "EMA Bias (période)",       minval=10, maxval=200, group=g_bias)
-useH4Bias    = input.bool(true,  "Filtre bias EMA",          group=g_bias, tooltip="Long uniquement si prix > EMA, Short si prix < EMA")
-useSessions  = input.bool(true,  "Filtre sessions (LDN/NY)",  group=g_bias)
+var g_bias = "Bias H4"
+biasLen   = input.int(50,    "EMA H4 période",       minval=10,  maxval=300, group=g_bias)
+useBias   = input.bool(true, "Activer filtre bias H4", group=g_bias, tooltip="Long uniquement si H4 close > EMA, Short si H4 close < EMA")
 
-var g_ui     = "Affichage"
-showFVG      = input.bool(true,  "Afficher les FVG",         group=g_ui)
-showLS       = input.bool(true,  "Afficher les Sweeps",      group=g_ui)
-showBias     = input.bool(true,  "Afficher EMA Bias",        group=g_ui)
+var g_disp = "Affichage"
+showFVGZones = input.bool(true,  "Afficher zones FVG",                group=g_disp)
+showSweeps   = input.bool(true,  "Afficher prises de liquidité",      group=g_disp)
+showBiasEma  = input.bool(true,  "Afficher EMA Bias (H4 sur M15)",   group=g_disp)
 
-// ── TIMEZONE & SESSIONS ─────────────────────────────────────────────────────
-// UTC+2 (heure Paris été) — London 07h-09h UTC / New York 12h30-15h UTC
-londonSession = time(timeframe.period, "0700-0900:23456")   // Lun-Ven
-nySession     = time(timeframe.period, "1230-1500:23456")
-nyPmSession   = time(timeframe.period, "1700-1900:23456")
+// ── SESSION : NY OPEN 09h30-10h45 New York ───────────────────────────────────
+// = 15h30-16h45 Paris (CEST, UTC+2)
+inSession = not na(time(timeframe.period, "0930-1045:23456", "America/New_York"))
+// Exclure le weekend (sécurité supplémentaire)
+isWeekday = dayofweek != dayofweek.saturday and dayofweek != dayofweek.sunday
+inSession := inSession and isWeekday
 
-inSession = useSessions ? (not na(londonSession) or not na(nySession)) : true
+// ── BIAS H4 ──────────────────────────────────────────────────────────────────
+// Charger la clôture H4 sans look-ahead
+h4Close = request.security(syminfo.tickerid, "240", close, lookahead=barmerge.lookahead_off)
+h4Ema   = ta.ema(h4Close, biasLen)
+bullH4  = not useBias or h4Close > h4Ema
+bearH4  = not useBias or h4Close < h4Ema
 
-// ── BIAS EMA ────────────────────────────────────────────────────────────────
-biasEma  = ta.ema(close, biasEmaLen)
-bullBias = close > biasEma
-bearBias = close < biasEma
+plot(showBiasEma ? h4Ema : na, "EMA Bias H4",
+     color=h4Close > h4Ema ? color.new(color.teal, 20) : color.new(color.red, 20),
+     linewidth=2, style=plot.style_line)
 
-plot(showBias ? biasEma : na, "EMA Bias", color=bullBias ? color.new(color.teal, 30) : color.new(color.red, 30), linewidth=2)
+// ── ATR (référence risque & buffer) ──────────────────────────────────────────
+atr = ta.atr(14)
 
-// ── DÉTECTION FVG (Fair Value Gap) ──────────────────────────────────────────
-// Bullish FVG : low[0] > high[2] → gap entre high[2] et low[0]
-// Bearish FVG : high[0] < low[2] → gap entre low[2] et high[0]
+// ── SWING HIGH/LOW pour prise de liquidité ───────────────────────────────────
+// On exclut la bougie courante ([1]) pour éviter le lookahead
+prevSwingHigh = ta.highest(high[1], lsLookback)
+prevSwingLow  = ta.lowest(low[1],  lsLookback)
 
-fvgMinPts = close * fvgMinSize / 100
+// Prise de liquidité SSL (Sell Side) → setup LONG
+//   : la mèche casse le swing low, mais la clôture revient au-dessus
+sslSweep = low < prevSwingLow and close > prevSwingLow
 
-bullFVG   = low  > high[2] and (low - high[2]) >= fvgMinPts
-bearFVG   = high < low[2]  and (low[2] - high) >= fvgMinPts
+// Prise de liquidité BSL (Buy Side) → setup SHORT
+//   : la mèche casse le swing high, mais la clôture revient en-dessous
+bslSweep = high > prevSwingHigh and close < prevSwingHigh
 
-// Mémoriser les FVG actifs (top, bottom)
-var float bFVG_top = na
-var float bFVG_bot = na
-var float bFVG_mid = na
-var int   bFVG_bar = na
-var float sFVG_top = na
-var float sFVG_bot = na
-var float sFVG_mid = na
-var int   sFVG_bar = na
+plotshape(showSweeps and sslSweep, "SSL Sweep (Long)", shape.diamond,
+          location.belowbar, color.new(color.green, 30), size=size.small)
+plotshape(showSweeps and bslSweep, "BSL Sweep (Short)", shape.diamond,
+          location.abovebar, color.new(color.red, 30), size=size.small)
 
-if bullFVG
-    bFVG_bot := high[2]
-    bFVG_top := low
-    bFVG_mid := (bFVG_bot + bFVG_top) / 2
-    bFVG_bar := bar_index
+// ── DÉTECTION DISPLACEMENT ───────────────────────────────────────────────────
+// Bougie haussière : amplitude ≥ dispMult×ATR + clôture dans le quart supérieur
+isBullDisplacement = close > open
+                    and (high - low) >= atr * dispMult
+                    and close >= high - (high - low) * 0.25
 
-if bearFVG
-    sFVG_top := low[2]
-    sFVG_bot := high
-    sFVG_mid := (sFVG_top + sFVG_bot) / 2
-    sFVG_bar := bar_index
+// Bougie baissière : amplitude ≥ dispMult×ATR + clôture dans le quart inférieur
+isBearDisplacement = close < open
+                    and (high - low) >= atr * dispMult
+                    and close <= low + (high - low) * 0.25
 
-// Retest dans le FVG (prix revient toucher la zone)
-inBullFVG = not na(bFVG_bot) and low <= bFVG_top and close >= bFVG_bot and bar_index > bFVG_bar
-inBearFVG = not na(sFVG_bot) and high >= sFVG_bot and close <= sFVG_top and bar_index > sFVG_bar
+// ── MACHINE D'ÉTAT — SETUP LONG ──────────────────────────────────────────────
+var int   ls_state      = 0    // 0=idle, 1=sweep détecté, 2=FVG prêt (attente retracement)
+var int   ls_sweepBar   = na
+var float ls_fvg_top    = na   // haut du FVG  = low de la bougie displacement
+var float ls_fvg_bot    = na   // bas du FVG   = high[2] de la bougie displacement
+var float ls_sl         = na   // stop loss calculé
+var float ls_bbLow      = na   // low du Breaker Block
 
-// Affichage FVG
-plotshape(showFVG and bullFVG, "Bull FVG", shape.triangleup,   location.belowbar, color.new(color.teal, 60), size=size.tiny)
-plotshape(showFVG and bearFVG, "Bear FVG", shape.triangledown, location.abovebar, color.new(color.red,  60), size=size.tiny)
+// Reset si fenêtre dépassée ou setup invalidé
+if ls_state == 1 and not na(ls_sweepBar) and bar_index - ls_sweepBar > maxBarsWindow
+    ls_state := 0
 
-// ── DÉTECTION LIQUIDITY SWEEP ────────────────────────────────────────────────
-// Sweep haussier : le prix casse le plus haut des N dernières bougies puis revient sous
-// Sweep baissier : le prix casse le plus bas des N dernières bougies puis revient au-dessus
+// Invalidation si prix clôture sous le FVG sans déclencher d'entrée
+if ls_state == 2 and close < ls_fvg_bot
+    ls_state := 0
 
-swingHigh = ta.highest(high, lsLookback)[1]
-swingLow  = ta.lowest(low,  lsLookback)[1]
+// ÉTAPE 1 — SSL Sweep
+if ls_state == 0 and sslSweep and bullH4
+    ls_state    := 1
+    ls_sweepBar := bar_index
 
-// Sweep : wick franchit le niveau, close revient de l'autre côté
-bullSweep = high > swingHigh and close < swingHigh   // sweep du high + rejection baissière → potential reversal court
-bearSweep = low  < swingLow  and close > swingLow    // sweep du low  + rejection haussière → potential reversal long
+// ÉTAPE 2 — Displacement haussier + FVG
+if ls_state == 1 and isBullDisplacement
+    fvgTop = low        // bas de la bougie displacement = plafond du FVG
+    fvgBot = high[2]    // haut de la bougie 2 avant    = plancher du FVG
+    if fvgTop > fvgBot  // FVG valide (il y a bien un gap)
+        ls_fvg_top := fvgTop
+        ls_fvg_bot := fvgBot
+        // Breaker Block = dernière bougie baissière avant le displacement
+        // (la bougie[1] si elle est baissière, sinon on prend bougie[2])
+        bbCandle_low = close[1] < open[1] ? low[1] : (close[2] < open[2] ? low[2] : low[1])
+        ls_bbLow := bbCandle_low
+        // SL = sous le min(low displacement, low Breaker Block) − buffer
+        ls_sl    := math.min(low, ls_bbLow) - atr * slBufferMult
+        ls_state := 2
 
-plotshape(showLS and bearSweep, "Bear Sweep (Buy Signal)", shape.circle, location.belowbar, color.new(color.green, 40), size=size.small)
-plotshape(showLS and bullSweep, "Bull Sweep (Sell Signal)", shape.circle, location.abovebar, color.new(color.red,   40), size=size.small)
+// ── MACHINE D'ÉTAT — SETUP SHORT ─────────────────────────────────────────────
+var int   ss_state      = 0
+var int   ss_sweepBar   = na
+var float ss_fvg_top    = na   // haut du FVG  = low[2] avant la bougie displacement baissière
+var float ss_fvg_bot    = na   // bas du FVG   = high de la bougie displacement
+var float ss_sl         = na
+var float ss_bbHigh     = na
 
-// ── SIGNAUX D'ENTRÉE ─────────────────────────────────────────────────────────
-// LONG  : Bearish Liquidity Sweep (sweep du low) OU Bullish FVG Retest + bias haussier + session active
-// SHORT : Bullish Liquidity Sweep (sweep du high) OU Bearish FVG Retest + bias baissier + session active
+if ss_state == 1 and not na(ss_sweepBar) and bar_index - ss_sweepBar > maxBarsWindow
+    ss_state := 0
 
-longSignalLS  = useLS  and bearSweep and (not useH4Bias or bullBias) and inSession
-longSignalFVG = useFVG and inBullFVG and (not useH4Bias or bullBias) and inSession
-shortSignalLS  = useLS  and bullSweep and (not useH4Bias or bearBias) and inSession
-shortSignalFVG = useFVG and inBearFVG and (not useH4Bias or bearBias) and inSession
+if ss_state == 2 and close > ss_fvg_top
+    ss_state := 0
 
-longSignal  = (longSignalLS  or longSignalFVG)  and strategy.position_size == 0
-shortSignal = (shortSignalLS or shortSignalFVG) and strategy.position_size == 0
+if ss_state == 0 and bslSweep and bearH4
+    ss_state    := 1
+    ss_sweepBar := bar_index
 
-// ── CALCUL SL / TP ───────────────────────────────────────────────────────────
-// SL : sous le swing low récent (long) / au-dessus swing high récent (short)
-// TP : SL distance × RR
+if ss_state == 1 and isBearDisplacement
+    fvgTop = low[2]     // bas de la bougie 2 avant = plafond du FVG baissier
+    fvgBot = high       // haut de la bougie displacement = plancher du FVG baissier
+    if fvgTop > fvgBot
+        ss_fvg_top := fvgTop
+        ss_fvg_bot := fvgBot
+        bbCandle_high = close[1] > open[1] ? high[1] : (close[2] > open[2] ? high[2] : high[1])
+        ss_bbHigh := bbCandle_high
+        ss_sl     := math.max(high, ss_bbHigh) + atr * slBufferMult
+        ss_state  := 2
 
-atr       = ta.atr(14)
-slBuffer  = atr * 0.5   // buffer ATR pour éviter les faux déclenchements
+// ── AFFICHAGE DES ZONES FVG ───────────────────────────────────────────────────
+// Dessin des boxes FVG actives
+var box longFVGBox  = na
+var box shortFVGBox = na
 
-longSL    = ta.lowest(low, 5) - slBuffer
-longTP    = close + (close - longSL) * rrTarget
-shortSL   = ta.highest(high, 5) + slBuffer
-shortTP   = close - (shortSL - close) * rrTarget
+if showFVGZones
+    if ls_state == 2 and not na(ls_fvg_top)
+        if not na(longFVGBox)
+            box.delete(longFVGBox)
+        longFVGBox := box.new(bar_index - 1, ls_fvg_top, bar_index + 5, ls_fvg_bot,
+                              border_color=color.new(color.teal, 0),
+                              bgcolor=color.new(color.teal, 85),
+                              border_width=1)
+    if ss_state == 2 and not na(ss_fvg_top)
+        if not na(shortFVGBox)
+            box.delete(shortFVGBox)
+        shortFVGBox := box.new(bar_index - 1, ss_fvg_top, bar_index + 5, ss_fvg_bot,
+                               border_color=color.new(color.red, 0),
+                               bgcolor=color.new(color.red, 85),
+                               border_width=1)
 
-// ── EXÉCUTION DES ORDRES ─────────────────────────────────────────────────────
-// Le sizing 1% est géré par default_qty_type = percent_of_equity
+// ── SIGNAUX D'ENTRÉE ──────────────────────────────────────────────────────────
+// Long : retracement dans le FVG haussier, clôture dans la zone, session active, pas de position
+longEntry = ls_state == 2
+            and strategy.position_size == 0
+            and inSession
+            and low  <= ls_fvg_top   // prix entre dans le FVG
+            and close >= ls_fvg_bot  // mais ne clôture pas sous le FVG
 
-if longSignal
-    strategy.entry("Long", strategy.long, comment=longSignalLS ? "LS" : "FVG")
-    strategy.exit("Long Exit", "Long", stop=longSL, limit=longTP)
+// Short : retracement dans le FVG baissier
+shortEntry = ss_state == 2
+             and strategy.position_size == 0
+             and inSession
+             and high >= ss_fvg_bot   // prix entre dans le FVG
+             and close <= ss_fvg_top  // mais ne clôture pas au-dessus du FVG
 
-if shortSignal
-    strategy.entry("Short", strategy.short, comment=shortSignalLS ? "LS" : "FVG")
-    strategy.exit("Short Exit", "Short", stop=shortSL, limit=shortTP)
+// ── EXÉCUTION ─────────────────────────────────────────────────────────────────
+if longEntry
+    entryEst = close
+    slDist   = entryEst - ls_sl
+    tpPrice  = entryEst + slDist * rrTarget
+    strategy.entry("Long", strategy.long)
+    strategy.exit("Long Exit", from_entry="Long", stop=ls_sl, limit=tpPrice,
+                  comment_loss="SL", comment_profit="TP " + str.tostring(rrTarget) + "R")
+    // Reset du setup
+    ls_state := 0
+    if not na(longFVGBox)
+        box.delete(longFVGBox)
 
-// ── MARQUEURS ENTRÉE/SORTIE ──────────────────────────────────────────────────
-plotshape(longSignal,  "Long Entry",  shape.arrowup,   location.belowbar, color.green, size=size.normal)
-plotshape(shortSignal, "Short Entry", shape.arrowdown, location.abovebar, color.red,   size=size.normal)
+if shortEntry
+    entryEst = close
+    slDist   = ss_sl - entryEst
+    tpPrice  = entryEst - slDist * rrTarget
+    strategy.entry("Short", strategy.short)
+    strategy.exit("Short Exit", from_entry="Short", stop=ss_sl, limit=tpPrice,
+                  comment_loss="SL", comment_profit="TP " + str.tostring(rrTarget) + "R")
+    ss_state := 0
+    if not na(shortFVGBox)
+        box.delete(shortFVGBox)
 
-// ── DASHBOARD STATS ──────────────────────────────────────────────────────────
-var table dash = table.new(position.top_right, 2, 9,
-  bgcolor=color.new(color.black, 75), border_width=1, border_color=color.new(color.white, 80),
-  frame_color=color.new(color.white, 60), frame_width=1)
+// ── MARQUEURS ─────────────────────────────────────────────────────────────────
+plotshape(longEntry,  "Long",  shape.arrowup,   location.belowbar, color.new(color.lime,  0), size=size.normal)
+plotshape(shortEntry, "Short", shape.arrowdown, location.abovebar, color.new(color.red,   0), size=size.normal)
 
-f_cell(col, row, txt, val, col_val) =>
-    table.cell(dash, col, row, txt,  text_color=color.new(color.white, 30), text_size=size.small)
-    table.cell(dash, col+1 > 1 ? 0 : 1, row, val, text_color=col_val, text_size=size.small, text_halign=text.align_right)
+// Indicateur de session (fond coloré)
+bgcolor(inSession ? color.new(color.blue, 93) : na, title="Session NY Open")
 
-netProfit   = strategy.netprofit
-totalTrades = strategy.closedtrades
-wins        = strategy.wintrades
-losses      = strategy.losstrades
-winRate     = totalTrades > 0 ? wins / totalTrades * 100 : 0.0
-avgWin      = strategy.wintrades > 0 ? strategy.grossprofit / strategy.wintrades : 0.0
-avgLoss     = strategy.losstrades > 0 ? math.abs(strategy.grossloss / strategy.losstrades) : 0.0
-pfactor     = strategy.grossloss != 0 ? math.abs(strategy.grossprofit / strategy.grossloss) : 0.0
-maxDD       = strategy.max_drawdown
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+var table dash = table.new(position.top_right, 2, 10,
+    bgcolor=color.new(color.black, 72),
+    border_width=1, border_color=color.new(color.white, 75),
+    frame_color=color.new(color.white, 55), frame_width=1)
 
 if barstate.islast
-    table.cell(dash, 0, 0, "📊 ICT Backtest",   text_color=color.yellow,  text_size=size.small, text_halign=text.align_center)
-    table.cell(dash, 1, 0, str.tostring(close, "#.##"), text_color=color.white, text_size=size.small, text_halign=text.align_right)
+    cl(v, good, warn) =>
+        v >= good ? color.lime : v >= warn ? color.yellow : color.red
 
-    table.cell(dash, 0, 1, "P&L Net",           text_color=color.new(color.white,30), text_size=size.small)
-    table.cell(dash, 1, 1, (netProfit >= 0 ? "+" : "") + str.tostring(netProfit, "#.##") + "$",
-      text_color=netProfit >= 0 ? color.green : color.red, text_size=size.small, text_halign=text.align_right)
+    totalTrades = strategy.closedtrades
+    wins        = strategy.wintrades
+    losses      = strategy.losstrades
+    winPct      = totalTrades > 0 ? wins / totalTrades * 100 : 0.0
+    pf          = strategy.grossloss != 0 ? math.abs(strategy.grossprofit / strategy.grossloss) : 0.0
+    avgWin      = wins    > 0 ? strategy.grossprofit / wins    : 0.0
+    avgLoss     = losses  > 0 ? math.abs(strategy.grossloss / losses) : 0.0
+    rrReal      = avgLoss > 0 ? avgWin / avgLoss : 0.0
+    netPnl      = strategy.netprofit
+    maxDD       = strategy.max_drawdown
 
-    table.cell(dash, 0, 2, "Trades",             text_color=color.new(color.white,30), text_size=size.small)
-    table.cell(dash, 1, 2, str.tostring(totalTrades) + " (" + str.tostring(wins) + "W / " + str.tostring(losses) + "L)",
-      text_color=color.white, text_size=size.small, text_halign=text.align_right)
+    hdr(col, row, txt) =>
+        table.cell(dash, col, row, txt, text_color=color.new(color.white, 20),
+                   text_size=size.small, bgcolor=color.new(color.black, 60))
+    val(col, row, txt, c) =>
+        table.cell(dash, col, row, txt, text_color=c,
+                   text_size=size.small, text_halign=text.align_right, bgcolor=color.new(color.black, 80))
 
-    table.cell(dash, 0, 3, "Win Rate",           text_color=color.new(color.white,30), text_size=size.small)
-    table.cell(dash, 1, 3, str.tostring(winRate, "#.1") + "%",
-      text_color=winRate >= 60 ? color.green : winRate >= 50 ? color.yellow : color.red, text_size=size.small, text_halign=text.align_right)
+    table.cell(dash, 0, 0, "ICT PropFirm Backtest",
+               text_color=color.yellow, text_size=size.small, text_halign=text.align_center,
+               bgcolor=color.new(color.black, 50))
+    table.cell(dash, 1, 0, "M15 · NY Open",
+               text_color=color.new(color.white, 30), text_size=size.small, text_halign=text.align_right,
+               bgcolor=color.new(color.black, 50))
 
-    table.cell(dash, 0, 4, "Profit Factor",      text_color=color.new(color.white,30), text_size=size.small)
-    table.cell(dash, 1, 4, str.tostring(pfactor, "#.##"),
-      text_color=pfactor >= 1.5 ? color.green : pfactor >= 1.0 ? color.yellow : color.red, text_size=size.small, text_halign=text.align_right)
+    hdr(0, 1, "P&L Net")
+    val(1, 1, (netPnl >= 0 ? "+" : "") + str.tostring(netPnl, "#.##") + " $",
+        netPnl >= 0 ? color.lime : color.red)
 
-    table.cell(dash, 0, 5, "Avg Win / Loss",     text_color=color.new(color.white,30), text_size=size.small)
-    table.cell(dash, 1, 5, "+" + str.tostring(avgWin, "#.##") + "$ / -" + str.tostring(avgLoss, "#.##") + "$",
-      text_color=color.white, text_size=size.small, text_halign=text.align_right)
+    hdr(0, 2, "Trades")
+    val(1, 2, str.tostring(totalTrades) + "  (" + str.tostring(wins) + "W / " + str.tostring(losses) + "L)",
+        color.white)
 
-    table.cell(dash, 0, 6, "Max Drawdown",       text_color=color.new(color.white,30), text_size=size.small)
-    table.cell(dash, 1, 6, "-" + str.tostring(maxDD, "#.##") + "$",
-      text_color=maxDD > 600 ? color.red : maxDD > 300 ? color.yellow : color.green, text_size=size.small, text_halign=text.align_right)
+    hdr(0, 3, "Win Rate")
+    val(1, 3, str.tostring(winPct, "#.1") + "%", cl(winPct, 60, 50))
 
-    table.cell(dash, 0, 7, "Risque / RR",        text_color=color.new(color.white,30), text_size=size.small)
-    table.cell(dash, 1, 7, str.tostring(riskPct) + "% / 1:" + str.tostring(rrTarget),
-      text_color=color.teal, text_size=size.small, text_halign=text.align_right)
+    hdr(0, 4, "Profit Factor")
+    val(1, 4, str.tostring(pf, "#.##"), cl(pf, 1.5, 1.0))
 
-    table.cell(dash, 0, 8, "Session filtre",     text_color=color.new(color.white,30), text_size=size.small)
-    table.cell(dash, 1, 8, useSessions ? "LDN + NY" : "Toutes",
-      text_color=color.white, text_size=size.small, text_halign=text.align_right)
+    hdr(0, 5, "RR réalisé moyen")
+    val(1, 5, str.tostring(rrReal, "#.##") + " : 1", cl(rrReal, 2.0, 1.5))
 
-// ── FOND SESSIONS ────────────────────────────────────────────────────────────
-bgcolor(not na(londonSession) ? color.new(color.blue,  95) : na, title="London Session")
-bgcolor(not na(nySession)     ? color.new(color.green, 95) : na, title="New York Session")
+    hdr(0, 6, "Max Drawdown")
+    val(1, 6, "-" + str.tostring(maxDD, "#.##") + " $",
+        maxDD > 600 ? color.red : maxDD > 300 ? color.yellow : color.lime)
+
+    hdr(0, 7, "Esp. / trade")
+    espR = winPct / 100 * rrTarget - (1 - winPct / 100)
+    val(1, 7, str.tostring(espR, "#.###") + " R", espR > 0 ? color.lime : color.red)
+
+    hdr(0, 8, "Setup")
+    val(1, 8, "Sweep → Disp → FVG", color.new(color.white, 20))
+
+    hdr(0, 9, "Risque / RR cible")
+    val(1, 9, str.tostring(riskPct) + "% / 1:" + str.tostring(rrTarget), color.teal)
