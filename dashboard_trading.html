@@ -329,7 +329,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <button class="drawer-item" data-tab="mental" onclick="drawerNav(this)"><span class="di-icon">🧠</span>Mental</button>
     <button class="drawer-item" data-tab="news" onclick="drawerNav(this)"><span class="di-icon">📰</span>News</button>
   </nav>
-  <div class="drawer-footer">v57 · ICT Licorne</div>
+  <div class="drawer-footer">v58 · ICT Licorne</div>
 </div>
 
 <!-- ═══ TOP HEADER MOBILE ═══ -->
@@ -741,7 +741,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- ── Récupération de données ── -->
     <div style="margin-top:16px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v57</b></span>
+      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v58</b></span>
       <button onclick="forceUpdate()" style="background:var(--blue);border:none;color:#fff;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🔄 Forcer la mise à jour</button>
     </div>
 
@@ -882,29 +882,31 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
 
   <!-- ══ MODULE CALENDRIER ══ -->
-  <div class="module" id="mod-calendrier" style="padding:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <button onclick="calNav(-1)" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;font-size:16px;cursor:pointer;">‹</button>
-        <span id="calTitle" style="font-size:16px;font-weight:700;min-width:140px;text-align:center;"></span>
-        <button onclick="calNav(1)"  style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;font-size:16px;cursor:pointer;">›</button>
-      </div>
-      <div style="display:flex;gap:12px;font-size:12px;align-items:center;">
-        <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:50%;background:var(--gold);display:inline-block;"></span>Réel</span>
-        <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:50%;background:var(--blue);display:inline-block;"></span>Paper</span>
-        <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:50%;background:var(--green);display:inline-block;"></span>Les deux</span>
-      </div>
+  <div class="module" id="mod-calendrier" style="padding:12px">
+    <!-- Navigation mois -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <button onclick="calNav(-1)" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 16px;font-size:18px;cursor:pointer;line-height:1;">‹</button>
+      <span id="calTitle" style="font-size:16px;font-weight:700;text-align:center;"></span>
+      <button onclick="calNav(1)"  style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 16px;font-size:18px;cursor:pointer;line-height:1;">›</button>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px;">
-      <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">LUN</div>
-      <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">MAR</div>
-      <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">MER</div>
-      <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">JEU</div>
-      <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">VEN</div>
-      <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">SAM</div>
-      <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:600;padding:4px 0;">DIM</div>
+    <!-- Légende compacte -->
+    <div style="display:flex;gap:14px;font-size:11px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--gold);display:inline-block;"></span>Réel</span>
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--blue);display:inline-block;"></span>Paper</span>
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block;"></span>Les deux</span>
     </div>
-    <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;"></div>
+    <!-- En-têtes jours -->
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;">
+      <div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700;padding:3px 0;">L</div>
+      <div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700;padding:3px 0;">M</div>
+      <div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700;padding:3px 0;">M</div>
+      <div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700;padding:3px 0;">J</div>
+      <div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700;padding:3px 0;">V</div>
+      <div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700;padding:3px 0;">S</div>
+      <div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700;padding:3px 0;">D</div>
+    </div>
+    <!-- Grille -->
+    <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;"></div>
     <!-- Mini-formulaire rapide -->
     <div id="calQuickModal" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center;">
       <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px 16px 0 0;padding:20px 16px 32px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;">
@@ -2017,7 +2019,7 @@ function renderCalendar() {
 
   // Cellules vides avant le 1er
   for (let i = 0; i < startOffset; i++) {
-    html += `<div style="min-height:64px;"></div>`;
+    html += `<div style="aspect-ratio:1;min-height:0;"></div>`;
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -2029,44 +2031,35 @@ function renderCalendar() {
     const info = byDate[dateStr];
     const isToday = dateStr === today;
 
-    let dots = '';
+    let dotColor = '';
     let borderColor = 'var(--border)';
-    let bg = 'var(--panel)';
+    let bg = 'var(--panel2)';
 
     if (info) {
       const hasReel  = info.reel > 0;
       const hasPaper = info.paper > 0;
       if (hasReel && hasPaper) {
-        borderColor = 'var(--green)'; bg = 'rgba(76,175,80,.08)';
-        dots = `<span style="width:8px;height:8px;border-radius:50%;background:var(--gold);display:inline-block;margin:1px"></span><span style="width:8px;height:8px;border-radius:50%;background:var(--blue);display:inline-block;margin:1px"></span>`;
+        borderColor = 'var(--green)'; bg = 'rgba(76,175,80,.12)'; dotColor = 'var(--green)';
       } else if (hasReel) {
-        borderColor = 'var(--gold)'; bg = 'rgba(240,185,11,.08)';
-        dots = `<span style="width:8px;height:8px;border-radius:50%;background:var(--gold);display:inline-block;margin:1px"></span>`.repeat(Math.min(info.reel, 3));
+        borderColor = 'var(--gold)'; bg = 'rgba(240,185,11,.1)'; dotColor = 'var(--gold)';
       } else if (hasPaper) {
-        borderColor = 'var(--blue)'; bg = 'rgba(74,144,226,.08)';
-        dots = `<span style="width:8px;height:8px;border-radius:50%;background:var(--blue);display:inline-block;margin:1px"></span>`.repeat(Math.min(info.paper, 3));
+        borderColor = 'var(--blue)'; bg = 'rgba(74,144,226,.1)'; dotColor = 'var(--blue)';
       }
     }
 
-    const todayBorder = isToday ? '2px solid var(--text)' : `1px solid ${borderColor}`;
-    const pnlReel  = info && info.reelPnl  ? `<div style="font-size:9px;color:${info.reelPnl >= 0 ? 'var(--green)' : 'var(--red)'};line-height:1.2">${info.reelPnl >= 0 ? '+' : ''}${info.reelPnl.toFixed(0)}$</div>` : '';
-    const pnlPaper = info && info.paperPnl ? `<div style="font-size:9px;color:var(--blue);line-height:1.2">P:${info.paperPnl >= 0 ? '+' : ''}${info.paperPnl.toFixed(0)}$</div>` : '';
+    // PnL affiché en tout petit sous le numéro
+    const pnlTotal = info ? (info.reelPnl || 0) + (info.paperPnl || 0) : 0;
+    const pnlStr = info && pnlTotal !== 0
+      ? `<div style="font-size:8px;font-weight:700;color:${pnlTotal>=0?'var(--green)':'var(--red)'};line-height:1;margin-top:2px;">${pnlTotal>=0?'+':''}${pnlTotal.toFixed(0)}</div>`
+      : '';
+    const dot = dotColor ? `<div style="width:6px;height:6px;border-radius:50%;background:${dotColor};margin:2px auto 0;"></div>` : '';
     const hasComment = appData.calComments && appData.calComments[dateStr];
-    const commentDot = hasComment ? `<span style="font-size:9px;color:var(--muted);">💬</span>` : '';
+    const commentPip = hasComment ? `<div style="width:4px;height:4px;border-radius:50%;background:var(--muted);margin:1px auto 0;"></div>` : '';
+    const todayRing = isToday ? 'box-shadow:0 0 0 2px var(--text);' : '';
 
-    html += `<div style="min-height:72px;background:${bg};border:${todayBorder};border-radius:8px;padding:5px 4px;transition:.15s;position:relative;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;">
-        <span style="font-size:12px;font-weight:${isToday ? '800' : '600'};color:${isToday ? 'var(--text)' : 'var(--muted)'};" onclick="calShowDay('${dateStr}')">${d}</span>
-        <span style="display:flex;gap:2px;align-items:center;">
-          ${commentDot}
-          <button onclick="event.stopPropagation();calQuickAdd('${dateStr}','reel')"  title="Trade réel"  style="background:rgba(240,185,11,.2);border:none;color:var(--gold);border-radius:4px;width:18px;height:18px;font-size:10px;cursor:pointer;padding:0;line-height:1;">+</button>
-          <button onclick="event.stopPropagation();calQuickAdd('${dateStr}','paper')" title="Trade paper" style="background:rgba(74,144,226,.2);border:none;color:var(--blue);border-radius:4px;width:18px;height:18px;font-size:10px;cursor:pointer;padding:0;line-height:1;">+</button>
-        </span>
-      </div>
-      <div onclick="calShowDay('${dateStr}')" style="cursor:pointer">
-        <div style="display:flex;flex-wrap:wrap;margin-bottom:2px;">${dots}</div>
-        ${pnlReel}${pnlPaper}
-      </div>
+    html += `<div onclick="calShowDay('${dateStr}')" style="aspect-ratio:1;min-height:0;background:${bg};border:1px solid ${borderColor};border-radius:6px;padding:4px 2px;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;${todayRing}transition:.15s;">
+      <span style="font-size:11px;font-weight:${isToday?'800':'600'};color:${isToday?'var(--text)':'var(--muted)'};">${d}</span>
+      ${pnlStr}${dot}${commentPip}
     </div>`;
   }
 
