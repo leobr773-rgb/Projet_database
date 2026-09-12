@@ -43,7 +43,34 @@ body{display:flex;flex-direction:column;overflow-x:hidden}
 .lock-btn:hover{filter:brightness(1.1)}
 .lock-err{color:var(--red);font-size:12px;margin-top:10px;min-height:18px}
 
-/* ── Tab Bar ── */
+/* ── Top Header ── */
+#topHeader{position:sticky;top:0;z-index:200;background:rgba(11,14,20,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:none;align-items:center;padding:0 16px;height:52px;gap:12px;flex-shrink:0}
+#burgerBtn{background:none;border:none;color:var(--text);cursor:pointer;padding:6px;border-radius:8px;display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+#burgerBtn span{display:block;width:22px;height:2px;background:currentColor;border-radius:2px;transition:.25s}
+#burgerBtn.open span:nth-child(1){transform:translateY(6px) rotate(45deg)}
+#burgerBtn.open span:nth-child(2){opacity:0}
+#burgerBtn.open span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+#headerTitle{flex:1;font-size:15px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#headerTabLabel{font-size:12px;color:var(--gold);font-weight:600}
+
+/* ── Drawer overlay ── */
+#drawerOverlay{position:fixed;inset:0;z-index:299;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .25s}
+#drawerOverlay.open{opacity:1;pointer-events:all}
+
+/* ── Side Drawer ── */
+#sideDrawer{position:fixed;top:0;left:0;bottom:0;z-index:300;width:260px;background:var(--panel);border-right:1px solid var(--border);transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+#sideDrawer.open{transform:translateX(0)}
+.drawer-header{padding:20px 16px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.drawer-logo{font-size:22px;font-weight:800;color:var(--gold);letter-spacing:.02em}
+.drawer-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.drawer-nav{flex:1;overflow-y:auto;padding:8px 0}
+.drawer-item{display:flex;align-items:center;gap:12px;padding:13px 20px;cursor:pointer;border:none;background:none;color:var(--muted);font-size:14px;font-weight:500;width:100%;text-align:left;transition:.15s;border-left:3px solid transparent}
+.drawer-item:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.drawer-item.active{color:var(--gold);border-left-color:var(--gold);background:rgba(240,185,11,.06)}
+.drawer-item .di-icon{font-size:18px;width:24px;text-align:center;flex-shrink:0}
+.drawer-footer{padding:12px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);flex-shrink:0}
+
+/* ── Tab Bar (desktop only) ── */
 #tabBar{position:sticky;top:0;z-index:100;background:rgba(11,14,20,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
 #tabBar::-webkit-scrollbar{display:none}
 .tab-btn{white-space:nowrap;padding:14px 18px;border:none;background:transparent;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:.15s;flex-shrink:0}
@@ -233,6 +260,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 /* ── Responsive ── */
 @media(max-width:767px){
+  #tabBar{display:none !important}
+  #topHeader{display:flex !important}
   .cockpit-row2{grid-template-columns:1fr}
   .form-grid{grid-template-columns:1fr 1fr}
   .form-group.half{grid-column:span 1}
@@ -240,10 +269,19 @@ tr:hover td{background:rgba(255,255,255,.02)}
   .trade-cards{display:flex}
   .grid-2{grid-template-columns:1fr}
   .cockpit-row3{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:1fr 1fr}
+  .module{padding:12px}
 }
 @media(max-width:479px){
   .form-grid{grid-template-columns:1fr}
   .form-group.half{grid-column:1}
+  .kpi-grid{grid-template-columns:1fr 1fr}
+  .kpi-value{font-size:18px}
+}
+@media(min-width:768px){
+  #topHeader{display:none !important}
+  #sideDrawer{display:none !important}
+  #drawerOverlay{display:none !important}
 }
 </style>
 </head>
@@ -271,6 +309,36 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <!-- ═══ UPDATE BANNER ═══ -->
 <div id="updateBanner" style="display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9990;background:var(--blue);color:#fff;border-radius:24px;padding:12px 20px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:pointer;white-space:nowrap;" onclick="applyUpdate()">
   🔄 Mise à jour disponible — Appuyer pour recharger
+</div>
+
+<!-- ═══ DRAWER OVERLAY ═══ -->
+<div id="drawerOverlay" onclick="closeDrawer()"></div>
+
+<!-- ═══ SIDE DRAWER ═══ -->
+<div id="sideDrawer">
+  <div class="drawer-header">
+    <div class="drawer-logo">📊 Challenge 10K</div>
+    <div class="drawer-sub">PropFirm Kraken</div>
+  </div>
+  <nav class="drawer-nav">
+    <button class="drawer-item active" data-tab="cockpit" onclick="drawerNav(this)"><span class="di-icon">🎯</span>Cockpit</button>
+    <button class="drawer-item" data-tab="prep" onclick="drawerNav(this)"><span class="di-icon">🌅</span>Préparation</button>
+    <button class="drawer-item" data-tab="trades" onclick="drawerNav(this)"><span class="di-icon">📓</span>Trades</button>
+    <button class="drawer-item" data-tab="calendrier" onclick="drawerNav(this)"><span class="di-icon">📅</span>Calendrier</button>
+    <button class="drawer-item" data-tab="analyse" onclick="drawerNav(this)"><span class="di-icon">📊</span>Analyse</button>
+    <button class="drawer-item" data-tab="mental" onclick="drawerNav(this)"><span class="di-icon">🧠</span>Mental</button>
+    <button class="drawer-item" data-tab="news" onclick="drawerNav(this)"><span class="di-icon">📰</span>News</button>
+  </nav>
+  <div class="drawer-footer">v57 · ICT Licorne</div>
+</div>
+
+<!-- ═══ TOP HEADER MOBILE ═══ -->
+<div id="topHeader" style="display:none">
+  <button id="burgerBtn" onclick="toggleDrawer()">
+    <span></span><span></span><span></span>
+  </button>
+  <span id="headerTitle">Challenge 10K</span>
+  <span id="headerTabLabel">🎯 Cockpit</span>
 </div>
 
 <!-- ═══ TAB BAR ═══ -->
@@ -673,7 +741,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- ── Récupération de données ── -->
     <div style="margin-top:16px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v56</b></span>
+      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v57</b></span>
       <button onclick="forceUpdate()" style="background:var(--blue);border:none;color:#fff;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🔄 Forcer la mise à jour</button>
     </div>
 
@@ -1053,6 +1121,7 @@ async function handleUnlock() {
     document.getElementById('lockScreen').style.display = 'none';
     document.getElementById('acctBar').style.display = 'flex';
     document.getElementById('tabBar').style.display = 'flex';
+    document.getElementById('topHeader').style.display = 'flex';
     document.getElementById('appContent').style.display = 'block';
     updateAcctBar();
     initApp();
@@ -1074,32 +1143,59 @@ async function switchAccount(id) {
   aesKey  = aesKeys[id];
   appData = allDatas[id];
   updateAcctBar();
-  // Reset vers cockpit
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  activateTab('cockpit');
+  loadBias(); loadChecklist(); renderPlanView(); renderTrades();
+}
+
+// ─────────────────────────────────────────────
+//  DRAWER MOBILE
+// ─────────────────────────────────────────────
+const DRAWER_LABELS = {
+  cockpit:'🎯 Cockpit', prep:'🌅 Préparation', trades:'📓 Trades',
+  calendrier:'📅 Calendrier', analyse:'📊 Analyse', mental:'🧠 Mental', news:'📰 News'
+};
+
+function toggleDrawer() {
+  const d = document.getElementById('sideDrawer');
+  const o = document.getElementById('drawerOverlay');
+  const b = document.getElementById('burgerBtn');
+  const open = d.classList.toggle('open');
+  o.classList.toggle('open', open);
+  b.classList.toggle('open', open);
+}
+
+function closeDrawer() {
+  document.getElementById('sideDrawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+  document.getElementById('burgerBtn').classList.remove('open');
+}
+
+function activateTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.drawer-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
-  document.querySelector('[data-tab="cockpit"]').classList.add('active');
-  document.getElementById('mod-cockpit').classList.add('active');
-  loadBias(); loadChecklist(); renderPlanView(); renderTrades(); renderCockpit();
+  const mod = document.getElementById('mod-' + tab);
+  if (mod) mod.classList.add('active');
+  const label = document.getElementById('headerTabLabel');
+  if (label) label.textContent = DRAWER_LABELS[tab] || '';
+  if (tab === 'cockpit') renderCockpit();
+  if (tab === 'analyse') renderAnalyse();
+  if (tab === 'mental') renderMental();
+  if (tab === 'news') fetchNews();
+  if (tab === 'prep') updateKillzones();
+  if (tab === 'calendrier') renderCalendar();
+}
+
+function drawerNav(el) {
+  activateTab(el.dataset.tab);
+  closeDrawer();
 }
 
 // ─────────────────────────────────────────────
 //  TABS
 // ─────────────────────────────────────────────
 document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
-    btn.classList.add('active');
-    const mod = document.getElementById('mod-' + btn.dataset.tab);
-    if (mod) mod.classList.add('active');
-    const tab = btn.dataset.tab;
-    if (tab === 'cockpit') renderCockpit();
-    if (tab === 'analyse') renderAnalyse();
-    if (tab === 'mental') renderMental();
-    if (tab === 'news') fetchNews();
-    if (tab === 'prep') updateKillzones();
-    if (tab === 'calendrier') renderCalendar();
-  });
+  btn.addEventListener('click', () => activateTab(btn.dataset.tab));
 });
 
 // ─────────────────────────────────────────────
