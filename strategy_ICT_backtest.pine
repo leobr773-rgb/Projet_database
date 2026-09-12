@@ -1,29 +1,22 @@
 // ══════════════════════════════════════════════════════════════════════════════
-//  ICT PropFirm Strategy v3 — BTC/USD
+//  ICT PropFirm Strategy v4 — Licorne Setup
 //
-//  Nouveautés v3 :
-//    • calc_on_order_fills = true  → simulation bougie par bougie (intrabar)
-//    • Filtre news : FOMC + NFP 2025-2026 automatiquement exclus
-//    • Inputs optimisables via TradingView Optimizer (Strategy Tester → Optimizer)
-//    • Walk-forward : inputs fromDate / toDate pour splitter in-sample / out-of-sample
+//  Séquence M15 (dans le sens du biais H4) :
+//    1. Biais H4 : structure pure (BOS haussier → LONG, BOS baissier → SHORT)
+//    2. Prise de liquidité SSL/BSL (sweep + rejet)
+//    3. Displacement → MSS → FVG créé
+//    4. Retracement dans le FVG ET dans la zone du Breaker Block → ENTRÉE
+//    5. SL = sous la mèche du displacement ET sous le Breaker Block − buffer
+//    6. TP = SL distance × 2 (RR 2:1)
 //
-//  Séquence d'entrée :
-//    1. Prise de liquidité SSL/BSL (sweep du swing low/high + rejet)
-//    2. Bougie Displacement (amplitude ≥ ATR×mult, corps fort)
-//    3. FVG créé par le displacement
-//    4. Retracement dans le FVG → ENTRÉE
-//    5. SL = min(low displacement, low Breaker Block) − buffer
-//    6. TP = SL distance × RR
-//
-//  Session  : NY Open 09h30-10h45 New York = 15h30-16h45 Paris (CEST)
-//  Bias     : H4 — close > EMA → long, close < EMA → short
-//  Risk     : 1% capital / trade  |  RR : 2:1
-//  TF recommandé : M15
+//  Session  : NY Open 09h30-10h45 New York
+//  Filtre   : Pas de FOMC / NFP / CPI
+//  Risk     : 1% capital / trade | RR 2:1
 // ══════════════════════════════════════════════════════════════════════════════
 //@version=5
 strategy(
-    title                   = "ICT PropFirm v3 — Sweep + Disp + FVG",
-    shorttitle              = "ICT_PF_v3",
+    title                   = "ICT PropFirm v4 — Licorne Setup",
+    shorttitle              = "ICT_v4",
     overlay                 = true,
     default_qty_type        = strategy.percent_of_equity,
     default_qty_value       = 1,
@@ -31,97 +24,80 @@ strategy(
     commission_type         = strategy.commission.percent,
     commission_value        = 0.1,
     slippage                = 2,
-    calc_on_order_fills     = true,   // ← simulation bar-by-bar intrabar
-    process_orders_on_close = false   // ← ordres exécutés à l'open de la bougie suivante
+    calc_on_order_fills     = true,
+    process_orders_on_close = false
 )
 
 // ════════════════════════════════════════════════════════════
-//  PARAMÈTRES — tous optimisables via Strategy Tester Optimizer
+//  PARAMÈTRES
 // ════════════════════════════════════════════════════════════
 var g_risk = "💰 Risk Management"
-riskPct  = input.float(1.0,  "Risque par trade (%)",         minval=0.5,  maxval=3.0,  step=0.5,  group=g_risk)
-rrTarget = input.float(2.0,  "RR cible (TP = SL × RR)",      minval=1.5,  maxval=4.0,  step=0.5,  group=g_risk)
+riskPct  = input.float(1.0, "Risque par trade (%)",    minval=0.5, maxval=3.0, step=0.5, group=g_risk)
+rrTarget = input.float(2.0, "RR cible (TP = SL × RR)", minval=1.5, maxval=4.0, step=0.5, group=g_risk)
 
 var g_setup = "🎯 Paramètres ICT"
-lsLookback    = input.int(20,   "Lookback prise de liquidité", minval=10, maxval=50, step=5,    group=g_setup,
-                  tooltip="Nombre de bougies pour le swing high/low référence")
-dispMult      = input.float(1.5,"Displacement mult ATR",       minval=1.0, maxval=3.0, step=0.25, group=g_setup,
-                  tooltip="Amplitude min de la bougie displacement en multiple d'ATR(14)")
-maxBarsWindow = input.int(8,    "Fenêtre sweep→displacement",  minval=3,  maxval=20,  step=1,    group=g_setup,
-                  tooltip="Nombre max de bougies entre le sweep et le displacement")
-slBuf         = input.float(0.2,"SL buffer (× ATR)",           minval=0.0, maxval=1.0, step=0.1,  group=g_setup)
+swingLen      = input.int(10,   "Swing lookback (BOS + liquidité)", minval=5,  maxval=30,  step=5,    group=g_setup)
+dispMult      = input.float(1.5,"Displacement mult ATR",            minval=1.0, maxval=3.0, step=0.25, group=g_setup)
+maxBarsWindow = input.int(8,    "Fenêtre sweep→displacement",       minval=3,  maxval=20,  step=1,    group=g_setup)
+slBuf         = input.float(0.2,"SL buffer (× ATR)",                minval=0.0, maxval=1.0, step=0.1,  group=g_setup)
 
-var g_bias = "📊 Bias H4"
-biasLen  = input.int(50,    "EMA H4 période",        minval=20, maxval=200, step=10,  group=g_bias)
-useBias  = input.bool(true, "Activer filtre bias H4", group=g_bias)
+var g_bias = "📊 Bias H4 — Structure pure"
+h4SwingLen = input.int(5, "Swings H4 lookback", minval=3, maxval=20, step=1, group=g_bias,
+             tooltip="Nombre de bougies H4 pour détecter HH/HL/LH/LL")
+useBias    = input.bool(true, "Activer filtre bias H4", group=g_bias)
 
 var g_news = "📰 Filtre News"
-filterFOMC = input.bool(true, "Exclure jours FOMC",    group=g_news)
-filterNFP  = input.bool(true, "Exclure jours NFP",     group=g_news)
-filterCPI  = input.bool(true, "Exclure jours CPI",     group=g_news)
+filterFOMC = input.bool(true, "Exclure jours FOMC", group=g_news)
+filterNFP  = input.bool(true, "Exclure jours NFP",  group=g_news)
+filterCPI  = input.bool(true, "Exclure jours CPI",  group=g_news)
 
 var g_wf = "🔬 Walk-Forward (optionnel)"
-useWF     = input.bool(false, "Activer filtre de dates",      group=g_wf)
-fromDate  = input.time(timestamp("2025-09-01"), "Date début", group=g_wf)
-toDate    = input.time(timestamp("2026-09-12"), "Date fin",   group=g_wf)
+useWF    = input.bool(false, "Activer filtre de dates",      group=g_wf)
+fromDate = input.time(timestamp("2025-09-01"), "Date début", group=g_wf)
+toDate   = input.time(timestamp("2026-09-12"), "Date fin",   group=g_wf)
 
 var g_ui = "🖥 Affichage"
-showFVG   = input.bool(true, "Zones FVG",               group=g_ui)
-showSweep = input.bool(true, "Prises de liquidité",     group=g_ui)
-showBias  = input.bool(true, "EMA Bias H4",             group=g_ui)
+showFVG   = input.bool(true, "Zones FVG + Breaker Block", group=g_ui)
+showSweep = input.bool(true, "Prises de liquidité",       group=g_ui)
+showBias  = input.bool(true, "Structure H4",              group=g_ui)
 
 // ════════════════════════════════════════════════════════════
-//  FILTRE DE DATES (Walk-Forward)
+//  WALK-FORWARD
 // ════════════════════════════════════════════════════════════
 inDateRange = not useWF or (time >= fromDate and time <= toDate)
 
 // ════════════════════════════════════════════════════════════
 //  CALENDRIER NEWS — FOMC + NFP + CPI 2025-2026
-//  Source : Calendrier officiel Fed + BLS
-//  → Tradingview n'ayant pas d'API calendrier, les dates sont hardcodées
-//  → Ajouter les années suivantes en copiant le bloc
 // ════════════════════════════════════════════════════════════
-// ── FOMC (jour de la décision) ──
 var fomcDates = array.from(
-    // 2025
-    timestamp(2025, 1,29, 0,0), timestamp(2025, 3,19, 0,0), timestamp(2025, 5, 7, 0,0),
-    timestamp(2025, 6,18, 0,0), timestamp(2025, 7,30, 0,0), timestamp(2025, 9,17, 0,0),
-    timestamp(2025,10,29, 0,0), timestamp(2025,12,10, 0,0),
-    // 2026
-    timestamp(2026, 1,29, 0,0), timestamp(2026, 3,18, 0,0), timestamp(2026, 4,29, 0,0),
-    timestamp(2026, 6,10, 0,0), timestamp(2026, 7,29, 0,0), timestamp(2026, 9,16, 0,0),
-    timestamp(2026,10,28, 0,0), timestamp(2026,12, 9, 0,0)
+    timestamp(2025, 1,29,0,0), timestamp(2025, 3,19,0,0), timestamp(2025, 5, 7,0,0),
+    timestamp(2025, 6,18,0,0), timestamp(2025, 7,30,0,0), timestamp(2025, 9,17,0,0),
+    timestamp(2025,10,29,0,0), timestamp(2025,12,10,0,0),
+    timestamp(2026, 1,29,0,0), timestamp(2026, 3,18,0,0), timestamp(2026, 4,29,0,0),
+    timestamp(2026, 6,10,0,0), timestamp(2026, 7,29,0,0), timestamp(2026, 9,16,0,0),
+    timestamp(2026,10,28,0,0), timestamp(2026,12, 9,0,0)
 )
-
-// ── NFP — Premier vendredi de chaque mois ──
 var nfpDates = array.from(
-    // 2025
-    timestamp(2025, 1,10, 0,0), timestamp(2025, 2, 7, 0,0), timestamp(2025, 3, 7, 0,0),
-    timestamp(2025, 4, 4, 0,0), timestamp(2025, 5, 2, 0,0), timestamp(2025, 6, 6, 0,0),
-    timestamp(2025, 7, 3, 0,0), timestamp(2025, 8, 1, 0,0), timestamp(2025, 9, 5, 0,0),
-    timestamp(2025,10, 3, 0,0), timestamp(2025,11, 7, 0,0), timestamp(2025,12, 5, 0,0),
-    // 2026
-    timestamp(2026, 1, 9, 0,0), timestamp(2026, 2, 6, 0,0), timestamp(2026, 3, 6, 0,0),
-    timestamp(2026, 4, 3, 0,0), timestamp(2026, 5, 1, 0,0), timestamp(2026, 6, 5, 0,0),
-    timestamp(2026, 7, 9, 0,0), timestamp(2026, 8, 7, 0,0), timestamp(2026, 9, 4, 0,0),
-    timestamp(2026,10, 2, 0,0), timestamp(2026,11, 6, 0,0), timestamp(2026,12, 4, 0,0)
+    timestamp(2025, 1,10,0,0), timestamp(2025, 2, 7,0,0), timestamp(2025, 3, 7,0,0),
+    timestamp(2025, 4, 4,0,0), timestamp(2025, 5, 2,0,0), timestamp(2025, 6, 6,0,0),
+    timestamp(2025, 7, 3,0,0), timestamp(2025, 8, 1,0,0), timestamp(2025, 9, 5,0,0),
+    timestamp(2025,10, 3,0,0), timestamp(2025,11, 7,0,0), timestamp(2025,12, 5,0,0),
+    timestamp(2026, 1, 9,0,0), timestamp(2026, 2, 6,0,0), timestamp(2026, 3, 6,0,0),
+    timestamp(2026, 4, 3,0,0), timestamp(2026, 5, 1,0,0), timestamp(2026, 6, 5,0,0),
+    timestamp(2026, 7, 9,0,0), timestamp(2026, 8, 7,0,0), timestamp(2026, 9, 4,0,0),
+    timestamp(2026,10, 2,0,0), timestamp(2026,11, 6,0,0), timestamp(2026,12, 4,0,0)
 )
-
-// ── CPI — Généralement 2e ou 3e mercredi du mois ──
 var cpiDates = array.from(
-    // 2025
-    timestamp(2025, 1,15, 0,0), timestamp(2025, 2,12, 0,0), timestamp(2025, 3,12, 0,0),
-    timestamp(2025, 4,10, 0,0), timestamp(2025, 5,13, 0,0), timestamp(2025, 6,11, 0,0),
-    timestamp(2025, 7,15, 0,0), timestamp(2025, 8,12, 0,0), timestamp(2025, 9,10, 0,0),
-    timestamp(2025,10, 9, 0,0), timestamp(2025,11,13, 0,0), timestamp(2025,12,10, 0,0),
-    // 2026
-    timestamp(2026, 1,14, 0,0), timestamp(2026, 2,11, 0,0), timestamp(2026, 3,11, 0,0),
-    timestamp(2026, 4,10, 0,0), timestamp(2026, 5,13, 0,0), timestamp(2026, 6,10, 0,0),
-    timestamp(2026, 7,15, 0,0), timestamp(2026, 8,12, 0,0), timestamp(2026, 9,11, 0,0),
-    timestamp(2026,10,14, 0,0), timestamp(2026,11,12, 0,0), timestamp(2026,12, 9, 0,0)
+    timestamp(2025, 1,15,0,0), timestamp(2025, 2,12,0,0), timestamp(2025, 3,12,0,0),
+    timestamp(2025, 4,10,0,0), timestamp(2025, 5,13,0,0), timestamp(2025, 6,11,0,0),
+    timestamp(2025, 7,15,0,0), timestamp(2025, 8,12,0,0), timestamp(2025, 9,10,0,0),
+    timestamp(2025,10, 9,0,0), timestamp(2025,11,13,0,0), timestamp(2025,12,10,0,0),
+    timestamp(2026, 1,14,0,0), timestamp(2026, 2,11,0,0), timestamp(2026, 3,11,0,0),
+    timestamp(2026, 4,10,0,0), timestamp(2026, 5,13,0,0), timestamp(2026, 6,10,0,0),
+    timestamp(2026, 7,15,0,0), timestamp(2026, 8,12,0,0), timestamp(2026, 9,11,0,0),
+    timestamp(2026,10,14,0,0), timestamp(2026,11,12,0,0), timestamp(2026,12, 9,0,0)
 )
 
-// Fonction : vrai si le jour courant est dans un array de timestamps
 isInDates(datesArr) =>
     today = timestamp(year, month, dayofmonth, 0, 0)
     found = false
@@ -131,118 +107,176 @@ isInDates(datesArr) =>
             break
     found
 
-isFOMC = filterFOMC and isInDates(fomcDates)
-isNFP  = filterNFP  and isInDates(nfpDates)
-isCPI  = filterCPI  and isInDates(cpiDates)
-isNewsDay = isFOMC or isNFP or isCPI
+isNewsDay = (filterFOMC and isInDates(fomcDates))
+          or (filterNFP  and isInDates(nfpDates))
+          or (filterCPI  and isInDates(cpiDates))
 
 // ════════════════════════════════════════════════════════════
-//  SESSION NY OPEN — 09h30-10h45 New York
+//  SESSION NY OPEN
 // ════════════════════════════════════════════════════════════
-inSession = not na(time(timeframe.period, "0930-1045:23456", "America/New_York"))
 isWeekday = dayofweek != dayofweek.saturday and dayofweek != dayofweek.sunday
-inSession := inSession and isWeekday and not isNewsDay and inDateRange
+inSession = not na(time(timeframe.period, "0930-1045:23456", "America/New_York"))
+          and isWeekday and not isNewsDay and inDateRange
 
-// Fond de session (vert si actif, rouge si exclu par news)
-bgcolor(inSession                    ? color.new(color.blue,   93) : na, title="Session active")
-bgcolor(isNewsDay and isWeekday      ? color.new(color.orange, 88) : na, title="Jour news exclu")
+bgcolor(inSession ? color.new(color.blue, 93)   : na, title="Session active")
+bgcolor(isNewsDay and isWeekday ? color.new(color.orange, 88) : na, title="Jour news exclu")
 
 // ════════════════════════════════════════════════════════════
-//  BIAS H4
+//  BIAIS H4 — STRUCTURE PURE (BOS haussier / baissier)
+//
+//  Logique :
+//    • On récupère les swings H4 (pivot high / pivot low)
+//    • BOS haussier  = close H4 dépasse le dernier pivot high H4 → bullH4
+//    • BOS baissier  = close H4 casse sous le dernier pivot low  → bearH4
+//    • Le biais reste en mémoire (var) jusqu'au prochain BOS inverse
 // ════════════════════════════════════════════════════════════
+h4High  = request.security(syminfo.tickerid, "240", high,  lookahead=barmerge.lookahead_off)
+h4Low   = request.security(syminfo.tickerid, "240", low,   lookahead=barmerge.lookahead_off)
 h4Close = request.security(syminfo.tickerid, "240", close, lookahead=barmerge.lookahead_off)
-h4Ema   = ta.ema(h4Close, biasLen)
-bullH4  = not useBias or h4Close > h4Ema
-bearH4  = not useBias or h4Close < h4Ema
 
-plot(showBias ? h4Ema : na, "EMA Bias H4",
-     color=h4Close > h4Ema ? color.new(color.teal, 20) : color.new(color.red, 20),
-     linewidth=2)
+// Pivot high/low H4 : sommet ou creux le plus marquant sur h4SwingLen bougies
+h4PivHigh = request.security(syminfo.tickerid, "240",
+    ta.pivothigh(h4SwingLen, h4SwingLen), lookahead=barmerge.lookahead_off)
+h4PivLow  = request.security(syminfo.tickerid, "240",
+    ta.pivotlow(h4SwingLen,  h4SwingLen), lookahead=barmerge.lookahead_off)
+
+// Dernier swing high/low H4 connus
+var float lastH4High = na
+var float lastH4Low  = na
+if not na(h4PivHigh)
+    lastH4High := h4PivHigh
+if not na(h4PivLow)
+    lastH4Low  := h4PivLow
+
+// Biais persistent : mis à jour à chaque BOS
+var bool bullH4 = false
+var bool bearH4 = false
+
+if not useBias
+    bullH4 := true
+    bearH4 := true
+else
+    // BOS haussier : close H4 > dernier swing high H4 → structure haussière
+    if not na(lastH4High) and h4Close > lastH4High
+        bullH4 := true
+        bearH4 := false
+    // BOS baissier : close H4 < dernier swing low H4 → structure baissière
+    if not na(lastH4Low)  and h4Close < lastH4Low
+        bearH4 := true
+        bullH4 := false
+
+// Affichage structure H4
+plotshape(showBias and not na(h4PivHigh), "H4 Swing High", shape.triangledown,
+          location.abovebar, color.new(color.red, 40), size=size.tiny)
+plotshape(showBias and not na(h4PivLow),  "H4 Swing Low",  shape.triangleup,
+          location.belowbar, color.new(color.teal, 40), size=size.tiny)
+
+// Ligne du biais courant
+var line biasLine = na
+if showBias and barstate.islast
+    if bullH4
+        biasLine := line.new(bar_index - 20, lastH4Low, bar_index, lastH4Low,
+                             color=color.new(color.teal, 30), width=1, style=line.style_dashed)
+    else if bearH4
+        biasLine := line.new(bar_index - 20, lastH4High, bar_index, lastH4High,
+                             color=color.new(color.red, 30), width=1, style=line.style_dashed)
 
 // ════════════════════════════════════════════════════════════
-//  ATR + SWINGS
+//  ATR + SWINGS M15
 // ════════════════════════════════════════════════════════════
-atr = ta.atr(14)
-prevHigh = ta.highest(high[1], lsLookback)
-prevLow  = ta.lowest(low[1],  lsLookback)
+atr     = ta.atr(14)
+prevHigh = ta.highest(high[1], swingLen)
+prevLow  = ta.lowest(low[1],  swingLen)
 
 // ════════════════════════════════════════════════════════════
-//  PRISE DE LIQUIDITÉ
+//  PRISE DE LIQUIDITÉ M15
 // ════════════════════════════════════════════════════════════
-sslSweep = low  < prevLow  and close > prevLow   // Sweep SSL → long
-bslSweep = high > prevHigh and close < prevHigh  // Sweep BSL → short
+sslSweep = low  < prevLow  and close > prevLow   // Sweep SSL → setup LONG
+bslSweep = high > prevHigh and close < prevHigh  // Sweep BSL → setup SHORT
 
-plotshape(showSweep and sslSweep, "SSL Sweep", shape.diamond, location.belowbar,
-          color.new(color.green, 30), size=size.small)
-plotshape(showSweep and bslSweep, "BSL Sweep", shape.diamond, location.abovebar,
-          color.new(color.red, 30),   size=size.small)
+plotshape(showSweep and sslSweep, "SSL Sweep", shape.diamond,
+          location.belowbar, color.new(color.green, 30), size=size.small)
+plotshape(showSweep and bslSweep, "BSL Sweep", shape.diamond,
+          location.abovebar, color.new(color.red, 30),   size=size.small)
 
 // ════════════════════════════════════════════════════════════
-//  DISPLACEMENT
+//  DISPLACEMENT M15
 // ════════════════════════════════════════════════════════════
 isBullDisp = close > open
-             and (high - low) >= atr * dispMult
-             and close >= high - (high - low) * 0.25  // clôture dans le quart supérieur
+           and (high - low) >= atr * dispMult
+           and close >= high - (high - low) * 0.25  // corps dans le quart supérieur
 
 isBearDisp = close < open
-             and (high - low) >= atr * dispMult
-             and close <= low  + (high - low) * 0.25  // clôture dans le quart inférieur
+           and (high - low) >= atr * dispMult
+           and close <= low + (high - low) * 0.25   // corps dans le quart inférieur
 
 // ════════════════════════════════════════════════════════════
 //  MACHINE D'ÉTAT — LONG
-//  States : 0=idle | 1=sweep détecté | 2=FVG prêt (attente retracement)
+//
+//  States : 0=idle | 1=sweep SSL détecté | 2=attente retracement FVG+BB
+//
+//  Breaker Block LONG = dernière bougie baissière avant la displacement
+//  → zone : [bbLow, bbHigh] = [low[bb], high[bb]] de cette bougie
+//  Entrée valide = prix dans FVG ET dans la zone Breaker Block
 // ════════════════════════════════════════════════════════════
-var int   ls = 0
+var int   ls         = 0
 var int   ls_sweepBar = na
-var float ls_fvgTop   = na  // low de la bougie displacement
-var float ls_fvgBot   = na  // high[2] avant displacement
-var float ls_sl       = na
-var float ls_bbLow    = na
+var float ls_fvgTop  = na   // low du displacement
+var float ls_fvgBot  = na   // high[2] avant displacement
+var float ls_bbLow   = na   // low du Breaker Block
+var float ls_bbHigh  = na   // high du Breaker Block
+var float ls_sl      = na
 
 // Timeout
 if ls == 1 and not na(ls_sweepBar) and bar_index - ls_sweepBar > maxBarsWindow
     ls := 0
 
-// Invalidation : prix clôture sous le FVG
-if ls == 2 and close < ls_fvgBot
+// Invalidation : prix clôture sous le FVG ou sous le BB
+if ls == 2 and (close < ls_fvgBot or close < ls_bbLow)
     ls := 0
 
-// Étape 1 — SSL sweep
+// Étape 1 — SSL sweep dans le sens du biais H4 bullish
 if ls == 0 and sslSweep and bullH4
-    ls         := 1
+    ls          := 1
     ls_sweepBar := bar_index
 
-// Étape 2 — Displacement haussier → FVG + Breaker Block
+// Étape 2 — Displacement haussier (MSS) → FVG + Breaker Block
 if ls == 1 and isBullDisp
-    fTop = low      // plancher = low du displacement
-    fBot = high[2]  // plafond  = high 2 bougies avant
+    fTop = low       // plancher du FVG = low de la bougie displacement
+    fBot = high[2]   // plafond du FVG  = high 2 bougies avant
     if fTop > fBot
         ls_fvgTop := fTop
         ls_fvgBot := fBot
         // Breaker Block = dernière bougie baissière avant le displacement
-        bbLow = close[1] < open[1] ? low[1] : (close[2] < open[2] ? low[2] : low)
-        ls_bbLow := bbLow
-        ls_sl    := math.min(low, ls_bbLow) - atr * slBuf
-        ls       := 2
+        // On cherche sur [1] en premier, puis [2], sinon on prend le low du disp
+        bb_idx  = close[1] < open[1] ? 1 : (close[2] < open[2] ? 2 : 0)
+        ls_bbLow  := low[bb_idx]
+        ls_bbHigh := high[bb_idx]
+        // SL = sous le min(low displacement, low Breaker Block) − buffer
+        ls_sl := math.min(low, ls_bbLow) - atr * slBuf
+        ls    := 2
 
 // ════════════════════════════════════════════════════════════
 //  MACHINE D'ÉTAT — SHORT
+//
+//  Breaker Block SHORT = dernière bougie haussière avant la displacement
 // ════════════════════════════════════════════════════════════
-var int   ss = 0
+var int   ss         = 0
 var int   ss_sweepBar = na
-var float ss_fvgTop   = na
-var float ss_fvgBot   = na
-var float ss_sl       = na
-var float ss_bbHigh   = na
+var float ss_fvgTop  = na
+var float ss_fvgBot  = na
+var float ss_bbLow   = na
+var float ss_bbHigh  = na
+var float ss_sl      = na
 
 if ss == 1 and not na(ss_sweepBar) and bar_index - ss_sweepBar > maxBarsWindow
     ss := 0
 
-if ss == 2 and close > ss_fvgTop
+if ss == 2 and (close > ss_fvgTop or close > ss_bbHigh)
     ss := 0
 
 if ss == 0 and bslSweep and bearH4
-    ss         := 1
+    ss          := 1
     ss_sweepBar := bar_index
 
 if ss == 1 and isBearDisp
@@ -251,49 +285,67 @@ if ss == 1 and isBearDisp
     if fTop > fBot
         ss_fvgTop := fTop
         ss_fvgBot := fBot
-        bbHigh    = close[1] > open[1] ? high[1] : (close[2] > open[2] ? high[2] : high)
-        ss_bbHigh := bbHigh
+        bb_idx    = close[1] > open[1] ? 1 : (close[2] > open[2] ? 2 : 0)
+        ss_bbLow  := low[bb_idx]
+        ss_bbHigh := high[bb_idx]
         ss_sl     := math.max(high, ss_bbHigh) + atr * slBuf
         ss        := 2
 
 // ════════════════════════════════════════════════════════════
-//  AFFICHAGE ZONES FVG
+//  AFFICHAGE FVG + BREAKER BLOCK
 // ════════════════════════════════════════════════════════════
-var box longBox  = na
-var box shortBox = na
+var box longFVG  = na
+var box longBB   = na
+var box shortFVG = na
+var box shortBB  = na
 
 if showFVG
-    if ls == 2 and not na(ls_fvgTop)
-        if not na(longBox)
-            box.delete(longBox)
-        longBox := box.new(bar_index - 1, ls_fvgTop, bar_index + 6, ls_fvgBot,
-                           border_color=color.teal, bgcolor=color.new(color.teal, 85), border_width=1)
-    if ss == 2 and not na(ss_fvgTop)
-        if not na(shortBox)
-            box.delete(shortBox)
-        shortBox := box.new(bar_index - 1, ss_fvgTop, bar_index + 6, ss_fvgBot,
-                            border_color=color.red, bgcolor=color.new(color.red, 85), border_width=1)
+    if ls == 2
+        if not na(longFVG)
+            box.delete(longFVG)
+        if not na(longBB)
+            box.delete(longBB)
+        longFVG := box.new(bar_index - 1, ls_fvgTop, bar_index + 8, ls_fvgBot,
+                           border_color=color.teal, bgcolor=color.new(color.teal, 82), border_width=1)
+        longBB  := box.new(bar_index - 1, ls_bbHigh, bar_index + 8, ls_bbLow,
+                           border_color=color.new(color.orange,20), bgcolor=color.new(color.orange, 88),
+                           border_width=1, border_style=line.style_dashed)
+
+    if ss == 2
+        if not na(shortFVG)
+            box.delete(shortFVG)
+        if not na(shortBB)
+            box.delete(shortBB)
+        shortFVG := box.new(bar_index - 1, ss_fvgTop, bar_index + 8, ss_fvgBot,
+                            border_color=color.red, bgcolor=color.new(color.red, 82), border_width=1)
+        shortBB  := box.new(bar_index - 1, ss_bbHigh, bar_index + 8, ss_bbLow,
+                            border_color=color.new(color.orange,20), bgcolor=color.new(color.orange, 88),
+                            border_width=1, border_style=line.style_dashed)
 
 // ════════════════════════════════════════════════════════════
-//  SIGNAUX & ENTRÉES
+//  SIGNAUX D'ENTRÉE
+//
+//  LONG  : dans FVG ET dans la zone Breaker Block ET en session ET biais H4 bull
+//  SHORT : dans FVG ET dans la zone Breaker Block ET en session ET biais H4 bear
 // ════════════════════════════════════════════════════════════
-longEntry  = ls == 2 and strategy.position_size == 0 and inSession
-             and low  <= ls_fvgTop and close >= ls_fvgBot
+inFVGLong  = low  <= ls_fvgTop and close >= ls_fvgBot
+inBBLong   = low  <= ls_bbHigh and close >= ls_bbLow
+longEntry  = ls == 2 and strategy.position_size == 0 and inSession and inFVGLong and inBBLong
 
-shortEntry = ss == 2 and strategy.position_size == 0 and inSession
-             and high >= ss_fvgBot and close <= ss_fvgTop
+inFVGShort = high >= ss_fvgBot and close <= ss_fvgTop
+inBBShort  = high >= ss_bbLow  and close <= ss_bbHigh
+shortEntry = ss == 2 and strategy.position_size == 0 and inSession and inFVGShort and inBBShort
 
 if longEntry
     slDist  = close - ls_sl
     tpPrice = close + slDist * rrTarget
     strategy.entry("Long", strategy.long)
     strategy.exit("L-exit", "Long",
-                  stop    = ls_sl,
-                  limit   = tpPrice,
-                  comment_loss   = "🔴 SL",
-                  comment_profit = "✅ TP " + str.tostring(rrTarget) + "R")
-    if showFVG and not na(longBox)
-        box.delete(longBox)
+                  stop=ls_sl, limit=tpPrice,
+                  comment_loss="🔴 SL", comment_profit="✅ TP " + str.tostring(rrTarget) + "R")
+    if showFVG
+        if not na(longFVG) then box.delete(longFVG)
+        if not na(longBB)  then box.delete(longBB)
     ls := 0
 
 if shortEntry
@@ -301,12 +353,11 @@ if shortEntry
     tpPrice = close - slDist * rrTarget
     strategy.entry("Short", strategy.short)
     strategy.exit("S-exit", "Short",
-                  stop    = ss_sl,
-                  limit   = tpPrice,
-                  comment_loss   = "🔴 SL",
-                  comment_profit = "✅ TP " + str.tostring(rrTarget) + "R")
-    if showFVG and not na(shortBox)
-        box.delete(shortBox)
+                  stop=ss_sl, limit=tpPrice,
+                  comment_loss="🔴 SL", comment_profit="✅ TP " + str.tostring(rrTarget) + "R")
+    if showFVG
+        if not na(shortFVG) then box.delete(shortFVG)
+        if not na(shortBB)  then box.delete(shortBB)
     ss := 0
 
 plotshape(longEntry,  "Long",  shape.arrowup,   location.belowbar, color.lime, size=size.normal)
@@ -316,21 +367,19 @@ plotshape(shortEntry, "Short", shape.arrowdown, location.abovebar, color.red,  s
 //  LABEL NEWS
 // ════════════════════════════════════════════════════════════
 if isNewsDay and isWeekday and barstate.isconfirmed
-    newsLabel = isFOMC ? "FOMC" : isNFP ? "NFP" : "CPI"
     if not na(time(timeframe.period, "0000-0001:23456", "America/New_York"))
+        newsLabel = isInDates(fomcDates) ? "FOMC" : isInDates(nfpDates) ? "NFP" : "CPI"
         label.new(bar_index, high * 1.001, "⚠️ " + newsLabel,
-                  color=color.new(color.orange, 60),
-                  textcolor=color.white,
-                  style=label.style_label_down,
-                  size=size.small)
+                  color=color.new(color.orange, 60), textcolor=color.white,
+                  style=label.style_label_down, size=size.small)
 
 // ════════════════════════════════════════════════════════════
 //  DASHBOARD
 // ════════════════════════════════════════════════════════════
-var table dash = table.new(position.top_right, 2, 12,
-    bgcolor     = color.new(color.black, 72),
-    border_width = 1, border_color = color.new(color.white, 75),
-    frame_color  = color.new(color.white, 55), frame_width = 1)
+var table dash = table.new(position.top_right, 2, 13,
+    bgcolor=color.new(color.black, 72), border_width=1,
+    border_color=color.new(color.white, 75),
+    frame_color=color.new(color.white, 55), frame_width=1)
 
 if barstate.islast
     cg(v, g, w) => v >= g ? color.lime : v >= w ? color.yellow : color.red
@@ -347,15 +396,16 @@ if barstate.islast
     dd   = strategy.max_drawdown
     espR = wr / 100 * rrTarget - (1 - wr / 100)
 
-    h(c,r,t)   => table.cell(dash,c,r,t, text_color=color.new(color.white,20),
-                             text_size=size.small, bgcolor=color.new(color.black,60))
+    h(c,r,t)    => table.cell(dash,c,r,t, text_color=color.new(color.white,20),
+                              text_size=size.small, bgcolor=color.new(color.black,60))
     v(c,r,t,cl) => table.cell(dash,c,r,t, text_color=cl,
                               text_size=size.small, text_halign=text.align_right,
                               bgcolor=color.new(color.black,80))
 
-    table.cell(dash,0,0,"ICT PropFirm v3", text_color=color.yellow,
+    table.cell(dash,0,0,"ICT Licorne v4", text_color=color.yellow,
                text_size=size.small, text_halign=text.align_center, bgcolor=color.new(color.black,50))
-    table.cell(dash,1,0,"M15 · NY Open", text_color=color.new(color.white,30),
+    baisStr = not useBias ? "Désactivé" : bullH4 ? "🟢 Bullish H4" : bearH4 ? "🔴 Bearish H4" : "⚪ Neutre"
+    table.cell(dash,1,0, baisStr, text_color=bullH4?color.lime:bearH4?color.red:color.gray,
                text_size=size.small, text_halign=text.align_right, bgcolor=color.new(color.black,50))
 
     h(0,1,"P&L Net")
@@ -386,11 +436,14 @@ if barstate.islast
     h(0,9,"Risque / RR cible")
     v(1,9,str.tostring(riskPct)+"% / 1:"+str.tostring(rrTarget), color.teal)
 
-    h(0,10,"Lookback / Disp")
-    v(1,10,str.tostring(lsLookback)+" · "+str.tostring(dispMult)+"×ATR", color.new(color.white,20))
+    h(0,10,"Swing / Disp")
+    v(1,10,str.tostring(swingLen)+" · "+str.tostring(dispMult)+"×ATR", color.new(color.white,20))
 
-    h(0,11,"Période testée")
+    h(0,11,"Biais H4 swings")
+    v(1,11,str.tostring(h4SwingLen)+" bougies", color.new(color.white,20))
+
+    h(0,12,"Période testée")
     dateStr = useWF
               ? str.format_time(fromDate,"dd/MM/yy")+" → "+str.format_time(toDate,"dd/MM/yy")
               : "Tout l'historique"
-    v(1,11,dateStr, color.new(color.white,30))
+    v(1,12,dateStr, color.new(color.white,30))
