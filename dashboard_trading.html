@@ -329,7 +329,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <button class="drawer-item" data-tab="mental" onclick="drawerNav(this)"><span class="di-icon">🧠</span>Mental</button>
     <button class="drawer-item" data-tab="news" onclick="drawerNav(this)"><span class="di-icon">📰</span>News</button>
   </nav>
-  <div class="drawer-footer">v58 · ICT Licorne</div>
+  <div class="drawer-footer">v59 · ICT Licorne</div>
 </div>
 
 <!-- ═══ TOP HEADER MOBILE ═══ -->
@@ -741,7 +741,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- ── Récupération de données ── -->
     <div style="margin-top:16px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v58</b></span>
+      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v59</b></span>
       <button onclick="forceUpdate()" style="background:var(--blue);border:none;color:#fff;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🔄 Forcer la mise à jour</button>
     </div>
 
@@ -895,18 +895,16 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--blue);display:inline-block;"></span>Paper</span>
       <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block;"></span>Les deux</span>
     </div>
-    <!-- En-têtes jours -->
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;">
-      <div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700;padding:3px 0;">L</div>
-      <div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700;padding:3px 0;">M</div>
-      <div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700;padding:3px 0;">M</div>
-      <div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700;padding:3px 0;">J</div>
-      <div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700;padding:3px 0;">V</div>
-      <div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700;padding:3px 0;">S</div>
-      <div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700;padding:3px 0;">D</div>
+    <!-- En-têtes jours (lun–ven uniquement) -->
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:4px;">
+      <div style="text-align:center;font-size:12px;color:var(--muted);font-weight:700;padding:4px 0;">LUN</div>
+      <div style="text-align:center;font-size:12px;color:var(--muted);font-weight:700;padding:4px 0;">MAR</div>
+      <div style="text-align:center;font-size:12px;color:var(--muted);font-weight:700;padding:4px 0;">MER</div>
+      <div style="text-align:center;font-size:12px;color:var(--muted);font-weight:700;padding:4px 0;">JEU</div>
+      <div style="text-align:center;font-size:12px;color:var(--muted);font-weight:700;padding:4px 0;">VEN</div>
     </div>
-    <!-- Grille -->
-    <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;"></div>
+    <!-- Grille 5 colonnes (week-ends masqués) -->
+    <div id="calGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;"></div>
     <!-- Mini-formulaire rapide -->
     <div id="calQuickModal" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center;">
       <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px 16px 0 0;padding:20px 16px 32px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;">
@@ -2009,22 +2007,27 @@ function renderCalendar() {
     });
   }
 
-  // Construire la grille
+  // Construire la grille — lun-ven uniquement (5 colonnes)
   const firstDay = new Date(calYear, calMonth, 1);
   const lastDay  = new Date(calYear, calMonth + 1, 0);
-  // Lundi = 0
-  let startOffset = (firstDay.getDay() + 6) % 7;
   const grid = document.getElementById('calGrid');
+  const today = new Date().toISOString().slice(0, 10);
   let html = '';
 
-  // Cellules vides avant le 1er
-  for (let i = 0; i < startOffset; i++) {
-    html += `<div style="aspect-ratio:1;min-height:0;"></div>`;
+  // Trouver le premier lundi du mois (ou avant)
+  // Offset = colonne du 1er jour (0=lun … 4=ven, 5=sam, 6=dim)
+  const firstDow = (firstDay.getDay() + 6) % 7; // 0=lun … 6=dim
+  // Cellules vides pour les jours lun-ven avant le 1er
+  const blanksBefore = Math.min(firstDow, 5);
+  for (let i = 0; i < blanksBefore; i++) {
+    html += `<div style="aspect-ratio:1;"></div>`;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-
   for (let d = 1; d <= lastDay.getDate(); d++) {
+    const date = new Date(calYear, calMonth, d);
+    const dow  = date.getDay(); // 0=dim, 6=sam
+    if (dow === 0 || dow === 6) continue; // skip week-end
+
     const mm = String(calMonth + 1).padStart(2, '0');
     const dd = String(d).padStart(2, '0');
     const dateStr = `${calYear}-${mm}-${dd}`;
@@ -2047,18 +2050,17 @@ function renderCalendar() {
       }
     }
 
-    // PnL affiché en tout petit sous le numéro
     const pnlTotal = info ? (info.reelPnl || 0) + (info.paperPnl || 0) : 0;
     const pnlStr = info && pnlTotal !== 0
-      ? `<div style="font-size:8px;font-weight:700;color:${pnlTotal>=0?'var(--green)':'var(--red)'};line-height:1;margin-top:2px;">${pnlTotal>=0?'+':''}${pnlTotal.toFixed(0)}</div>`
+      ? `<div style="font-size:10px;font-weight:700;color:${pnlTotal>=0?'var(--green)':'var(--red)'};line-height:1.2;margin-top:3px;">${pnlTotal>=0?'+':''}${pnlTotal.toFixed(0)}$</div>`
       : '';
-    const dot = dotColor ? `<div style="width:6px;height:6px;border-radius:50%;background:${dotColor};margin:2px auto 0;"></div>` : '';
+    const dot = dotColor ? `<div style="width:7px;height:7px;border-radius:50%;background:${dotColor};margin:4px auto 0;"></div>` : '';
     const hasComment = appData.calComments && appData.calComments[dateStr];
-    const commentPip = hasComment ? `<div style="width:4px;height:4px;border-radius:50%;background:var(--muted);margin:1px auto 0;"></div>` : '';
+    const commentPip = hasComment ? `<div style="font-size:10px;margin-top:2px;">💬</div>` : '';
     const todayRing = isToday ? 'box-shadow:0 0 0 2px var(--text);' : '';
 
-    html += `<div onclick="calShowDay('${dateStr}')" style="aspect-ratio:1;min-height:0;background:${bg};border:1px solid ${borderColor};border-radius:6px;padding:4px 2px;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;${todayRing}transition:.15s;">
-      <span style="font-size:11px;font-weight:${isToday?'800':'600'};color:${isToday?'var(--text)':'var(--muted)'};">${d}</span>
+    html += `<div onclick="calShowDay('${dateStr}')" style="aspect-ratio:1;background:${bg};border:1px solid ${borderColor};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;${todayRing}transition:.15s;">
+      <span style="font-size:13px;font-weight:${isToday?'800':'600'};color:${isToday?'var(--text)':'var(--muted)'};">${d}</span>
       ${pnlStr}${dot}${commentPip}
     </div>`;
   }
