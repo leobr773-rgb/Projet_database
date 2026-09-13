@@ -329,7 +329,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <button class="drawer-item" data-tab="mental" onclick="drawerNav(this)"><span class="di-icon">🧠</span>Mental</button>
     <button class="drawer-item" data-tab="news" onclick="drawerNav(this)"><span class="di-icon">📰</span>News</button>
   </nav>
-  <div class="drawer-footer">v61 · ICT Licorne</div>
+  <div class="drawer-footer">v62 · ICT Licorne</div>
 </div>
 
 <!-- ═══ TOP HEADER MOBILE ═══ -->
@@ -750,7 +750,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- ── Récupération de données ── -->
     <div style="margin-top:16px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v61</b></span>
+      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v62</b></span>
       <button onclick="forceUpdate()" style="background:var(--blue);border:none;color:#fff;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🔄 Forcer la mise à jour</button>
     </div>
 
@@ -1411,8 +1411,6 @@ function renderCockpit() {
   const ddBar = document.getElementById('ch-dd-bar');
   ddBar.style.width = ddTotalPct + '%';
   ddBar.className = 'progress-fill ' + (ddTotalPct < 50 ? 'fill-green' : ddTotalPct < 80 ? 'fill-yellow' : 'fill-red');
-
-  const lastSolde = stats ? stats.lastSolde : SOLDE_INIT();
   document.getElementById('ch-solde').textContent =
     lastSolde.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '$';
 
