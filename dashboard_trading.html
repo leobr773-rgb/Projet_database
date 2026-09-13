@@ -329,7 +329,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <button class="drawer-item" data-tab="mental" onclick="drawerNav(this)"><span class="di-icon">🧠</span>Mental</button>
     <button class="drawer-item" data-tab="news" onclick="drawerNav(this)"><span class="di-icon">📰</span>News</button>
   </nav>
-  <div class="drawer-footer">v60 · ICT Licorne</div>
+  <div class="drawer-footer">v61 · ICT Licorne</div>
 </div>
 
 <!-- ═══ TOP HEADER MOBILE ═══ -->
@@ -366,15 +366,24 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="progress-track" style="height:12px;margin-bottom:12px">
         <div class="progress-fill fill-gold" id="ch-obj-bar" style="width:0%"></div>
       </div>
+      <!-- DD journalier (-3%) -->
+      <div class="ch-row" style="margin-top:2px;">
+        <span class="ch-label">📅 DD journalier <span style="color:var(--muted);font-size:11px;">max -300$</span></span>
+        <span class="ch-value" id="ch-dd-day-val">0$ / -300$  (0%)</span>
+      </div>
+      <div class="progress-track" style="height:8px;margin-bottom:10px">
+        <div class="progress-fill fill-green" id="ch-dd-day-bar" style="width:0%"></div>
+      </div>
+      <!-- DD total (-6%) -->
       <div class="ch-row">
-        <span class="ch-label">🛡 Drawdown total</span>
-        <span class="ch-value" id="ch-dd-val">0$ / -300$ max  (0%)</span>
+        <span class="ch-label">🛡 DD total <span style="color:var(--muted);font-size:11px;">plancher 9 400$</span></span>
+        <span class="ch-value" id="ch-dd-val">0$ / -600$  (0%)</span>
       </div>
       <div class="progress-track" style="height:8px">
         <div class="progress-fill fill-green" id="ch-dd-bar" style="width:0%"></div>
       </div>
       <div style="display:flex;gap:24px;margin-top:12px;flex-wrap:wrap">
-        <span style="font-size:12px;color:var(--muted)">Solde&nbsp;: <span style="color:var(--text);font-family:ui-monospace,monospace;font-weight:700" id="ch-solde">5&nbsp;000.00$</span></span>
+        <span style="font-size:12px;color:var(--muted)">Solde&nbsp;: <span style="color:var(--text);font-family:ui-monospace,monospace;font-weight:700" id="ch-solde">10&nbsp;000.00$</span></span>
         <span style="font-size:12px;color:var(--muted)">P&amp;L aujourd'hui&nbsp;: <span style="font-family:ui-monospace,monospace;font-weight:700" id="ch-today">—</span></span>
         <span style="font-size:12px;color:var(--muted)">Jours de trading&nbsp;: <span style="color:var(--text);font-family:ui-monospace,monospace" id="ch-days">0</span></span>
       </div>
@@ -741,7 +750,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- ── Récupération de données ── -->
     <div style="margin-top:16px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v60</b></span>
+      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v61</b></span>
       <button onclick="forceUpdate()" style="background:var(--blue);border:none;color:#fff;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🔄 Forcer la mise à jour</button>
     </div>
 
@@ -1365,20 +1374,43 @@ const realTrades = () => (appData.trades || []).filter(t => (t.type || 'reel') !
 function renderCockpit() {
   const stats = calcStats(realTrades());
   const totalPnl = stats ? stats.totalPnl : 0;
-  const ddAbs = stats ? stats.ddAbs : 0;
-  const objPct = Math.min(100, Math.max(0, totalPnl  / OBJECTIF_ABS() * 100));
-  const ddPct = Math.min(100, Math.abs(ddAbs)  / DD_MAX_ABS() * 100);
+  const objPct = Math.min(100, Math.max(0, totalPnl / OBJECTIF_ABS() * 100));
 
   const acct = cfg();
+  const soldeInit = SOLDE_INIT(); // 10 000$
+
+  // ── DD journalier : perte du jour uniquement (max -300$ / -3%)
+  const ddDayLimit = 300;  // -3% de 10 000$
+  const todayPnlRaw = stats ? stats.todayPnl : 0;
+  const ddDay = Math.min(0, todayPnlRaw);           // 0 si journée positive
+  const ddDayAbs = Math.abs(ddDay);
+  const ddDayPct = Math.min(100, ddDayAbs / ddDayLimit * 100);
+
+  // ── DD total : perte depuis le capital de départ (10 000$), plancher 9 400$ (-6%)
+  const ddTotalLimit = 600; // -6% de 10 000$
+  const lastSolde = stats ? stats.lastSolde : soldeInit;
+  const ddTotal = Math.min(0, lastSolde - soldeInit); // 0 si on est au-dessus de 10 000$
+  const ddTotalAbs = Math.abs(ddTotal);
+  const ddTotalPct = Math.min(100, ddTotalAbs / ddTotalLimit * 100);
+
   document.getElementById('ch-acct-label').textContent = `${acct.emoji} Challenge 10K — Objectif 10% — Progression`;
   document.getElementById('ch-obj-val').textContent =
     `${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)}$ / +${acct.objectifAbs}$  (${objPct.toFixed(1)}%)`;
   document.getElementById('ch-obj-bar').style.width = objPct + '%';
+
+  // DD journalier
+  document.getElementById('ch-dd-day-val').textContent =
+    `-${ddDayAbs.toFixed(2)}$ / -${ddDayLimit}$  (${ddDayPct.toFixed(1)}%)`;
+  const ddDayBar = document.getElementById('ch-dd-day-bar');
+  ddDayBar.style.width = ddDayPct + '%';
+  ddDayBar.className = 'progress-fill ' + (ddDayPct < 50 ? 'fill-green' : ddDayPct < 80 ? 'fill-yellow' : 'fill-red');
+
+  // DD total
   document.getElementById('ch-dd-val').textContent =
-    `${ddAbs.toFixed(2)}$ / -${acct.ddMaxAbs}$ max  (${ddPct.toFixed(1)}%)`;
+    `-${ddTotalAbs.toFixed(2)}$ / -${ddTotalLimit}$  (${ddTotalPct.toFixed(1)}%)`;
   const ddBar = document.getElementById('ch-dd-bar');
-  ddBar.style.width = ddPct + '%';
-  ddBar.className = 'progress-fill ' + (ddPct < 50 ? 'fill-green' : ddPct < 80 ? 'fill-yellow' : 'fill-red');
+  ddBar.style.width = ddTotalPct + '%';
+  ddBar.className = 'progress-fill ' + (ddTotalPct < 50 ? 'fill-green' : ddTotalPct < 80 ? 'fill-yellow' : 'fill-red');
 
   const lastSolde = stats ? stats.lastSolde : SOLDE_INIT();
   document.getElementById('ch-solde').textContent =
