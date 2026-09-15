@@ -329,7 +329,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <button class="drawer-item" data-tab="mental" onclick="drawerNav(this)"><span class="di-icon">🧠</span>Mental</button>
     <button class="drawer-item" data-tab="news" onclick="drawerNav(this)"><span class="di-icon">📰</span>News</button>
   </nav>
-  <div class="drawer-footer">v62 · ICT Licorne</div>
+  <div class="drawer-footer">v63 · ICT Licorne</div>
 </div>
 
 <!-- ═══ TOP HEADER MOBILE ═══ -->
@@ -750,7 +750,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- ── Récupération de données ── -->
     <div style="margin-top:16px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v62</b></span>
+      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v63</b></span>
       <button onclick="forceUpdate()" style="background:var(--blue);border:none;color:#fff;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🔄 Forcer la mise à jour</button>
     </div>
 
@@ -830,6 +830,19 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div id="rr-msg" style="font-size:12px;color:var(--muted);padding:10px;background:var(--panel2);border-radius:8px">Aucune donnée.</div>
       </div>
     </div>
+
+    <!-- Tableau RR × Winrate -->
+    <div class="card" style="margin-bottom:16px;overflow-x:auto;">
+      <div class="card-title">Matrice Espérance — RR × Winrate</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Espérance en R par trade. <span style="color:var(--gold)">■</span> = ta configuration cible (RR 2:1 · 60%)</div>
+      <div id="rrMatrix" style="overflow-x:auto;"></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:11px;">
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:3px;background:#1a3020;display:inline-block;border:1px solid var(--green)"></span>Profitable</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:3px;background:#2a1a1a;display:inline-block;border:1px solid var(--red)"></span>Négatif</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:3px;background:rgba(240,185,11,.15);display:inline-block;border:1px solid var(--gold)"></span>Ta cible</span>
+      </div>
+    </div>
+
   </div>
 
   <!-- ══ MODULE 6 — NEWS ══ -->
@@ -2675,6 +2688,7 @@ function renderAnalyse() {
     document.getElementById('rr-reel-bar').style.width = '0%';
     document.getElementById('rr-msg').textContent = 'Aucun trade enregistré.';
     renderRdist([]);
+    renderRRMatrix(0, 2);
     return;
   }
 
@@ -2735,6 +2749,73 @@ function renderAnalyse() {
       : `Vous surpassez vos objectifs de ${ecart.toFixed(2)}R — continuez !`;
 
   renderRdist(stats.rs);
+  renderRRMatrix(stats.wr, stats.avgGain && stats.avgLoss ? stats.avgGain / Math.abs(stats.avgLoss) : 2);
+}
+
+function renderRRMatrix(actualWr, actualRR) {
+  // Lignes = winrate, colonnes = RR
+  const wrs  = [30, 35, 40, 45, 50, 55, 60, 65, 70];
+  const rrs  = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0];
+  const targetWr = 60;
+  const targetRR = 2.0;
+  // Winrate réel arrondi à la ligne la plus proche
+  const realWrRow  = Math.round(actualWr / 5) * 5;
+  const realRRCol  = Math.round(actualRR * 2) / 2; // arrondi au 0.5 le plus proche
+
+  let html = `<table style="border-collapse:collapse;width:100%;font-size:12px;">`;
+  // En-tête colonnes (RR)
+  html += `<thead><tr>
+    <th style="padding:6px 8px;color:var(--muted);font-size:11px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;">WR \\ RR</th>`;
+  rrs.forEach(rr => {
+    html += `<th style="padding:6px 8px;color:var(--muted);font-size:11px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;">${rr.toFixed(1)}</th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  wrs.forEach(wr => {
+    html += `<tr>`;
+    // Label winrate
+    const isRealWrRow = wr === realWrRow;
+    html += `<td style="padding:5px 8px;color:${isRealWrRow?'var(--text)':'var(--muted)'};font-weight:${isRealWrRow?'700':'400'};white-space:nowrap;border-right:1px solid var(--border);">${wr}%</td>`;
+
+    rrs.forEach(rr => {
+      const esp = (wr / 100) * rr - (1 - wr / 100); // espérance en R
+      const isTarget  = (wr === targetWr && rr === targetRR);
+      const isRealPos = (wr === realWrRow && Math.abs(rr - realRRCol) < 0.01);
+      const positive  = esp > 0;
+
+      let bg, border, textColor;
+      if (isTarget && isRealPos) {
+        bg = 'rgba(240,185,11,.25)'; border = '2px solid var(--gold)'; textColor = 'var(--gold)';
+      } else if (isTarget) {
+        bg = 'rgba(240,185,11,.15)'; border = '1px solid var(--gold)'; textColor = 'var(--gold)';
+      } else if (isRealPos) {
+        bg = 'rgba(74,144,226,.2)'; border = '2px solid var(--blue)'; textColor = 'var(--blue)';
+      } else if (positive) {
+        bg = '#1a3020'; border = '1px solid rgba(76,175,80,.3)'; textColor = 'var(--green)';
+      } else {
+        bg = '#2a1a1a'; border = '1px solid rgba(239,83,80,.2)'; textColor = 'var(--red)';
+      }
+
+      html += `<td style="padding:5px 4px;text-align:center;background:${bg};border:${border};border-radius:4px;color:${textColor};font-family:ui-monospace,monospace;font-weight:600;">
+        ${esp >= 0 ? '+' : ''}${esp.toFixed(2)}R
+      </td>`;
+    });
+    html += `</tr>`;
+  });
+
+  html += `</tbody></table>`;
+
+  // Légende position réelle
+  if (actualWr > 0) {
+    html += `<div style="margin-top:8px;font-size:11px;color:var(--muted);">
+      <span style="color:var(--blue)">■</span> Ta position réelle : WR ${actualWr.toFixed(0)}% · RR ${actualRR.toFixed(2)} → espérance
+      <span style="color:${((actualWr/100)*actualRR-(1-actualWr/100))>=0?'var(--green)':'var(--red)'}">
+        ${(((actualWr/100)*actualRR-(1-actualWr/100))>=0?'+':'')}${((actualWr/100)*actualRR-(1-actualWr/100)).toFixed(2)}R
+      </span>
+    </div>`;
+  }
+
+  document.getElementById('rrMatrix').innerHTML = html;
 }
 
 function renderRdist(rs) {
