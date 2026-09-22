@@ -2324,7 +2324,10 @@ function restoreKrakenHistory10k3() {
 function toggleSign(id) {
   const el = document.getElementById(id);
   const v = parseFloat(el.value);
-  if (!isNaN(v) && v !== 0) el.value = (-v).toString();
+  if (!isNaN(v) && v !== 0) {
+    el.value = (-v).toString();
+    el.dispatchEvent(new Event('input'));
+  }
 }
 
 function _forceImport(trades) {
