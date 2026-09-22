@@ -2620,7 +2620,13 @@ function sensColor(s) { return s === 'Achat' ? 'var(--green)' : 'var(--red)'; }
 function fmtMono(v) { return `<span class="text-mono">${v}</span>`; }
 
 function renderTrades() {
-  const trades = [...appData.trades].reverse();
+  // Recalculate running solde from PnL to fix any stale stored values
+  let runSolde = SOLDE_INIT();
+  const tradesWithSolde = appData.trades.map(t => {
+    runSolde += (t.pnl || 0);
+    return { ...t, _solde: runSolde };
+  });
+  const trades = [...tradesWithSolde].reverse();
   const tbody = document.getElementById('tradeTbody');
   const cards = document.getElementById('tradeCards');
   const empty = document.getElementById('emptyState');
@@ -2645,7 +2651,7 @@ function renderTrades() {
       <td class="${resultClass(t.rrReel)}">${t.rrReel > 0 ? '+' : ''}${t.rrReel}R</td>
       <td><span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:700;background:${resultBg(t.rrReel)};color:${resultColor(t.rrReel)}">${resultLabel(t.rrReel)}</span></td>
       <td class="text-mono ${t.pnl > 0 ? 'text-gain' : t.pnl < 0 ? 'text-perte' : ''}">${t.pnl ? (t.pnl > 0 ? '+' : '') + t.pnl.toFixed(2) + '$' : '—'}</td>
-      <td class="text-mono">${t.solde ? t.solde.toFixed(2) + '$' : '—'}</td>
+      <td class="text-mono">${t._solde !== undefined ? t._solde.toFixed(2) + '$' : (t.solde ? t.solde.toFixed(2) + '$' : '—')}</td>
       <td style="white-space:nowrap">
         ${t.capture ? `<button onclick="openCapture('${t.id}')" style="background:var(--blue);border:none;color:#fff;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;margin-right:4px;">📸</button>` : `<button onclick="triggerCaptureInput('${t.id}')" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;margin-right:4px;">+📸</button>`}
         <button onclick="editTrade('${t.id}')" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;margin-right:4px;">✏️</button>
@@ -2669,7 +2675,7 @@ function renderTrades() {
         <div><div class="tc-lbl">Session</div>${t.session || '—'}</div>
         <div><div class="tc-lbl">Qualité</div><span class="stars">${stars(t.qualite || 3)}</span></div>
         <div><div class="tc-lbl">PnL $</div><span class="${t.pnl > 0 ? 'text-gain' : t.pnl < 0 ? 'text-perte' : ''}">${t.pnl ? (t.pnl > 0 ? '+' : '') + t.pnl.toFixed(2) + '$' : '—'}</span></div>
-        <div><div class="tc-lbl">Solde</div>${t.solde ? t.solde.toFixed(2) + '$' : '—'}</div>
+        <div><div class="tc-lbl">Solde</div>${t._solde !== undefined ? t._solde.toFixed(2) + '$' : (t.solde ? t.solde.toFixed(2) + '$' : '—')}</div>
         ${t.note ? `<div style="grid-column:1/-1"><div class="tc-lbl">Note</div>${t.note}</div>` : ''}
         ${t.capture ? `<div style="grid-column:1/-1"><button onclick="triggerCaptureInput('${t.id}')" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;">🔄 Remplacer la capture</button></div>` : ''}
       </div>
