@@ -2452,12 +2452,9 @@ function runMonteCarlo() {
   const nTrades  = Math.min(500, Math.max(1, parseInt(document.getElementById('mc-trades').value) || 50));
   const nSims    = 1000;
 
-  // Partir du solde actuel (normalisé à 1.0 = SOLDE_INIT)
-  const rt = realTrades();
-  const soldeCourant = SOLDE_INIT() + rt.reduce((s, t) => s + (t.pnl || 0), 0);
-  const startRatio   = soldeCourant / SOLDE_INIT(); // ex: 1.03 si +3%
-  const objMult      = 1.10;   // +10% depuis SOLDE_INIT
-  const ddLimit      = 0.94;   // -6%  depuis SOLDE_INIT
+  const startRatio   = 1.0;    // toujours depuis 10 000$ (base du challenge)
+  const objMult      = 1.10;   // +10%
+  const ddLimit      = 0.94;   // -6%
 
   let success = 0, fail = 0, ongoing = 0;
   const samplePaths = [];
@@ -2483,13 +2480,12 @@ function runMonteCarlo() {
   const pFail    = (fail    / nSims * 100).toFixed(1);
   const pOngoing = (ongoing / nSims * 100).toFixed(1);
   const esp      = (winRate * rr - (1 - winRate)).toFixed(3);
-  const soldeCourantStr = soldeCourant.toFixed(0) + '$';
 
   document.getElementById('mc-success').textContent  = pSuccess + '%';
   document.getElementById('mc-fail').textContent     = pFail    + '%';
   document.getElementById('mc-ongoing').textContent  = pOngoing + '%';
   document.getElementById('mc-stats').innerHTML =
-    `<b>Départ</b> : ${soldeCourantStr} (${startRatio >= 1 ? '+' : ''}${((startRatio-1)*100).toFixed(1)}%) &nbsp;·&nbsp; `+
+    `<b>Départ</b> : 10 000$ &nbsp;·&nbsp; `+
     `<b>Espérance</b> : ${esp}R &nbsp;·&nbsp; `+
     `<b>Trades</b> : ${nTrades} &nbsp;·&nbsp; `+
     `<b>Risque</b> : ${(riskPct*100).toFixed(2)}% &nbsp;·&nbsp; `+
