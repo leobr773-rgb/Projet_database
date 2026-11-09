@@ -379,8 +379,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <div style="font-family:ui-monospace,monospace;font-weight:700;font-size:14px;" id="ch-today">—</div>
         </div>
         <div style="background:var(--panel2);border-radius:8px;padding:8px 10px;">
-          <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">P&amp;L trading</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">P&amp;L trading (net)</div>
           <div style="font-family:ui-monospace,monospace;font-weight:700;font-size:14px;" id="ch-pnl-total">—</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="ch-frais-total"></div>
         </div>
       </div>
       <!-- Barre progression vers 5 000$ -->
@@ -709,11 +710,15 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <input type="number" class="form-input risk-input" id="f-risque" placeholder="2" step="0.01" min="0" value="2">
         </div>
         <div class="form-group">
-          <label class="form-label">PnL $ (optionnel)</label>
+          <label class="form-label">PnL brut $ <span style="font-size:9px;color:var(--muted);font-weight:400">(avant frais)</span></label>
           <div style="display:flex;gap:6px;align-items:center;">
             <input type="text" inputmode="decimal" class="form-input" id="f-pnl" placeholder="-50.00 / 104.50" style="flex:1;">
             <button type="button" onclick="toggleSign('f-pnl')" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0 12px;height:42px;font-size:16px;cursor:pointer;font-weight:700;flex-shrink:0;">±</button>
           </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">💸 Frais $ <span style="font-size:9px;color:var(--muted);font-weight:400">(open+close+funding)</span></label>
+          <input type="text" inputmode="decimal" class="form-input" id="f-frais" placeholder="0.00" value="0">
         </div>
         <div class="form-group full">
           <label class="form-label">Note</label>
@@ -1007,7 +1012,9 @@ const cfg         = () => ACCOUNTS[currentAccount];
 // Solde initial stocké dans appData (modifiable), fallback 0
 const SOLDE_INIT  = () => appData?.soldeInit ?? 0;
 const totalDeposits = () => (appData?.deposits || []).reduce((s, d) => s + (d.amount || 0), 0);
-const soldeCourant  = () => SOLDE_INIT() + totalDeposits() + (appData?.trades || []).filter(t => (t.type||'reel') !== 'paper').reduce((s, t) => s + (t.pnl || 0), 0);
+// PnL net d'un trade = PnL brut − frais (rétrocompat : frais absent = 0)
+const pnlNet = t => (t.pnl || 0) - (t.frais || 0);
+const soldeCourant  = () => SOLDE_INIT() + totalDeposits() + (appData?.trades || []).filter(t => (t.type||'reel') !== 'paper').reduce((s, t) => s + pnlNet(t), 0);
 
 // ── State ──
 let aesKey  = null;   // alias → aesKeys[currentAccount]
@@ -1320,12 +1327,13 @@ function calcStats(trades) {
   const disciplined = trades.filter(t => (t.risque || 0) <= 1.0 && (t.rrPrevu || 0) >= 2).length;
   const discScore = Math.round(disciplined / n * 100);
 
-  // Solde & dd abs — recalcul propre depuis les PnL pour éviter toute contamination
-  const totalPnl = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+  // Solde & dd abs — recalcul propre depuis les PnL nets pour éviter toute contamination
+  const totalPnl      = trades.reduce((sum, t) => sum + pnlNet(t), 0);
+  const totalFrais    = trades.reduce((sum, t) => sum + (t.frais || 0), 0);
   const lastSolde = SOLDE_INIT() + totalDeposits() + totalPnl;
   let peakS = SOLDE_INIT(), runS = SOLDE_INIT(), ddAbs = 0;
   trades.forEach(t => {
-    runS += (t.pnl || 0);
+    runS += pnlNet(t);
     if (runS > peakS) peakS = runS;
     ddAbs = Math.min(ddAbs, runS - peakS);
   });
@@ -1333,7 +1341,7 @@ function calcStats(trades) {
   // Today
   const today = todayStr();
   const todayTrades = trades.filter(t => t.date === today);
-  const todayPnl = todayTrades.reduce((a, t) => a + (t.pnl || 0), 0);
+  const todayPnl = todayTrades.reduce((a, t) => a + pnlNet(t), 0);
 
   // By setup
   const setups = {};
@@ -1389,7 +1397,7 @@ function calcStats(trades) {
 
   return {
     n, esp, fp, wr, avgGain, avgLoss, ddMax, serie, serieType,
-    discScore, totalPnl, ddAbs, todayPnl, todayTradesCount: todayTrades.length,
+    discScore, totalPnl, totalFrais, ddAbs, todayPnl, todayTradesCount: todayTrades.length,
     bestSetup, bestSetupR, bestSession, worstEmo, tradingDays,
     rs, setups, sessions, emotions, lastSolde
   };
@@ -1416,11 +1424,17 @@ function renderCockpit() {
   const depsEl = document.getElementById('ch-deposits');
   if (depsEl) { depsEl.textContent = '+' + deps.toFixed(2) + '$'; }
 
-  // PnL total trading
+  // PnL total trading (net)
   const pnlTotalEl = document.getElementById('ch-pnl-total');
   if (pnlTotalEl) {
     pnlTotalEl.textContent = (totalPnl >= 0 ? '+' : '') + totalPnl.toFixed(2) + '$';
     pnlTotalEl.style.color = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
+  }
+  const fraisTotalEl = document.getElementById('ch-frais-total');
+  if (fraisTotalEl && stats && stats.totalFrais > 0) {
+    fraisTotalEl.textContent = `💸 −${stats.totalFrais.toFixed(2)}$ frais`;
+  } else if (fraisTotalEl) {
+    fraisTotalEl.textContent = '';
   }
 
   // Barre objectif 5 000$
@@ -1802,12 +1816,15 @@ function selectType(t) {
   document.getElementById('btn-paper').className = 'sens-btn' + (t === 'paper' ? ' active-buy' : '');
 }
 
-document.getElementById('f-pnl').addEventListener('input', () => {
-  const pnl = parseFloat(document.getElementById('f-pnl').value) || 0;
+function updateSoldePreview() {
+  const pnl   = parseFloat(document.getElementById('f-pnl').value)   || 0;
+  const frais = parseFloat(document.getElementById('f-frais').value) || 0;
   const rt = realTrades();
-  const lastSolde = SOLDE_INIT() + totalDeposits() + rt.reduce((s, t) => s + (t.pnl || 0), 0);
-  if (pnl !== 0) document.getElementById('f-solde').value = (lastSolde + pnl).toFixed(2);
-});
+  const lastSolde = SOLDE_INIT() + totalDeposits() + rt.reduce((s, t) => s + pnlNet(t), 0);
+  if (pnl !== 0 || frais !== 0) document.getElementById('f-solde').value = (lastSolde + pnl - frais).toFixed(2);
+}
+document.getElementById('f-pnl').addEventListener('input', updateSoldePreview);
+document.getElementById('f-frais').addEventListener('input', updateSoldePreview);
 
 document.getElementById('saveTrade').addEventListener('click', saveTrade);
 
@@ -1826,6 +1843,7 @@ function editTrade(id) {
   document.getElementById('f-rrReel').value = t.rrReel !== undefined ? t.rrReel : '';
   document.getElementById('f-risque').value = t.risque || 1;
   document.getElementById('f-pnl').value = t.pnl || '';
+  document.getElementById('f-frais').value = t.frais !== undefined ? t.frais : 0;
   document.getElementById('f-solde').value = t.solde || '';
   document.getElementById('f-emotion').value = t.emotion || 'Discipliné';
   document.getElementById('f-note').value = t.note || '';
@@ -1864,10 +1882,11 @@ async function saveTrade() {
   const rrReel = parseFloat(rrReelRaw);
   const pnl = parseFloat(document.getElementById('f-pnl').value) || 0;
   const _rt = realTrades();
-  const lastSolde = SOLDE_INIT() + totalDeposits() + _rt.reduce((s, t) => s + (t.pnl || 0), 0);
+  const lastSolde = SOLDE_INIT() + totalDeposits() + _rt.reduce((s, t) => s + pnlNet(t), 0);
   let solde = parseFloat(document.getElementById('f-solde').value);
   if (isNaN(solde)) solde = pnl !== 0 ? lastSolde + pnl : lastSolde;
 
+  const frais = Math.abs(parseFloat(document.getElementById('f-frais').value) || 0);
   const trade = {
     id: editingTradeId || (Date.now().toString(36) + Math.random().toString(36).slice(2)),
     date: document.getElementById('f-date').value || todayStr(),
@@ -1881,6 +1900,7 @@ async function saveTrade() {
     rrReel,
     risque: parseFloat(document.getElementById('f-risque').value) || 1,
     pnl,
+    frais,
     solde,
     emotion: document.getElementById('f-emotion').value,
     note: document.getElementById('f-note').value,
@@ -1928,6 +1948,7 @@ function resetForm() {
   ['f-actif','f-lots','f-rrPrevu','f-rrReel','f-pnl','f-solde','f-note'].forEach(id => {
     document.getElementById(id).value = '';
   });
+  document.getElementById('f-frais').value = '0';
   document.getElementById('f-risque').value = '2';
   document.getElementById('f-qualite').value = '4';
   document.getElementById('f-emotion').value = 'Discipliné';
@@ -2064,7 +2085,7 @@ function renderCalendar() {
       if (!byDate[t.date]) byDate[t.date] = { reel: 0, paper: 0, reelPnl: 0, paperPnl: 0 };
       const type = t.type || 'reel';
       byDate[t.date][type]++;
-      byDate[t.date][type + 'Pnl'] += (t.pnl || 0);
+      byDate[t.date][type + 'Pnl'] += pnlNet(t);
     });
   }
 
@@ -2223,7 +2244,7 @@ async function calQuickSave() {
   if (isNaN(rrReel)) { alert('R réalisé invalide.'); return; }
   const pnl = parseFloat(document.getElementById('calQ-pnl').value) || 0;
   const _rtQ = realTrades();
-  const lastSolde = SOLDE_INIT() + totalDeposits() + _rtQ.reduce((s, t) => s + (t.pnl || 0), 0);
+  const lastSolde = SOLDE_INIT() + totalDeposits() + _rtQ.reduce((s, t) => s + pnlNet(t), 0);
 
   const trade = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2),
@@ -2676,7 +2697,7 @@ function renderTrades() {
   // Recalculate running solde from PnL to fix any stale stored values
   let runSolde = SOLDE_INIT();
   const tradesWithSolde = appData.trades.map(t => {
-    runSolde += (t.pnl || 0);
+    runSolde += pnlNet(t);
     return { ...t, _solde: runSolde };
   });
   const trades = [...tradesWithSolde].reverse();
@@ -2703,7 +2724,10 @@ function renderTrades() {
       <td class="text-mono">${t.rrPrevu ? t.rrPrevu + 'R' : '—'}</td>
       <td class="${resultClass(t.rrReel)}">${t.rrReel > 0 ? '+' : ''}${t.rrReel}R</td>
       <td><span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:700;background:${resultBg(t.rrReel)};color:${resultColor(t.rrReel)}">${resultLabel(t.rrReel)}</span></td>
-      <td class="text-mono ${t.pnl > 0 ? 'text-gain' : t.pnl < 0 ? 'text-perte' : ''}">${t.pnl ? (t.pnl > 0 ? '+' : '') + t.pnl.toFixed(2) + '$' : '—'}</td>
+      <td class="text-mono ${pnlNet(t) > 0 ? 'text-gain' : pnlNet(t) < 0 ? 'text-perte' : ''}">
+        ${t.pnl ? (t.pnl > 0 ? '+' : '') + t.pnl.toFixed(2) + '$' : '—'}
+        ${t.frais ? `<div style="font-size:9px;color:var(--muted)">−${t.frais.toFixed(2)}$ frais</div>` : ''}
+      </td>
       <td class="text-mono">${t._solde !== undefined ? t._solde.toFixed(2) + '$' : (t.solde ? t.solde.toFixed(2) + '$' : '—')}</td>
       <td style="white-space:nowrap">
         ${t.capture ? `<button onclick="openCapture('${t.id}')" style="background:var(--blue);border:none;color:#fff;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;margin-right:4px;">📸</button>` : `<button onclick="triggerCaptureInput('${t.id}')" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;margin-right:4px;">+📸</button>`}
@@ -2727,7 +2751,7 @@ function renderTrades() {
         <div><div class="tc-lbl">Setup</div>${t.setup || '—'}</div>
         <div><div class="tc-lbl">Session</div>${t.session || '—'}</div>
         <div><div class="tc-lbl">Qualité</div><span class="stars">${stars(t.qualite || 3)}</span></div>
-        <div><div class="tc-lbl">PnL $</div><span class="${t.pnl > 0 ? 'text-gain' : t.pnl < 0 ? 'text-perte' : ''}">${t.pnl ? (t.pnl > 0 ? '+' : '') + t.pnl.toFixed(2) + '$' : '—'}</span></div>
+        <div><div class="tc-lbl">PnL net $</div><span class="${pnlNet(t) > 0 ? 'text-gain' : pnlNet(t) < 0 ? 'text-perte' : ''}">${t.pnl ? (pnlNet(t) > 0 ? '+' : '') + pnlNet(t).toFixed(2) + '$' : '—'}${t.frais ? ` <span style="font-size:10px;color:var(--muted)">(−${t.frais.toFixed(2)}$ frais)</span>` : ''}</span></div>
         <div><div class="tc-lbl">Solde</div>${t._solde !== undefined ? t._solde.toFixed(2) + '$' : (t.solde ? t.solde.toFixed(2) + '$' : '—')}</div>
         ${t.note ? `<div style="grid-column:1/-1"><div class="tc-lbl">Note</div>${t.note}</div>` : ''}
         ${t.capture ? `<div style="grid-column:1/-1"><button onclick="triggerCaptureInput('${t.id}')" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;">🔄 Remplacer la capture</button></div>` : ''}
