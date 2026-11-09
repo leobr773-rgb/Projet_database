@@ -359,15 +359,43 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div class="module active" id="mod-cockpit">
 
     <div class="challenge-header">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <span class="ch-label" id="ch-acct-label">🥇 Fonds Propre</span>
         <span style="font-size:12px;color:var(--muted)">Jours : <span style="color:var(--text);font-family:ui-monospace,monospace" id="ch-days">0</span></span>
       </div>
-      <div style="display:flex;gap:24px;flex-wrap:wrap">
-        <span style="font-size:14px;color:var(--muted)">Solde&nbsp;: <span style="color:var(--text);font-family:ui-monospace,monospace;font-weight:700;font-size:18px;" id="ch-solde">10&nbsp;000.00$</span></span>
-        <span style="font-size:14px;color:var(--muted)">P&amp;L aujourd'hui&nbsp;: <span style="font-family:ui-monospace,monospace;font-weight:700;font-size:18px;" id="ch-today">—</span></span>
-        <span style="font-size:14px;color:var(--muted)">P&amp;L total&nbsp;: <span style="font-family:ui-monospace,monospace;font-weight:700;font-size:18px;" id="ch-pnl-total">—</span></span>
+      <!-- Solde principal -->
+      <div style="margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">SOLDE TOTAL</div>
+        <div style="font-size:28px;font-weight:800;font-family:ui-monospace,monospace;color:var(--text)" id="ch-solde">78.00$</div>
       </div>
+      <!-- 3 colonnes : dépôts / PnL today / PnL total -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+        <div style="background:var(--panel2);border-radius:8px;padding:8px 10px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">Dépôts cumulés</div>
+          <div style="font-family:ui-monospace,monospace;font-weight:700;font-size:14px;color:var(--blue)" id="ch-deposits">+0.00$</div>
+        </div>
+        <div style="background:var(--panel2);border-radius:8px;padding:8px 10px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">P&amp;L aujourd'hui</div>
+          <div style="font-family:ui-monospace,monospace;font-weight:700;font-size:14px;" id="ch-today">—</div>
+        </div>
+        <div style="background:var(--panel2);border-radius:8px;padding:8px 10px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">P&amp;L trading</div>
+          <div style="font-family:ui-monospace,monospace;font-weight:700;font-size:14px;" id="ch-pnl-total">—</div>
+        </div>
+      </div>
+      <!-- Barre progression vers 5 000$ -->
+      <div style="margin-bottom:4px;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:4px;">
+          <span>Objectif 5 000$</span>
+          <span id="ch-obj-txt">0 / 5 000$ (0%)</span>
+        </div>
+        <div class="progress-track" style="height:8px;">
+          <div class="progress-fill fill-gold" id="ch-obj-bar" style="width:0%"></div>
+        </div>
+      </div>
+      <!-- Bouton dépôt mensuel -->
+      <button onclick="addDeposit()" style="margin-top:12px;width:100%;background:var(--blue);border:none;color:#fff;padding:9px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">💰 Ajouter un dépôt mensuel (+78$)</button>
+      <div id="ch-deposits-list" style="margin-top:10px;font-size:11px;color:var(--muted);max-height:80px;overflow-y:auto;"></div>
     </div>
 
     <div class="kpi-grid">
@@ -966,7 +994,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 // ── Comptes ──
 const ACCOUNTS = {
-  '10k': { id:'10k', label:'Fonds Propre', emoji:'🥇', soldeInit:10000, objectifAbs:1000, ddMaxAbs:600, storageKey:'challenge10k_v1', saltKey:'challenge10k_salt' },
+  '10k': { id:'10k', label:'Fonds Propre', emoji:'🥇', soldeInit:78, depotMensuel:78, objectifFinal:5000, storageKey:'challenge10k_v1', saltKey:'challenge10k_salt' },
 };
 let currentAccount = '10k';
 const aesKeys  = {};
@@ -976,6 +1004,8 @@ const cfg         = () => ACCOUNTS[currentAccount];
 const SOLDE_INIT  = () => cfg().soldeInit;
 const OBJECTIF_ABS = () => cfg().objectifAbs;
 const DD_MAX_ABS   = () => cfg().ddMaxAbs;
+const totalDeposits = () => (appData?.deposits || []).reduce((s, d) => s + (d.amount || 0), 0);
+const soldeCourant  = () => SOLDE_INIT() + totalDeposits() + (appData?.trades || []).filter(t => (t.type||'reel') !== 'paper').reduce((s, t) => s + (t.pnl || 0), 0);
 
 // ── State ──
 let aesKey  = null;   // alias → aesKeys[currentAccount]
@@ -997,6 +1027,7 @@ const DEFAULT_CHECKLIST_LABELS = [
 
 const EMPTY_DATA = () => ({
   trades: [],
+  deposits: [],
   checklist: [false, false, false, false, false],
   checklistLabels: [...DEFAULT_CHECKLIST_LABELS],
   calComments: {},
@@ -1091,6 +1122,7 @@ async function unlockAccount(accountId, pwd) {
     if (!data.checklist) data.checklist = [false,false,false,false,false];
     if (!data.checklistLabels) data.checklistLabels = [...DEFAULT_CHECKLIST_LABELS];
     if (!data.calComments) data.calComments = {};
+    if (!data.deposits) data.deposits = [];
     aesKeys[accountId]  = key;
     allDatas[accountId] = data;
   } catch(_) {
@@ -1286,7 +1318,7 @@ function calcStats(trades) {
 
   // Solde & dd abs — recalcul propre depuis les PnL pour éviter toute contamination
   const totalPnl = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-  const lastSolde = SOLDE_INIT() + totalPnl;
+  const lastSolde = SOLDE_INIT() + totalDeposits() + totalPnl;
   let peakS = SOLDE_INIT(), runS = SOLDE_INIT(), ddAbs = 0;
   trades.forEach(t => {
     runS += (t.pnl || 0);
@@ -1365,24 +1397,46 @@ function calcStats(trades) {
 const realTrades = () => (appData.trades || []).filter(t => (t.type || 'reel') !== 'paper');
 
 function renderCockpit() {
-  const stats = calcStats(realTrades());
+  const stats    = calcStats(realTrades());
   const totalPnl = stats ? stats.totalPnl : 0;
-  const lastSolde = stats ? stats.lastSolde : SOLDE_INIT();
-  const acct = cfg();
+  const deps     = totalDeposits();
+  const solde    = SOLDE_INIT() + deps + totalPnl;
+  const acct     = cfg();
+  const objectif = acct.objectifFinal || 5000;
 
   document.getElementById('ch-acct-label').textContent = `${acct.emoji} ${acct.label}`;
   document.getElementById('ch-solde').textContent =
-    lastSolde.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '$';
+    solde.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '$';
 
+  // Dépôts
+  const depsEl = document.getElementById('ch-deposits');
+  if (depsEl) { depsEl.textContent = '+' + deps.toFixed(2) + '$'; }
+
+  // PnL total trading
   const pnlTotalEl = document.getElementById('ch-pnl-total');
   if (pnlTotalEl) {
     pnlTotalEl.textContent = (totalPnl >= 0 ? '+' : '') + totalPnl.toFixed(2) + '$';
     pnlTotalEl.style.color = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
   }
 
+  // Barre objectif 5 000$
+  const objPct = Math.min(100, solde / objectif * 100);
+  const objBar = document.getElementById('ch-obj-bar');
+  const objTxt = document.getElementById('ch-obj-txt');
+  if (objBar) objBar.style.width = objPct.toFixed(1) + '%';
+  if (objTxt) objTxt.textContent = `${solde.toFixed(0)}$ / ${objectif.toLocaleString('fr-FR')}$  (${objPct.toFixed(1)}%)`;
+
+  // Liste dépôts
+  const depList = document.getElementById('ch-deposits-list');
+  if (depList && appData.deposits?.length) {
+    depList.innerHTML = appData.deposits.slice().reverse().map(d =>
+      `<span style="margin-right:12px;">📅 ${d.date} +${d.amount}$</span>`
+    ).join('');
+  } else if (depList) depList.innerHTML = '';
+
   // Calculateur risque — pré-remplir capital avec solde actuel si champ vide
   const capEl = document.getElementById('rc-capital');
-  if (!capEl.value) capEl.value = lastSolde.toFixed(2);
+  if (!capEl.value) capEl.value = solde.toFixed(2);
   calcRisk();
 
   if (stats && stats.todayTradesCount > 0) {
@@ -1740,7 +1794,7 @@ function selectType(t) {
 document.getElementById('f-pnl').addEventListener('input', () => {
   const pnl = parseFloat(document.getElementById('f-pnl').value) || 0;
   const rt = realTrades();
-  const lastSolde = SOLDE_INIT() + rt.reduce((s, t) => s + (t.pnl || 0), 0);
+  const lastSolde = SOLDE_INIT() + totalDeposits() + rt.reduce((s, t) => s + (t.pnl || 0), 0);
   if (pnl !== 0) document.getElementById('f-solde').value = (lastSolde + pnl).toFixed(2);
 });
 
@@ -1799,7 +1853,7 @@ async function saveTrade() {
   const rrReel = parseFloat(rrReelRaw);
   const pnl = parseFloat(document.getElementById('f-pnl').value) || 0;
   const _rt = realTrades();
-  const lastSolde = SOLDE_INIT() + _rt.reduce((s, t) => s + (t.pnl || 0), 0);
+  const lastSolde = SOLDE_INIT() + totalDeposits() + _rt.reduce((s, t) => s + (t.pnl || 0), 0);
   let solde = parseFloat(document.getElementById('f-solde').value);
   if (isNaN(solde)) solde = pnl !== 0 ? lastSolde + pnl : lastSolde;
 
@@ -2158,7 +2212,7 @@ async function calQuickSave() {
   if (isNaN(rrReel)) { alert('R réalisé invalide.'); return; }
   const pnl = parseFloat(document.getElementById('calQ-pnl').value) || 0;
   const _rtQ = realTrades();
-  const lastSolde = SOLDE_INIT() + _rtQ.reduce((s, t) => s + (t.pnl || 0), 0);
+  const lastSolde = SOLDE_INIT() + totalDeposits() + _rtQ.reduce((s, t) => s + (t.pnl || 0), 0);
 
   const trade = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2),
@@ -2189,7 +2243,27 @@ function applyUpdate() {
     location.reload();
   }
 }
+// ─────────────────────────────────────────────
+//  DÉPÔTS MENSUELS
+// ─────────────────────────────────────────────
+async function addDeposit(customAmount) {
+  const acct = cfg();
+  const montant = customAmount !== undefined
+    ? parseFloat(customAmount)
+    : (acct.depotMensuel || 78);
+  if (isNaN(montant) || montant <= 0) return;
+  const deposit = { id: Date.now().toString(36), date: todayStr(), amount: montant };
+  appData.deposits.push(deposit);
+  await persist();
+  renderCockpit();
+}
 
+async function deleteDeposit(id) {
+  if (!confirm('Supprimer ce dépôt ?')) return;
+  appData.deposits = appData.deposits.filter(d => d.id !== id);
+  await persist();
+  renderCockpit();
+}
 
 function toggleSign(id) {
   const el = document.getElementById(id);
@@ -2279,7 +2353,7 @@ function mcAutoFill() {
   }
 
   // Solde actuel → trades restants pour atteindre +10% depuis 10 000$
-  const solde    = SOLDE_INIT() + rt.reduce((s, t) => s + (t.pnl || 0), 0);
+  const solde    = soldeCourant();
   const target   = SOLDE_INIT() * 1.10;
   const ddFloor  = SOLDE_INIT() * 0.94;
   const pctLeft  = Math.max(0, (target - solde) / solde * 100);
