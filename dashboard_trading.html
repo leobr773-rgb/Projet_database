@@ -292,7 +292,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div class="lock-card">
     <div class="lock-logo">📊</div>
     <div class="lock-title">Fonds Propre</div>
-    <div class="lock-sub">Journal de Trading — PropFirm Kraken</div>
+    <div class="lock-sub">Journal de Trading — Fonds Propre</div>
     <input id="pwdInput" class="lock-input" type="password" placeholder="Mot de passe...">
     <button class="lock-btn" id="unlockBtn">Déverrouiller</button>
     <div class="lock-err" id="lockErr"></div>
@@ -318,7 +318,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <div id="sideDrawer">
   <div class="drawer-header">
     <div class="drawer-logo">📊 Fonds Propre</div>
-    <div class="drawer-sub">PropFirm Kraken</div>
+    <div class="drawer-sub">Journal de Trading</div>
   </div>
   <nav class="drawer-nav">
     <button class="drawer-item active" data-tab="cockpit" onclick="drawerNav(this)"><span class="di-icon">🎯</span>Cockpit</button>
@@ -329,7 +329,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <button class="drawer-item" data-tab="mental" onclick="drawerNav(this)"><span class="di-icon">🧠</span>Mental</button>
     <button class="drawer-item" data-tab="news" onclick="drawerNav(this)"><span class="di-icon">📰</span>News</button>
   </nav>
-  <div class="drawer-footer">v63 · ICT Licorne</div>
+  <div class="drawer-footer">v65 · ICT Licorne</div>
 </div>
 
 <!-- ═══ TOP HEADER MOBILE ═══ -->
@@ -727,19 +727,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <div id="emptyState" class="empty-state">
       <div class="empty-icon">📋</div>
-      <div style="margin-bottom:24px;">Aucun trade enregistré.<br>Restaure ton historique ou ajoute ton premier trade.</div>
-      <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;max-width:400px;margin:0 auto;text-align:left;">
-        <div style="font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">⚡ Restauration rapide</div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:11px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;text-align:left;">🥇 23 trades — Fonds Propre <span style="float:right;opacity:.6;font-weight:400">juil→août 2026</span></button>
-        </div>
-        <div id="emptyRestoreMsg" style="margin-top:10px;font-size:12px;min-height:18px;"></div>
-      </div>
+      <div style="margin-bottom:24px;">Aucun trade enregistré.<br>Ajoute ton premier trade ci-dessus.</div>
     </div>
 
     <!-- ── Récupération de données ── -->
     <div style="margin-top:16px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v63</b></span>
+      <span style="font-size:11px;color:var(--muted);">Version <b style="color:var(--gold)">v65</b></span>
       <button onclick="forceUpdate()" style="background:var(--blue);border:none;color:#fff;padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🔄 Forcer la mise à jour</button>
     </div>
 
@@ -750,12 +743,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
       <div id="recoveryBody" style="display:none;">
         <div id="recoveryStatus" style="font-size:13px;color:var(--muted);margin-bottom:12px;">Cliquez sur "Scanner" pour chercher vos anciens trades.</div>
-        <div style="background:var(--panel2);border:1px solid var(--gold);border-radius:10px;padding:14px;margin-bottom:16px;">
-          <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:6px;">⚡ Restauration rapide — Historique Kraken</div>
-          <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Chaque bouton écrit directement dans le compte ciblé, peu importe le compte actif</div>
+        <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;">
+          <div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:6px;">⚠️ Zone dangereuse</div>
           <div style="display:flex;flex-direction:column;gap:8px;">
             <button onclick="wipeAllAccounts()" style="background:#c0392b;border:none;color:#fff;padding:11px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🗑️ Vider tous les trades Fonds Propre</button>
-            <button onclick="restoreKrakenHistory10k()" style="background:var(--gold);border:none;color:#000;padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:700;width:100%;">🥇 Restaurer 23 trades — Fonds Propre (juil→août 2026)</button>
           </div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
@@ -2199,89 +2190,6 @@ function applyUpdate() {
   }
 }
 
-// ─────────────────────────────────────────────
-//  RESTAURATION HISTORIQUE KRAKEN
-// ─────────────────────────────────────────────
-function restoreKrakenHistory10k() {
-  const trades = [
-    {date:'2026-07-14',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.71, risque:0.4,pnl:28.50,  solde:10028.50,emotion:'—',note:''},
-    {date:'2026-07-14',actif:'BTC/USD',sens:'Vente',lots:0.262,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.77, risque:0.4,pnl:30.75,  solde:10059.25,emotion:'—',note:''},
-    {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.531,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.68, risque:0.4,pnl:27.34,  solde:10086.59,emotion:'—',note:''},
-    {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.270,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.04,risque:0.4,pnl:-1.47,  solde:10085.12,emotion:'—',note:''},
-    {date:'2026-07-15',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.71, risque:0.4,pnl:28.20,  solde:10113.32,emotion:'—',note:''},
-    {date:'2026-07-27',actif:'BTC/USD',sens:'Vente',lots:0.161,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.38, risque:0.4,pnl:15.23,  solde:10128.55,emotion:'—',note:''},
-    {date:'2026-07-28',actif:'BTC/USD',sens:'Vente',lots:0.250,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:1.80, risque:0.4,pnl:71.88,  solde:10200.43,emotion:'—',note:''},
-    {date:'2026-07-30',actif:'BTC/USD',sens:'Achat',lots:0.140,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-0.98,risque:0.4,pnl:-39.23, solde:10161.20,emotion:'—',note:''},
-    {date:'2026-08-04',actif:'BTC/USD',sens:'Vente',lots:0.178,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-1.24,risque:0.4,pnl:-49.62, solde:10111.58,emotion:'—',note:''},
-    {date:'2026-08-06',actif:'BTC/USD',sens:'Achat',lots:0.141,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-0.17,risque:0.4,pnl:-6.77,  solde:10104.81,emotion:'—',note:''},
-    {date:'2026-08-17',actif:'BTC/USD',sens:'Achat',lots:0.666,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.85,risque:0.4,pnl:-33.90, solde:10070.91,emotion:'—',note:''},
-    {date:'2026-08-20',actif:'BTC/USD',sens:'Achat',lots:0.144,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.43, risque:0.4,pnl:57.30,  solde:10128.21,emotion:'—',note:''},
-    {date:'2026-08-21',actif:'BTC/USD',sens:'Achat',lots:0.066,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.06, risque:0.4,pnl:2.40,   solde:10130.61,emotion:'—',note:''},
-    {date:'2026-08-24',actif:'BTC/USD',sens:'Achat',lots:0.096,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-2.42,risque:0.4,pnl:-96.71, solde:10033.90,emotion:'—',note:''},
-    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.165,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-2.49,risque:0.4,pnl:-99.41, solde:9934.49, emotion:'—',note:''},
-    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.224,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:2.42, risque:0.4,pnl:96.94,  solde:10031.43,emotion:'—',note:''},
-    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.117,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-2.43,risque:0.4,pnl:-97.32, solde:9934.11, emotion:'—',note:''},
-    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.120,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.27,risque:0.4,pnl:-10.89, solde:9923.22, emotion:'—',note:''},
-    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.162,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.19,risque:0.4,pnl:-7.71,  solde:9915.51, emotion:'—',note:''},
-    {date:'2026-08-26',actif:'BTC/USD',sens:'Vente',lots:0.500,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:10.84,risque:0.4,pnl:433.55, solde:10349.06,emotion:'—',note:''},
-    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.199,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-2.49,risque:0.4,pnl:-99.68, solde:10249.38,emotion:'—',note:''},
-    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.500,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:2.52, risque:0.4,pnl:100.70, solde:10350.08,emotion:'—',note:''},
-    {date:'2026-08-27',actif:'BTC/USD',sens:'Achat',lots:0.146,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:3.00, risque:0.4,pnl:119.89, solde:10469.97,emotion:'—',note:''},
-  ];
-  if (!confirm('Vider tous les trades du compte Fonds Propre et importer les 23 positions ?')) return;
-  _forceImportAccount('10k', trades);
-}
-
-function restoreKrakenHistory10k2() {
-  const trades = [
-    {date:'2026-08-04',actif:'BTC/USD',sens:'Vente',lots:0.178,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-1.26,risque:0.4,pnl:-50.36, solde:9949.64, emotion:'—',note:''},
-    {date:'2026-08-06',actif:'BTC/USD',sens:'Achat',lots:0.141,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-0.17,risque:0.4,pnl:-6.77,  solde:9942.87, emotion:'—',note:''},
-    {date:'2026-08-17',actif:'BTC/USD',sens:'Achat',lots:0.666,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.85,risque:0.4,pnl:-33.90, solde:9908.97, emotion:'—',note:''},
-    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.137,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.46,risque:0.4,pnl:-18.54, solde:9890.43, emotion:'—',note:''},
-    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.206,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:1.07, risque:0.4,pnl:42.64,  solde:9933.07, emotion:'—',note:''},
-    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.184,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.51, risque:0.4,pnl:20.38,  solde:9953.45, emotion:'—',note:''},
-    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.165,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:1.39, risque:0.4,pnl:55.62,  solde:10009.07,emotion:'—',note:''},
-    {date:'2026-08-20',actif:'BTC/USD',sens:'Vente',lots:0.177,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:0.63, risque:0.4,pnl:25.33,  solde:10034.40,emotion:'—',note:''},
-    {date:'2026-08-20',actif:'BTC/USD',sens:'Achat',lots:0.144,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:1.56, risque:0.4,pnl:62.44,  solde:10096.84,emotion:'—',note:''},
-    {date:'2026-08-21',actif:'BTC/USD',sens:'Achat',lots:0.066,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.13, risque:0.4,pnl:5.28,   solde:10102.12,emotion:'—',note:''},
-    {date:'2026-08-24',actif:'BTC/USD',sens:'Achat',lots:0.096,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-2.42,risque:0.4,pnl:-96.71, solde:10005.41,emotion:'—',note:''},
-    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.165,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-2.49,risque:0.4,pnl:-99.41, solde:9906.00, emotion:'—',note:''},
-    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.224,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:2.87, risque:0.4,pnl:114.70, solde:10020.70,emotion:'—',note:''},
-    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.117,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-2.44,risque:0.4,pnl:-97.65, solde:9923.05, emotion:'—',note:''},
-    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.128,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.23,risque:0.4,pnl:-9.11,  solde:9913.94, emotion:'—',note:''},
-    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.162,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.20,risque:0.4,pnl:-8.18,  solde:9905.76, emotion:'—',note:''},
-    {date:'2026-08-26',actif:'BTC/USD',sens:'Vente',lots:0.500,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:11.17,risque:0.4,pnl:446.90, solde:10352.66,emotion:'—',note:''},
-    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.199,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-2.49,risque:0.4,pnl:-99.68, solde:10252.98,emotion:'—',note:''},
-    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.500,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:2.32, risque:0.4,pnl:92.85,  solde:10345.83,emotion:'—',note:''},
-    {date:'2026-08-27',actif:'BTC/USD',sens:'Achat',lots:0.146,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:3.01, risque:0.4,pnl:120.50, solde:10466.33,emotion:'—',note:''},
-  ];
-  if (!confirm('Vider tous les trades du compte Fonds Propre B et importer les 20 positions ?')) return;
-  _forceImportAccount('10k2', trades);
-}
-
-function restoreKrakenHistory10k3() {
-  const trades = [
-    {date:'2026-08-06',actif:'BTC/USD',sens:'Achat',lots:0.141,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-0.17,risque:0.4,pnl:-6.77,  solde:9993.23, emotion:'—',note:''},
-    {date:'2026-08-17',actif:'BTC/USD',sens:'Achat',lots:0.666,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.85,risque:0.4,pnl:-33.90, solde:9959.33, emotion:'—',note:''},
-    {date:'2026-08-20',actif:'BTC/USD',sens:'Achat',lots:0.144,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:1.61, risque:0.4,pnl:64.51,  solde:10023.84,emotion:'—',note:''},
-    {date:'2026-08-21',actif:'BTC/USD',sens:'Achat',lots:0.066,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-0.05,risque:0.4,pnl:-1.97,  solde:10021.87,emotion:'—',note:''},
-    {date:'2026-08-24',actif:'BTC/USD',sens:'Achat',lots:0.096,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-2.42,risque:0.4,pnl:-96.71, solde:9925.16, emotion:'—',note:''},
-    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.165,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-2.49,risque:0.4,pnl:-99.41, solde:9825.75, emotion:'—',note:''},
-    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.224,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:2.69, risque:0.4,pnl:107.74, solde:9933.49, emotion:'—',note:''},
-    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.184,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:1.31, risque:0.4,pnl:52.24,  solde:9985.73, emotion:'—',note:''},
-    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.151,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:1.13, risque:0.4,pnl:45.16,  solde:10030.89,emotion:'—',note:''},
-    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.214,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:1.29, risque:0.4,pnl:51.72,  solde:10082.61,emotion:'—',note:''},
-    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.117,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:-2.46,risque:0.4,pnl:-98.55, solde:9984.06, emotion:'—',note:''},
-    {date:'2026-08-25',actif:'BTC/USD',sens:'Achat',lots:0.120,setup:'—',session:'NY PM',   qualite:3,rrPrevu:2,rrReel:-0.87,risque:0.4,pnl:-34.76, solde:9949.30, emotion:'—',note:''},
-    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.162,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:0.15, risque:0.4,pnl:6.18,   solde:9955.48, emotion:'—',note:''},
-    {date:'2026-08-26',actif:'BTC/USD',sens:'Vente',lots:0.526,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:12.50,risque:0.4,pnl:499.95, solde:10455.43,emotion:'—',note:''},
-    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.199,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:-2.49,risque:0.4,pnl:-99.68, solde:10355.75,emotion:'—',note:''},
-    {date:'2026-08-26',actif:'BTC/USD',sens:'Achat',lots:0.500,setup:'—',session:'New York',qualite:3,rrPrevu:2,rrReel:2.03, risque:0.4,pnl:81.29,  solde:10437.04,emotion:'—',note:''},
-    {date:'2026-08-27',actif:'BTC/USD',sens:'Achat',lots:0.146,setup:'—',session:'London',  qualite:3,rrPrevu:2,rrReel:2.96, risque:0.4,pnl:118.33, solde:10555.37,emotion:'—',note:''},
-  ];
-  if (!confirm('Vider tous les trades du compte Fonds Propre C et importer les 17 positions ?')) return;
-  _forceImportAccount('10k3', trades);
-}
 
 function toggleSign(id) {
   const el = document.getElementById(id);
