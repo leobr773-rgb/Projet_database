@@ -394,7 +394,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
       </div>
       <!-- Bouton dépôt mensuel -->
-      <button onclick="addDeposit()" style="margin-top:12px;width:100%;background:var(--blue);border:none;color:#fff;padding:9px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">💰 Ajouter un dépôt mensuel (+78$)</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+        <button onclick="addDeposit()" style="background:var(--blue);border:none;color:#fff;padding:9px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">💰 Ajouter un dépôt</button>
+        <button onclick="editSoldeInit()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:9px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">✏️ Solde initial</button>
+      </div>
       <div id="ch-deposits-list" style="margin-top:10px;font-size:11px;color:var(--muted);max-height:80px;overflow-y:auto;"></div>
     </div>
 
@@ -994,16 +997,15 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 // ── Comptes ──
 const ACCOUNTS = {
-  '10k': { id:'10k', label:'Fonds Propre', emoji:'🥇', soldeInit:78, depotMensuel:78, objectifFinal:5000, storageKey:'challenge10k_v1', saltKey:'challenge10k_salt' },
+  '10k': { id:'10k', label:'Fonds Propre', emoji:'🥇', objectifFinal:5000, storageKey:'challenge10k_v1', saltKey:'challenge10k_salt' },
 };
 let currentAccount = '10k';
 const aesKeys  = {};
 const allDatas = {};
 
 const cfg         = () => ACCOUNTS[currentAccount];
-const SOLDE_INIT  = () => cfg().soldeInit;
-const OBJECTIF_ABS = () => cfg().objectifAbs;
-const DD_MAX_ABS   = () => cfg().ddMaxAbs;
+// Solde initial stocké dans appData (modifiable), fallback 0
+const SOLDE_INIT  = () => appData?.soldeInit ?? 0;
 const totalDeposits = () => (appData?.deposits || []).reduce((s, d) => s + (d.amount || 0), 0);
 const soldeCourant  = () => SOLDE_INIT() + totalDeposits() + (appData?.trades || []).filter(t => (t.type||'reel') !== 'paper').reduce((s, t) => s + (t.pnl || 0), 0);
 
@@ -1028,6 +1030,7 @@ const DEFAULT_CHECKLIST_LABELS = [
 const EMPTY_DATA = () => ({
   trades: [],
   deposits: [],
+  soldeInit: 0,
   checklist: [false, false, false, false, false],
   checklistLabels: [...DEFAULT_CHECKLIST_LABELS],
   calComments: {},
@@ -1123,6 +1126,7 @@ async function unlockAccount(accountId, pwd) {
     if (!data.checklistLabels) data.checklistLabels = [...DEFAULT_CHECKLIST_LABELS];
     if (!data.calComments) data.calComments = {};
     if (!data.deposits) data.deposits = [];
+    if (data.soldeInit === undefined) data.soldeInit = 0;
     aesKeys[accountId]  = key;
     allDatas[accountId] = data;
   } catch(_) {
@@ -1426,13 +1430,20 @@ function renderCockpit() {
   if (objBar) objBar.style.width = objPct.toFixed(1) + '%';
   if (objTxt) objTxt.textContent = `${solde.toFixed(0)}$ / ${objectif.toLocaleString('fr-FR')}$  (${objPct.toFixed(1)}%)`;
 
-  // Liste dépôts
+  // Liste dépôts avec bouton supprimer
   const depList = document.getElementById('ch-deposits-list');
-  if (depList && appData.deposits?.length) {
-    depList.innerHTML = appData.deposits.slice().reverse().map(d =>
-      `<span style="margin-right:12px;">📅 ${d.date} +${d.amount}$</span>`
-    ).join('');
-  } else if (depList) depList.innerHTML = '';
+  if (depList) {
+    if (appData.deposits?.length) {
+      depList.innerHTML = appData.deposits.slice().reverse().map(d =>
+        `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border)">` +
+        `<span>📅 ${d.date} — <b>+${d.amount}$</b></span>` +
+        `<button onclick="deleteDeposit('${d.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;">✕</button>` +
+        `</div>`
+      ).join('');
+    } else {
+      depList.innerHTML = '<span style="font-size:11px;color:var(--muted)">Aucun dépôt enregistré</span>';
+    }
+  }
 
   // Calculateur risque — pré-remplir capital avec solde actuel si champ vide
   const capEl = document.getElementById('rc-capital');
@@ -2244,14 +2255,29 @@ function applyUpdate() {
   }
 }
 // ─────────────────────────────────────────────
-//  DÉPÔTS MENSUELS
+//  DÉPÔTS & SOLDE INITIAL
 // ─────────────────────────────────────────────
+async function editSoldeInit() {
+  const actuel = appData.soldeInit ?? 0;
+  const val = prompt(`Solde initial actuel : ${actuel}$\nNouvel montant ($) :`, actuel);
+  if (val === null) return;
+  const montant = parseFloat(val);
+  if (isNaN(montant) || montant < 0) { alert('Montant invalide.'); return; }
+  appData.soldeInit = montant;
+  await persist();
+  renderCockpit();
+}
+
 async function addDeposit(customAmount) {
-  const acct = cfg();
-  const montant = customAmount !== undefined
-    ? parseFloat(customAmount)
-    : (acct.depotMensuel || 78);
-  if (isNaN(montant) || montant <= 0) return;
+  let montant;
+  if (customAmount !== undefined) {
+    montant = parseFloat(customAmount);
+  } else {
+    const val = prompt('Montant du dépôt ($) :');
+    if (val === null) return;
+    montant = parseFloat(val);
+  }
+  if (isNaN(montant) || montant <= 0) { alert('Montant invalide.'); return; }
   const deposit = { id: Date.now().toString(36), date: todayStr(), amount: montant };
   appData.deposits.push(deposit);
   await persist();
