@@ -737,9 +737,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
                 <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Ouverture</div>
                 <div style="display:flex;gap:4px;">
                   <button type="button" id="fc-open-t" onclick="setFeeType('open','taker')"
-                    style="flex:1;padding:5px 2px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid var(--blue);background:var(--blue);color:#fff;">Taker 0.05%</button>
+                    style="flex:1;padding:5px 2px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--panel);color:var(--muted);">Taker 0.05%</button>
                   <button type="button" id="fc-open-m" onclick="setFeeType('open','maker')"
-                    style="flex:1;padding:5px 2px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--panel);color:var(--muted);">Maker 0.02%</button>
+                    style="flex:1;padding:5px 2px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid var(--blue);background:var(--blue);color:#fff;">Maker 0.02%</button>
                 </div>
               </div>
               <div>
@@ -1863,8 +1863,8 @@ function selectType(t) {
 }
 
 // ── Calculateur de frais ──
-let fcOpenType  = 'taker';   // défaut ouverture = taker (market)
-let fcCloseType = 'maker';   // défaut clôture = maker (limit TP)
+let fcOpenType  = 'maker';   // limit orders = toujours maker
+let fcCloseType = 'maker';   // limit orders = toujours maker
 
 // Taux Crypto.com Niveau 1
 const FEE_RATES = { maker: 0.0002, taker: 0.0005 };
