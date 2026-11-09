@@ -717,8 +717,54 @@ tr:hover td{background:rgba(255,255,255,.02)}
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">💸 Frais $ <span style="font-size:9px;color:var(--muted);font-weight:400">(open+close+funding)</span></label>
+          <label class="form-label" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>💸 Frais $ <span style="font-size:9px;color:var(--muted);font-weight:400">(open+close+funding)</span></span>
+            <button type="button" onclick="toggleFeeCalc()" style="background:none;border:none;color:var(--gold);font-size:10px;font-weight:700;cursor:pointer;padding:0;">🧮 Calculer</button>
+          </label>
           <input type="text" inputmode="decimal" class="form-input" id="f-frais" placeholder="0.00" value="0">
+          <!-- Calculateur de frais inline -->
+          <div id="fee-calc" style="display:none;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px;margin-top:8px;">
+            <div style="font-size:10px;color:var(--gold);font-weight:700;margin-bottom:8px;">🧮 Calculateur de frais Crypto.com</div>
+            <!-- Taille position -->
+            <div style="margin-bottom:8px;">
+              <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Taille de position ($)</div>
+              <input type="text" inputmode="decimal" id="fc-taille" placeholder="ex: 500" oninput="calcFees()"
+                style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;box-sizing:border-box;">
+            </div>
+            <!-- Open / Close -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+              <div>
+                <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Ouverture</div>
+                <div style="display:flex;gap:4px;">
+                  <button type="button" id="fc-open-t" onclick="setFeeType('open','taker')"
+                    style="flex:1;padding:5px 2px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid var(--blue);background:var(--blue);color:#fff;">Taker 0.05%</button>
+                  <button type="button" id="fc-open-m" onclick="setFeeType('open','maker')"
+                    style="flex:1;padding:5px 2px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--panel);color:var(--muted);">Maker 0.02%</button>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Clôture</div>
+                <div style="display:flex;gap:4px;">
+                  <button type="button" id="fc-close-t" onclick="setFeeType('close','taker')"
+                    style="flex:1;padding:5px 2px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--panel);color:var(--muted);">Taker 0.05%</button>
+                  <button type="button" id="fc-close-m" onclick="setFeeType('close','maker')"
+                    style="flex:1;padding:5px 2px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid var(--blue);background:var(--blue);color:#fff;">Maker 0.02%</button>
+                </div>
+              </div>
+            </div>
+            <!-- Funding -->
+            <div style="margin-bottom:10px;">
+              <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Funding payé ($) <span style="color:var(--muted)">(laisser 0 si fermé même jour)</span></div>
+              <input type="text" inputmode="decimal" id="fc-funding" placeholder="0.00" value="0" oninput="calcFees()"
+                style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;box-sizing:border-box;">
+            </div>
+            <!-- Résultat -->
+            <div id="fc-result" style="background:var(--panel);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--muted);margin-bottom:8px;">
+              Entrez la taille de position pour calculer.
+            </div>
+            <button type="button" onclick="applyFees()"
+              style="width:100%;background:var(--gold);border:none;color:#000;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✅ Appliquer ces frais</button>
+          </div>
         </div>
         <div class="form-group full">
           <label class="form-label">Note</label>
@@ -1814,6 +1860,63 @@ function selectType(t) {
   selectedType = t;
   document.getElementById('btn-reel').className  = 'sens-btn' + (t === 'reel'  ? ' active-buy' : '');
   document.getElementById('btn-paper').className = 'sens-btn' + (t === 'paper' ? ' active-buy' : '');
+}
+
+// ── Calculateur de frais ──
+let fcOpenType  = 'taker';   // défaut ouverture = taker (market)
+let fcCloseType = 'maker';   // défaut clôture = maker (limit TP)
+
+// Taux Crypto.com Niveau 1
+const FEE_RATES = { maker: 0.0002, taker: 0.0005 };
+
+function toggleFeeCalc() {
+  const el = document.getElementById('fee-calc');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function setFeeType(side, type) {
+  if (side === 'open')  fcOpenType  = type;
+  if (side === 'close') fcCloseType = type;
+
+  const styles = (id, active) => {
+    const btn = document.getElementById(id);
+    btn.style.background   = active ? 'var(--blue)' : 'var(--panel)';
+    btn.style.color        = active ? '#fff'         : 'var(--muted)';
+    btn.style.borderColor  = active ? 'var(--blue)'  : 'var(--border)';
+  };
+  styles('fc-open-t',  fcOpenType  === 'taker');
+  styles('fc-open-m',  fcOpenType  === 'maker');
+  styles('fc-close-t', fcCloseType === 'taker');
+  styles('fc-close-m', fcCloseType === 'maker');
+  calcFees();
+}
+
+function calcFees() {
+  const taille  = parseFloat(document.getElementById('fc-taille').value)  || 0;
+  const funding = parseFloat(document.getElementById('fc-funding').value) || 0;
+  if (taille <= 0) {
+    document.getElementById('fc-result').textContent = 'Entrez la taille de position pour calculer.';
+    return;
+  }
+  const feeOpen  = taille * FEE_RATES[fcOpenType];
+  const feeClose = taille * FEE_RATES[fcCloseType];
+  const total    = feeOpen + feeClose + Math.abs(funding);
+
+  document.getElementById('fc-result').innerHTML =
+    `Ouverture (${fcOpenType}) : <b>${feeOpen.toFixed(4)}$</b> &nbsp;·&nbsp; ` +
+    `Clôture (${fcCloseType}) : <b>${feeClose.toFixed(4)}$</b>` +
+    (Math.abs(funding) > 0 ? ` &nbsp;·&nbsp; Funding : <b>${Math.abs(funding).toFixed(4)}$</b>` : '') +
+    `<br><span style="color:var(--gold);font-weight:700;font-size:13px;">Total frais : ${total.toFixed(4)}$</span>`;
+}
+
+function applyFees() {
+  const taille  = parseFloat(document.getElementById('fc-taille').value)  || 0;
+  const funding = parseFloat(document.getElementById('fc-funding').value) || 0;
+  if (taille <= 0) { alert('Entrez la taille de position.'); return; }
+  const total = taille * FEE_RATES[fcOpenType] + taille * FEE_RATES[fcCloseType] + Math.abs(funding);
+  document.getElementById('f-frais').value = total.toFixed(4);
+  document.getElementById('f-frais').dispatchEvent(new Event('input'));
+  document.getElementById('fee-calc').style.display = 'none';
 }
 
 function updateSoldePreview() {
