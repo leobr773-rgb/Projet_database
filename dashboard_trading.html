@@ -493,7 +493,15 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- ══ MONTE CARLO ══ -->
     <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:16px;">
-      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;">🎲 Simulateur Monte Carlo — Prédiction de trajectoire</div>
+      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">🎲 Simulateur Monte Carlo — Prédiction de trajectoire</div>
+
+      <!-- Toggle mode -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+        <button id="mc-btn-standard" onclick="setMCMode('standard')"
+          style="padding:8px 4px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:2px solid var(--blue);background:var(--blue);color:#fff;">📊 10 000$ (Standard)</button>
+        <button id="mc-btn-propre" onclick="setMCMode('propre')"
+          style="padding:8px 4px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:2px solid var(--border);background:var(--panel2);color:var(--muted);">💼 Fonds Propre</button>
+      </div>
 
       <!-- Bandeau données réelles -->
       <div id="mc-real-banner" style="background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:10px;font-size:11px;color:var(--muted);display:none;">
@@ -523,7 +531,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
             style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;box-sizing:border-box;">
         </div>
       </div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:10px;">1 000 simulations · Base 10 000$</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:10px;" id="mc-base-label">1 000 simulations · Base 10 000$</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
         <button onclick="mcAutoFill()" style="background:var(--gold);border:none;color:#000;padding:10px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">⚡ Depuis mes trades</button>
         <button onclick="runMonteCarlo()" style="background:var(--blue);border:none;color:#fff;padding:10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">▶ Lancer</button>
@@ -2352,6 +2360,36 @@ async function _forceImportAccount(accountId, trades) {
 //  RÉCUPÉRATION DE DONNÉES
 // ─────────────────────────────────────────────
 // Auto-remplit le simulateur depuis les vrais trades
+let mcMode = 'standard';
+
+function setMCMode(mode) {
+  mcMode = mode;
+  const btnStd  = document.getElementById('mc-btn-standard');
+  const btnPro  = document.getElementById('mc-btn-propre');
+  const lbl     = document.getElementById('mc-base-label');
+  if (mode === 'propre') {
+    btnPro.style.background  = 'var(--gold)';
+    btnPro.style.color       = '#000';
+    btnPro.style.borderColor = 'var(--gold)';
+    btnStd.style.background  = 'var(--panel2)';
+    btnStd.style.color       = 'var(--muted)';
+    btnStd.style.borderColor = 'var(--border)';
+    const s = soldeCourant();
+    const obj = cfg().objectifFinal || 5000;
+    lbl.textContent = `1 000 simulations · Départ ${s.toFixed(0)}$ → Objectif ${obj.toLocaleString('fr-FR')}$`;
+  } else {
+    btnStd.style.background  = 'var(--blue)';
+    btnStd.style.color       = '#fff';
+    btnStd.style.borderColor = 'var(--blue)';
+    btnPro.style.background  = 'var(--panel2)';
+    btnPro.style.color       = 'var(--muted)';
+    btnPro.style.borderColor = 'var(--border)';
+    lbl.textContent = '1 000 simulations · Base 10 000$';
+  }
+  document.getElementById('mc-results').style.display = 'none';
+  document.getElementById('mc-real-banner').style.display = 'none';
+}
+
 function mcAutoFill() {
   const rt = realTrades();
   if (rt.length < 3) { alert('Pas assez de trades réels (minimum 3).'); return; }
@@ -2378,25 +2416,38 @@ function mcAutoFill() {
     if (riskPcts.length) avgRiskPct = riskPcts.reduce((a, b) => a + b, 0) / riskPcts.length;
   }
 
-  // Solde actuel → trades restants pour atteindre +10% depuis 10 000$
-  const solde    = soldeCourant();
-  const target   = SOLDE_INIT() * 1.10;
-  const ddFloor  = SOLDE_INIT() * 0.94;
-  const pctLeft  = Math.max(0, (target - solde) / solde * 100);
-  // Trades restants estimés = combien de trades gagnants à RR moyen pour couvrir le gap
-  const tradesLeft = Math.ceil(Math.max(20, pctLeft / (avgRR * avgRiskPct / 100) / (wr / 100)));
+  const solde = soldeCourant();
+  let target, pctLeft, tradesLeft;
+
+  if (mcMode === 'propre') {
+    target     = cfg().objectifFinal || 5000;
+    pctLeft    = Math.max(0, (target - solde) / solde * 100);
+  } else {
+    target     = SOLDE_INIT() * 1.10;
+    pctLeft    = Math.max(0, (target - solde) / solde * 100);
+  }
+
+  // Trades restants estimés
+  tradesLeft = Math.ceil(Math.max(20, pctLeft / (avgRR * avgRiskPct / 100) / (wr / 100)));
 
   document.getElementById('mc-risk').value   = avgRiskPct.toFixed(2);
   document.getElementById('mc-wr').value     = wr.toFixed(1);
   document.getElementById('mc-rr').value     = avgRR.toFixed(2);
-  document.getElementById('mc-trades').value = Math.min(200, tradesLeft);
+  document.getElementById('mc-trades').value = Math.min(500, tradesLeft);
 
   // Bandeau info
   const banner = document.getElementById('mc-real-banner');
   banner.style.display = 'block';
-  document.getElementById('mc-real-label').innerHTML =
-    `Basé sur <b>${rt.length} trades réels</b> · Solde actuel <b>${solde.toFixed(0)}$</b> · `+
-    `Objectif restant : <b>+${pctLeft.toFixed(1)}%</b>`;
+  if (mcMode === 'propre') {
+    document.getElementById('mc-real-label').innerHTML =
+      `Basé sur <b>${rt.length} trades réels</b> · Solde actuel <b>${solde.toFixed(2)}$</b> · `+
+      `Objectif : <b>${(cfg().objectifFinal||5000).toLocaleString('fr-FR')}$</b> · `+
+      `Distance : <b>+${pctLeft.toFixed(1)}%</b>`;
+  } else {
+    document.getElementById('mc-real-label').innerHTML =
+      `Basé sur <b>${rt.length} trades réels</b> · Solde actuel <b>${solde.toFixed(0)}$</b> · `+
+      `Objectif restant : <b>+${pctLeft.toFixed(1)}%</b>`;
+  }
 }
 
 function mcResetManual() {
@@ -2414,9 +2465,23 @@ function runMonteCarlo() {
   const nTrades  = Math.min(500, Math.max(1, parseInt(document.getElementById('mc-trades').value) || 50));
   const nSims    = 1000;
 
-  const startRatio   = 1.0;    // toujours depuis 10 000$ (base du challenge)
-  const objMult      = 1.10;   // +10%
-  const ddLimit      = 0.94;   // -6%
+  let startRatio, objMult, ddLimit, startCapital, objCapital, depart_label;
+
+  if (mcMode === 'propre') {
+    startCapital = soldeCourant();
+    objCapital   = cfg().objectifFinal || 5000;
+    startRatio   = 1.0;
+    objMult      = objCapital / startCapital;   // ex: 5000 / 78 ≈ 64×
+    ddLimit      = 0.01;                        // pas de limite DD pour fonds propre
+    depart_label = `${startCapital.toLocaleString('fr-FR', {minimumFractionDigits:2,maximumFractionDigits:2})}$`;
+  } else {
+    startCapital = 10000;
+    objCapital   = 11000;
+    startRatio   = 1.0;
+    objMult      = 1.10;
+    ddLimit      = 0.94;
+    depart_label = '10 000$';
+  }
 
   let success = 0, fail = 0, ongoing = 0;
   const samplePaths = [];
@@ -2443,11 +2508,30 @@ function runMonteCarlo() {
   const pOngoing = (ongoing / nSims * 100).toFixed(1);
   const esp      = (winRate * rr - (1 - winRate)).toFixed(3);
 
+  // Médiane du capital final (en $ si fonds propre)
+  const finalCaps = [];
+  for (let s = 0; s < nSims; s++) {
+    let cap2 = 1.0;
+    for (let t = 0; t < nTrades; t++) {
+      const win = Math.random() < winRate;
+      cap2 = win ? cap2 * (1 + rr * riskPct) : cap2 * (1 - riskPct);
+    }
+    finalCaps.push(cap2);
+  }
+  finalCaps.sort((a,b) => a - b);
+  const medRatio = finalCaps[Math.floor(nSims / 2)];
+  const medDollar = (medRatio * startCapital).toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const objLabel  = mcMode === 'propre'
+    ? `${objCapital.toLocaleString('fr-FR')}$`
+    : '11 000$ (+10%)';
+
   document.getElementById('mc-success').textContent  = pSuccess + '%';
   document.getElementById('mc-fail').textContent     = pFail    + '%';
   document.getElementById('mc-ongoing').textContent  = pOngoing + '%';
   document.getElementById('mc-stats').innerHTML =
-    `<b>Départ</b> : 10 000$ &nbsp;·&nbsp; `+
+    `<b>Départ</b> : ${depart_label} &nbsp;·&nbsp; `+
+    `<b>Objectif</b> : ${objLabel} &nbsp;·&nbsp; `+
+    `<b>Médiane</b> : ${medDollar}$<br>`+
     `<b>Espérance</b> : ${esp}R &nbsp;·&nbsp; `+
     `<b>Trades</b> : ${nTrades} &nbsp;·&nbsp; `+
     `<b>Risque</b> : ${(riskPct*100).toFixed(2)}% &nbsp;·&nbsp; `+
