@@ -371,8 +371,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <!-- 3 colonnes : dépôts / PnL today / PnL total -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
         <div style="background:var(--panel2);border-radius:8px;padding:8px 10px;">
-          <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">Dépôts cumulés</div>
-          <div style="font-family:ui-monospace,monospace;font-weight:700;font-size:14px;color:var(--blue)" id="ch-deposits">+0.00$</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">Capital net</div>
+          <div style="font-family:ui-monospace,monospace;font-weight:700;font-size:14px;" id="ch-deposits">+0.00$</div>
         </div>
         <div style="background:var(--panel2);border-radius:8px;padding:8px 10px;">
           <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">P&amp;L aujourd'hui</div>
@@ -394,12 +394,13 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <div class="progress-fill fill-gold" id="ch-obj-bar" style="width:0%"></div>
         </div>
       </div>
-      <!-- Bouton dépôt mensuel -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
-        <button onclick="addDeposit()" style="background:var(--blue);border:none;color:#fff;padding:9px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">💰 Ajouter un dépôt</button>
-        <button onclick="editSoldeInit()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:9px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">✏️ Solde initial</button>
+      <!-- Boutons capital -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;">
+        <button onclick="addDeposit()" style="background:var(--blue);border:none;color:#fff;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">💰 Dépôt</button>
+        <button onclick="addRetrait()" style="background:var(--red);border:none;color:#fff;padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">💸 Retrait</button>
+        <button onclick="editSoldeInit()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✏️ Solde init.</button>
       </div>
-      <div id="ch-deposits-list" style="margin-top:10px;font-size:11px;color:var(--muted);max-height:80px;overflow-y:auto;"></div>
+      <div id="ch-deposits-list" style="margin-top:10px;font-size:11px;color:var(--muted);max-height:100px;overflow-y:auto;"></div>
     </div>
 
     <div class="kpi-grid">
@@ -1489,9 +1490,12 @@ function renderCockpit() {
   document.getElementById('ch-solde').textContent =
     solde.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '$';
 
-  // Dépôts
+  // Capital net (dépôts − retraits)
   const depsEl = document.getElementById('ch-deposits');
-  if (depsEl) { depsEl.textContent = '+' + deps.toFixed(2) + '$'; }
+  if (depsEl) {
+    depsEl.textContent = (deps >= 0 ? '+' : '') + deps.toFixed(2) + '$';
+    depsEl.style.color = deps >= 0 ? 'var(--blue)' : 'var(--red)';
+  }
 
   // PnL total trading (net)
   const pnlTotalEl = document.getElementById('ch-pnl-total');
@@ -1513,18 +1517,22 @@ function renderCockpit() {
   if (objBar) objBar.style.width = objPct.toFixed(1) + '%';
   if (objTxt) objTxt.textContent = `${solde.toFixed(0)}$ / ${objectif.toLocaleString('fr-FR')}$  (${objPct.toFixed(1)}%)`;
 
-  // Liste dépôts avec bouton supprimer
+  // Liste mouvements de capital (dépôts + retraits)
   const depList = document.getElementById('ch-deposits-list');
   if (depList) {
     if (appData.deposits?.length) {
-      depList.innerHTML = appData.deposits.slice().reverse().map(d =>
-        `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border)">` +
-        `<span>📅 ${d.date} — <b>+${d.amount}$</b></span>` +
-        `<button onclick="deleteDeposit('${d.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;">✕</button>` +
-        `</div>`
-      ).join('');
+      depList.innerHTML = appData.deposits.slice().reverse().map(d => {
+        const isRetrait = d.amount < 0;
+        const icon  = isRetrait ? '💸' : '💰';
+        const color = isRetrait ? 'var(--red)' : 'var(--blue)';
+        const label = isRetrait ? '−' + Math.abs(d.amount).toFixed(2) : '+' + d.amount.toFixed(2);
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border)">` +
+          `<span>${icon} ${d.date} — <b style="color:${color}">${label}$</b></span>` +
+          `<button onclick="deleteDeposit('${d.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;">✕</button>` +
+          `</div>`;
+      }).join('');
     } else {
-      depList.innerHTML = '<span style="font-size:11px;color:var(--muted)">Aucun dépôt enregistré</span>';
+      depList.innerHTML = '<span style="font-size:11px;color:var(--muted)">Aucun mouvement enregistré</span>';
     }
   }
 
@@ -2451,8 +2459,22 @@ async function addDeposit(customAmount) {
   renderCockpit();
 }
 
+async function addRetrait() {
+  const val = prompt('Montant du retrait ($) :');
+  if (val === null) return;
+  const montant = parseFloat(val.replace(',', '.'));
+  if (isNaN(montant) || montant <= 0) { alert('Montant invalide.'); return; }
+  const deposit = { id: Date.now().toString(36), date: todayStr(), amount: -montant };
+  if (!appData.deposits) appData.deposits = [];
+  appData.deposits.push(deposit);
+  await persist();
+  renderCockpit();
+}
+
 async function deleteDeposit(id) {
-  if (!confirm('Supprimer ce dépôt ?')) return;
+  const entry = appData.deposits?.find(d => d.id === id);
+  const label = entry && entry.amount < 0 ? 'ce retrait' : 'ce dépôt';
+  if (!confirm(`Supprimer ${label} ?`)) return;
   appData.deposits = appData.deposits.filter(d => d.id !== id);
   await persist();
   renderCockpit();
