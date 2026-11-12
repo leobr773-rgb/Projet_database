@@ -437,15 +437,21 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
       </div>
       <!-- Funding row -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="font-size:10px;color:var(--muted);font-weight:600;">📅 Funding</div>
+        <div style="display:flex;gap:4px;">
+          <button id="rc-side-long" type="button" onclick="setRcSide('long')"
+            style="background:var(--blue);border:1px solid var(--blue);color:#fff;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;">Long</button>
+          <button id="rc-side-short" type="button" onclick="setRcSide('short')"
+            style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;">Short</button>
+        </div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">
         <div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">📅 Funding (%/h)</div>
-          <div style="display:flex;gap:4px;">
-            <input id="rc-fund-rate" type="text" inputmode="decimal" value="0"
-              style="flex:1;min-width:0;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;text-align:right;box-sizing:border-box;"
-              placeholder="0.01" oninput="calcRisk()">
-            <button type="button" onclick="toggleSign('rc-fund-rate');calcRisk()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:0 9px;font-size:15px;cursor:pointer;font-weight:700;flex-shrink:0;">±</button>
-          </div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Taux brut (%/h)</div>
+          <input id="rc-fund-rate" type="text" inputmode="decimal" value="0"
+            style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;text-align:right;box-sizing:border-box;"
+            placeholder="0.00095" oninput="calcRisk()">
         </div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">⏱️ Durée (h)</div>
@@ -777,19 +783,24 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
             <!-- Funding / frais d'emprunt -->
             <div style="border-top:1px solid var(--border);padding-top:10px;margin-bottom:10px;">
-              <div style="font-size:10px;color:var(--gold);font-weight:700;margin-bottom:6px;">📅 Frais d'emprunt (Funding Rate)</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <div style="font-size:10px;color:var(--gold);font-weight:700;">📅 Frais d'emprunt (Funding Rate)</div>
+                <!-- Toggle Long/Short -->
+                <div style="display:flex;gap:4px;">
+                  <button id="fc-side-long" type="button" onclick="setFcSide('long')"
+                    style="background:var(--blue);border:1px solid var(--blue);color:#fff;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;">Long</button>
+                  <button id="fc-side-short" type="button" onclick="setFcSide('short')"
+                    style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;">Short</button>
+                </div>
+              </div>
               <div style="font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.5;">
-                Kraken prélève le funding <b>toutes les heures</b>.<br>
-                Taux visible sur Kraken Pro dans ta position ouverte.
+                Entre le taux <b>brut Kraken</b> (toujours positif) — le dashboard calcule qui paie selon ton côté.
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">
                 <div>
                   <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Taux funding (%/h)</div>
-                  <div style="display:flex;gap:4px;">
-                    <input type="text" inputmode="decimal" id="fc-fund-rate" placeholder="0.01" value="0" oninput="calcFees()"
-                      style="flex:1;min-width:0;background:var(--panel);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;box-sizing:border-box;">
-                    <button type="button" onclick="toggleSign('fc-fund-rate');calcFees()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:0 9px;font-size:15px;cursor:pointer;font-weight:700;flex-shrink:0;">±</button>
-                  </div>
+                  <input type="text" inputmode="decimal" id="fc-fund-rate" placeholder="0.00095" value="0" oninput="calcFees()"
+                    style="width:100%;background:var(--panel);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;box-sizing:border-box;">
                 </div>
                 <div>
                   <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Durée tenue (heures)</div>
@@ -1918,6 +1929,38 @@ function selectType(t) {
 // ── Calculateur de frais ──
 let fcOpenType  = 'maker';   // limit orders = toujours maker
 let fcCloseType = 'maker';   // limit orders = toujours maker
+let fcSide      = 'long';    // côté position pour le funding
+let rcSide      = 'long';    // côté position pour le calculateur de risque
+
+function setFcSide(side) {
+  fcSide = side;
+  const btnLong  = document.getElementById('fc-side-long');
+  const btnShort = document.getElementById('fc-side-short');
+  if (btnLong && btnShort) {
+    btnLong.style.background  = side === 'long'  ? 'var(--blue)'   : 'var(--panel2)';
+    btnLong.style.borderColor = side === 'long'  ? 'var(--blue)'   : 'var(--border)';
+    btnLong.style.color       = side === 'long'  ? '#fff'          : 'var(--muted)';
+    btnShort.style.background = side === 'short' ? 'var(--red)'    : 'var(--panel2)';
+    btnShort.style.borderColor= side === 'short' ? 'var(--red)'    : 'var(--border)';
+    btnShort.style.color      = side === 'short' ? '#fff'          : 'var(--muted)';
+  }
+  calcFees();
+}
+
+function setRcSide(side) {
+  rcSide = side;
+  const btnLong  = document.getElementById('rc-side-long');
+  const btnShort = document.getElementById('rc-side-short');
+  if (btnLong && btnShort) {
+    btnLong.style.background  = side === 'long'  ? 'var(--blue)'   : 'var(--panel2)';
+    btnLong.style.borderColor = side === 'long'  ? 'var(--blue)'   : 'var(--border)';
+    btnLong.style.color       = side === 'long'  ? '#fff'          : 'var(--muted)';
+    btnShort.style.background = side === 'short' ? 'var(--red)'    : 'var(--panel2)';
+    btnShort.style.borderColor= side === 'short' ? 'var(--red)'    : 'var(--border)';
+    btnShort.style.color      = side === 'short' ? '#fff'          : 'var(--muted)';
+  }
+  calcRisk();
+}
 
 // Taux Crypto.com Niveau 1
 const FEE_RATES = { maker: 0.0002, taker: 0.0005 };
@@ -1957,10 +2000,11 @@ function calcFees() {
 
   const feeOpen   = taille * FEE_RATES[fcOpenType];
   const feeClose  = taille * FEE_RATES[fcCloseType];
-  // Funding : priorité au calcul taux×durée si renseigné, sinon montant direct (négatif = reçu)
+  // Funding : taux positif → Long paie, Short reçoit
+  const fundSign  = fcSide === 'long' ? 1 : -1;
   const hasCalc   = fundRate !== 0 && fundHours > 0;
-  const feeCalc   = hasCalc ? taille * (fundRate / 100) * fundHours : null;
-  const feeFunding = feeCalc !== null ? feeCalc : (fundDirect !== 0 ? fundDirect : 0);
+  const feeCalc   = hasCalc ? taille * (fundRate / 100) * fundHours * fundSign : null;
+  const feeFunding = feeCalc !== null ? feeCalc : (fundDirect !== 0 ? fundDirect * fundSign : 0);
   const total     = feeOpen + feeClose + feeFunding;
 
   let fundingLine = '';
@@ -1993,9 +2037,10 @@ function applyFees() {
   const fundHours = parseFloat(document.getElementById('fc-fund-hours').value) || 0;
   const fundDirect = parseFloat(document.getElementById('fc-funding').value)   || 0;
   if (taille <= 0) { alert('Entrez la taille de position.'); return; }
-  const hasCalcA   = fundRate !== 0 && fundHours > 0;
-  const feeCalcA   = hasCalcA ? taille * (fundRate / 100) * fundHours : null;
-  const feeFundingA = feeCalcA !== null ? feeCalcA : (fundDirect !== 0 ? fundDirect : 0);
+  const fundSignA   = fcSide === 'long' ? 1 : -1;
+  const hasCalcA    = fundRate !== 0 && fundHours > 0;
+  const feeCalcA    = hasCalcA ? taille * (fundRate / 100) * fundHours * fundSignA : null;
+  const feeFundingA = feeCalcA !== null ? feeCalcA : (fundDirect !== 0 ? fundDirect * fundSignA : 0);
   const total = taille * FEE_RATES[fcOpenType] + taille * FEE_RATES[fcCloseType] + feeFundingA;
   document.getElementById('f-frais').value = total.toFixed(4);
   document.getElementById('f-frais').dispatchEvent(new Event('input'));
@@ -2754,8 +2799,9 @@ function calcRisk() {
 
   const rTot      = capital * riskPct / 100;         // enveloppe totale ($)
   const rFeeFixed = capital * feePct  / 100;         // frais fixes ($)
-  // Funding en $ = capital × (fundRate%/h × h) / 100
-  const rFunding  = capital * (fundRate / 100) * fundHours;
+  // Funding : taux positif → Long paie (+), Short reçoit (−)
+  const fundSign  = rcSide === 'long' ? 1 : -1;
+  const rFunding  = capital * (fundRate / 100) * fundHours * fundSign;
   const rFeeTotal = rFeeFixed + rFunding;            // tous les frais ($)
   const rNet      = Math.max(0, rTot - rFeeTotal);   // ce qui reste pour le stop ($)
 
