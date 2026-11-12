@@ -437,26 +437,24 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
       </div>
       <!-- Funding row -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">📅 Funding (%/h)</div>
           <div style="display:flex;gap:4px;">
             <input id="rc-fund-rate" type="text" inputmode="decimal" value="0"
-              style="flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;text-align:right;box-sizing:border-box;"
-              placeholder="ex: 0.01" oninput="calcRisk()">
-            <button type="button" onclick="toggleSign('rc-fund-rate');calcRisk()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:0 10px;font-size:15px;cursor:pointer;font-weight:700;flex-shrink:0;">±</button>
+              style="flex:1;min-width:0;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;text-align:right;box-sizing:border-box;"
+              placeholder="0.01" oninput="calcRisk()">
+            <button type="button" onclick="toggleSign('rc-fund-rate');calcRisk()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:0 9px;font-size:15px;cursor:pointer;font-weight:700;flex-shrink:0;">±</button>
           </div>
         </div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">⏱️ Durée (h)</div>
           <input id="rc-fund-hours" type="text" inputmode="decimal" value="0"
             style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;text-align:right;box-sizing:border-box;"
-            placeholder="ex: 4" oninput="calcRisk()">
-        </div>
-        <div style="display:flex;align-items:flex-end;">
-          <div id="rc-fund-info" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:7px 8px;font-size:11px;font-weight:700;text-align:right;box-sizing:border-box;color:var(--muted);">Funding: —</div>
+            placeholder="4" oninput="calcRisk()">
         </div>
       </div>
+      <div id="rc-fund-info" style="font-size:11px;font-weight:700;color:var(--muted);text-align:right;margin-bottom:12px;">Funding: —</div>
       <!-- Résultats -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
         <div style="background:var(--panel2);border-radius:10px;padding:12px;text-align:center;">
@@ -788,9 +786,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
                 <div>
                   <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Taux funding (%/h)</div>
                   <div style="display:flex;gap:4px;">
-                    <input type="text" inputmode="decimal" id="fc-fund-rate" placeholder="ex: 0.01" value="0" oninput="calcFees()"
-                      style="flex:1;background:var(--panel);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;box-sizing:border-box;">
-                    <button type="button" onclick="toggleSign('fc-fund-rate');calcFees()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:0 10px;font-size:15px;cursor:pointer;font-weight:700;flex-shrink:0;">±</button>
+                    <input type="text" inputmode="decimal" id="fc-fund-rate" placeholder="0.01" value="0" oninput="calcFees()"
+                      style="flex:1;min-width:0;background:var(--panel);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px 8px;font-size:13px;font-weight:700;box-sizing:border-box;">
+                    <button type="button" onclick="toggleSign('fc-fund-rate');calcFees()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:0 9px;font-size:15px;cursor:pointer;font-weight:700;flex-shrink:0;">±</button>
                   </div>
                 </div>
                 <div>
