@@ -303,8 +303,14 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
 </div>
 
-<!-- ═══ ACCOUNT SWITCHER — masqué (un seul compte) ═══ -->
-<div id="acctBar" style="display:none;"></div>
+<!-- ═══ ACCOUNT SWITCHER ═══ -->
+<div id="acctBar" style="display:none;padding:8px 12px;gap:8px;align-items:center;justify-content:space-between;">
+  <div style="display:flex;gap:8px;">
+    <button class="acct-btn" data-acct="day"  onclick="switchAccount('day')">📈 Day Trading</button>
+    <button class="acct-btn" data-acct="scalp" onclick="switchAccount('scalp')">⚡ Scalping</button>
+  </div>
+  <button onclick="openTransfert()" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:16px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">🔄 Transfert</button>
+</div>
 
 <!-- ═══ UPDATE BANNER ═══ -->
 <div id="updateBanner" style="display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9990;background:var(--blue);color:#fff;border-radius:24px;padding:12px 20px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:pointer;white-space:nowrap;" onclick="applyUpdate()">
@@ -1105,9 +1111,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 // ── Comptes ──
 const ACCOUNTS = {
-  '10k': { id:'10k', label:'Fonds Propre', emoji:'🥇', objectifFinal:5000, storageKey:'challenge10k_v1', saltKey:'challenge10k_salt' },
+  'day':  { id:'day',  label:'Fonds Propre Day Trading', emoji:'📈', objectifFinal:5000, storageKey:'fp_daytrading_v1',  saltKey:'fp_daytrading_salt'  },
+  'scalp':{ id:'scalp',label:'Fonds Propre Scalping',    emoji:'⚡', objectifFinal:5000, storageKey:'fp_scalping_v1',    saltKey:'fp_scalping_salt'    },
 };
-let currentAccount = '10k';
+let currentAccount = 'day';
 const aesKeys  = {};
 const allDatas = {};
 
@@ -1261,9 +1268,10 @@ async function handleUnlock() {
   if (!pwd) { errEl.textContent = 'Veuillez saisir un mot de passe.'; return; }
   btn.textContent = 'Chargement…';
   try {
-    await unlockAccount('10k', pwd);
-    if (!aesKeys['10k']) throw new Error('Mot de passe incorrect.');
-    currentAccount = '10k';
+    await unlockAccount('day', pwd);
+    if (!aesKeys['day']) throw new Error('Mot de passe incorrect.');
+    await unlockAccount('scalp', pwd);
+    currentAccount = 'day';
     aesKey  = aesKeys[currentAccount];
     appData = allDatas[currentAccount];
     document.getElementById('lockScreen').style.display = 'none';
@@ -1293,6 +1301,37 @@ async function switchAccount(id) {
   updateAcctBar();
   activateTab('cockpit');
   loadBias(); loadChecklist(); renderPlanView(); renderTrades();
+}
+
+async function openTransfert() {
+  const src  = currentAccount;
+  const dest = src === 'day' ? 'scalp' : 'day';
+  const srcLabel  = ACCOUNTS[src].label.replace('Fonds Propre ', '');
+  const destLabel = ACCOUNTS[dest].label.replace('Fonds Propre ', '');
+  const val = prompt(`Transférer de ${srcLabel} → ${destLabel}\nMontant ($) :`);
+  if (val === null) return;
+  const montant = parseFloat(val.replace(',', '.'));
+  if (isNaN(montant) || montant === 0) { alert('Montant invalide.'); return; }
+  const abs = Math.abs(montant);
+  const dateSrc = todayStr();
+
+  // Retrait du compte source
+  if (!appData.deposits) appData.deposits = [];
+  appData.deposits.push({ id: Date.now().toString(36) + 'a', date: dateSrc, amount: -abs, note: `→ ${destLabel}` });
+  await persist();
+
+  // Dépôt dans le compte destination
+  const destData = allDatas[dest];
+  if (!destData.deposits) destData.deposits = [];
+  destData.deposits.push({ id: Date.now().toString(36) + 'b', date: dateSrc, amount: abs, note: `← ${srcLabel}` });
+  // Persister dest temporairement
+  const destKey  = aesKeys[dest];
+  const destCfg  = ACCOUNTS[dest];
+  const enc = await encryptData(destKey, destData);
+  localStorage.setItem(destCfg.storageKey, JSON.stringify(enc));
+
+  renderCockpit();
+  alert(`✅ ${abs.toFixed(2)}$ transféré de ${srcLabel} vers ${destLabel}`);
 }
 
 // ─────────────────────────────────────────────
