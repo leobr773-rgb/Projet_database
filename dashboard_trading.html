@@ -1218,15 +1218,6 @@ document.getElementById('pwdInput').addEventListener('keydown', e => {
 
 async function unlockAccount(accountId, pwd) {
   const acct = ACCOUNTS[accountId];
-  // Migration : si le compte day n'a pas encore de données, récupérer l'ancien compte '10k'
-  if (accountId === 'day' && !localStorage.getItem(acct.storageKey)) {
-    const oldData = localStorage.getItem('challenge10k_v1');
-    const oldSalt = localStorage.getItem('challenge10k_salt');
-    if (oldData && oldSalt) {
-      localStorage.setItem(acct.storageKey, oldData);
-      localStorage.setItem(acct.saltKey, oldSalt);
-    }
-  }
   // Tentative normale
   try {
     const storedSalt = localStorage.getItem(acct.saltKey);
@@ -1246,6 +1237,25 @@ async function unlockAccount(accountId, pwd) {
       data = EMPTY_DATA();
       const enc = await encryptData(key, data);
       localStorage.setItem(acct.storageKey, JSON.stringify(enc));
+    }
+    // Migration depuis ancien compte '10k' : si day trading est vide mais ancien compte a des trades
+    if (accountId === 'day' && (!data.trades || data.trades.length === 0)) {
+      const oldRawData = localStorage.getItem('challenge10k_v1');
+      const oldRawSalt = localStorage.getItem('challenge10k_salt');
+      if (oldRawData && oldRawSalt) {
+        try {
+          const oldSalt = Uint8Array.from(atob(oldRawSalt), c => c.charCodeAt(0));
+          const oldKey  = await deriveKey(pwd, oldSalt);
+          const oldData = await decryptData(oldKey, JSON.parse(oldRawData));
+          if (oldData.trades && oldData.trades.length > 0) {
+            // Réencrypter les vieilles données avec la clé du nouveau compte
+            data = oldData;
+            const enc = await encryptData(key, data);
+            localStorage.setItem(acct.storageKey, JSON.stringify(enc));
+            localStorage.setItem(acct.saltKey, btoa(String.fromCharCode(...salt)));
+          }
+        } catch(_) { /* ancien compte illisible, on ignore */ }
+      }
     }
     if (!data.journals) data.journals = {};
     if (!data.checklist) data.checklist = [false,false,false,false,false];
