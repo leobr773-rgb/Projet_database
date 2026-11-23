@@ -1218,6 +1218,15 @@ document.getElementById('pwdInput').addEventListener('keydown', e => {
 
 async function unlockAccount(accountId, pwd) {
   const acct = ACCOUNTS[accountId];
+  // Migration : si le compte day n'a pas encore de données, récupérer l'ancien compte '10k'
+  if (accountId === 'day' && !localStorage.getItem(acct.storageKey)) {
+    const oldData = localStorage.getItem('challenge10k_v1');
+    const oldSalt = localStorage.getItem('challenge10k_salt');
+    if (oldData && oldSalt) {
+      localStorage.setItem(acct.storageKey, oldData);
+      localStorage.setItem(acct.saltKey, oldSalt);
+    }
+  }
   // Tentative normale
   try {
     const storedSalt = localStorage.getItem(acct.saltKey);
