@@ -1329,10 +1329,7 @@ function updateGlobalPnl() {
     const data = allDatas[id];
     if (!data) continue;
     hasData = true;
-    const soldeInit  = data.soldeInit ?? 0;
-    const deposits   = (data.deposits || []).reduce((s, d) => s + (d.amount || 0), 0);
-    const pnlTrades  = (data.trades || []).filter(t => (t.type||'reel') !== 'paper').reduce((s, t) => s + ((t.pnl||0) - (t.frais||0)), 0);
-    total += soldeInit + deposits + pnlTrades;
+    total += (data.trades || []).filter(t => (t.type||'reel') !== 'paper').reduce((s, t) => s + ((t.pnl||0) - (t.frais||0)), 0);
   }
   if (!hasData) { el.textContent = '—'; return; }
   el.textContent = (total >= 0 ? '+' : '') + total.toFixed(2) + '$';
