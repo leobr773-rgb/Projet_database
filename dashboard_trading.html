@@ -304,12 +304,18 @@ tr:hover td{background:rgba(255,255,255,.02)}
 </div>
 
 <!-- ═══ ACCOUNT SWITCHER ═══ -->
-<div id="acctBar" style="display:none;padding:8px 12px;gap:8px;align-items:center;justify-content:space-between;">
+<div id="acctBar" style="display:none;padding:8px 12px;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
   <div style="display:flex;gap:8px;">
     <button class="acct-btn" data-acct="day"  onclick="switchAccount('day')">📈 Day Trading</button>
     <button class="acct-btn" data-acct="scalp" onclick="switchAccount('scalp')">⚡ Scalping</button>
   </div>
-  <button onclick="openTransfert()" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:16px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">🔄 Transfert</button>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div style="text-align:right;">
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">PnL global</div>
+      <div id="global-pnl" style="font-family:ui-monospace,monospace;font-weight:800;font-size:13px;color:var(--muted);">—</div>
+    </div>
+    <button onclick="openTransfert()" style="background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:16px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">🔄 Transfert</button>
+  </div>
 </div>
 
 <!-- ═══ UPDATE BANNER ═══ -->
@@ -687,6 +693,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <label class="form-label">Setup ICT</label>
           <select class="form-input" id="f-setup">
             <option value="">— Choisir —</option>
+            <option>OPR</option>
             <option>Unicorn</option>
             <option>FVG Retest</option>
             <option>Liquidity Sweep</option>
@@ -1310,6 +1317,26 @@ function updateAcctBar() {
   document.querySelectorAll('.acct-btn').forEach(b => {
     b.classList.toggle('acct-active', b.dataset.acct === currentAccount);
   });
+  updateGlobalPnl();
+}
+
+function updateGlobalPnl() {
+  const el = document.getElementById('global-pnl');
+  if (!el) return;
+  let total = 0;
+  let hasData = false;
+  for (const id of Object.keys(ACCOUNTS)) {
+    const data = allDatas[id];
+    if (!data) continue;
+    hasData = true;
+    const soldeInit  = data.soldeInit ?? 0;
+    const deposits   = (data.deposits || []).reduce((s, d) => s + (d.amount || 0), 0);
+    const pnlTrades  = (data.trades || []).filter(t => (t.type||'reel') !== 'paper').reduce((s, t) => s + ((t.pnl||0) - (t.frais||0)), 0);
+    total += soldeInit + deposits + pnlTrades;
+  }
+  if (!hasData) { el.textContent = '—'; return; }
+  el.textContent = (total >= 0 ? '+' : '') + total.toFixed(2) + '$';
+  el.style.color = total >= 0 ? 'var(--green)' : 'var(--red)';
 }
 
 async function switchAccount(id) {
@@ -1698,6 +1725,7 @@ function renderCockpit() {
     stats.worstEmo !== '—' ? `${stats.worstEmo} → risque` : 'Aucun problème détecté';
 
   renderEquityCurve(stats.rs);
+  updateGlobalPnl();
 }
 
 function renderEquityCurve(rs) {
