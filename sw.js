@@ -4,7 +4,7 @@
                Network-First pour les données temps réel
 */
 
-const CACHE_NAME = 'trading-dashboard-v87';
+const CACHE_NAME = 'trading-dashboard-v88';
 const STATIC_ASSETS = [
   './manifest.json',
   './icons/icon-192.png',

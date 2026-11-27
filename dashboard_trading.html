@@ -1342,9 +1342,10 @@ async function switchAccount(id) {
   aesKey  = aesKeys[id];
   appData = allDatas[id];
   updateAcctBar();
-  syncFeeTypeToAccount();
   activateTab('cockpit');
   loadBias(); loadChecklist(); renderPlanView(); renderTrades();
+  renderCockpit();           // met à jour rc-capital avec le bon solde
+  syncFeeTypeToAccount();    // écrase rc-fee et recalcule après renderCockpit
 }
 
 async function openTransfert() {
