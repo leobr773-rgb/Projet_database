@@ -1342,6 +1342,7 @@ async function switchAccount(id) {
   aesKey  = aesKeys[id];
   appData = allDatas[id];
   updateAcctBar();
+  syncFeeTypeToAccount();
   activateTab('cockpit');
   loadBias(); loadChecklist(); renderPlanView(); renderTrades();
 }
@@ -1433,6 +1434,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 // ─────────────────────────────────────────────
 function initApp() {
   setDefaultDate();
+  syncFeeTypeToAccount();
   loadBias();
   loadChecklist();
   loadJournal();
@@ -2010,8 +2012,18 @@ function selectType(t) {
 }
 
 // ── Calculateur de frais ──
-let fcOpenType  = 'maker';   // limit orders = toujours maker
-let fcCloseType = 'maker';   // limit orders = toujours maker
+let fcOpenType  = 'maker';
+let fcCloseType = 'maker';
+
+// Adapte les types Maker/Taker selon le compte actif (scalping = taker, day = maker)
+function syncFeeTypeToAccount() {
+  const type = currentAccount === 'scalp' ? 'taker' : 'maker';
+  setFeeType('open',  type);
+  setFeeType('close', type);
+  // Met à jour le champ frais fixes du calculateur de risque
+  const rcFee = document.getElementById('rc-fee');
+  if (rcFee) { rcFee.value = type === 'taker' ? '0.10' : '0.04'; calcRisk(); }
+}
 let fcSide      = 'long';    // côté position pour le funding
 let rcSide      = 'long';    // côté position pour le calculateur de risque
 
